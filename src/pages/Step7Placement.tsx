@@ -37,6 +37,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     lockedCells = {},
     slotRoomCapacity = {},
     rooms,
+    days,
     students,
     neis,
     
@@ -1772,9 +1773,12 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                 <th rowSpan={2} className={`py-2 px-2 text-center font-bold text-gray-900 ${isCompactFit ? 'w-28 text-[14.5px]' : 'w-36 text-[17px]'}`}>
                   슬롯 (과목)
                 </th>
-                <th rowSpan={2} className={`py-2 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'w-10 text-[14.5px]' : 'w-12 text-[17px]'}`}>
-                  구분
-                </th>
+                {/* 7. 고사장 배치는 '계' 한 줄만 쓰므로 구분 열이 항상 같은 값이라 뺍니다. */}
+                {stepMode !== 7 && (
+                  <th rowSpan={2} className={`py-2 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'w-10 text-[14.5px]' : 'w-12 text-[17px]'}`}>
+                    구분
+                  </th>
+                )}
                 <th colSpan={4} className={`py-1.5 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'text-[14.5px]' : 'text-[17px]'}`}>
                   인원 요약 현황
                 </th>
@@ -1864,9 +1868,24 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                   ? { bar: 'bg-[#005691]', chip: 'bg-[#005691] text-white', cell: 'bg-white' }
                   : { bar: 'bg-slate-500', chip: 'bg-slate-600 text-white', cell: 'bg-slate-50/70' };
 
+                // 표 전체를 가로지르는 날짜 띠. 일차가 바뀌는 지점을 확실히 끊어 줍니다.
+                const totalCols = 1 + (stepMode === 7 ? 0 : 1) + 4 + rooms.length;
+
                 return (
                   <React.Fragment key={ps.index}>
-                    <tr className={`divide-x divide-gray-200 bg-white ${isNewDay ? 'border-t-[6px] border-t-slate-700' : ''}`}>
+                    {isNewDay && (
+                      <tr>
+                        <td colSpan={totalCols} className={`p-0 ${dayTone.bar}`}>
+                          <div className={`flex items-center gap-2 px-3 text-white font-black tracking-wide ${isCompactFit ? 'py-1 text-[13px]' : 'py-1.5 text-[15px]'}`}>
+                            <span>{ps.day}일차</span>
+                            <span className="opacity-60 font-bold">
+                              {days.find(d => d.day === ps.day)?.date || ''}
+                            </span>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    <tr className="divide-x divide-gray-200 bg-white">
                       <td rowSpan={stepMode === 7 ? 1 : 3} className={`py-2 px-2 font-bold text-center ${dayTone.cell} ${isCompactFit ? 'w-28' : 'w-36'}`}>
                         <div className="flex flex-col items-center justify-center gap-0.5">
                           <span className={`inline-block px-2 py-0.5 rounded-md font-black leading-none whitespace-nowrap ${dayTone.chip} ${isCompactFit ? 'text-[12.5px]' : 'text-[14px]'}`}>
@@ -1930,7 +1949,9 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                           </div>
                         )}
                       </td>
-                      <td className={`py-1 px-1 text-center bg-white text-slate-700 font-medium ${isCompactFit ? 'w-10 text-[14px]' : 'w-14 text-[16px]'}`}>계</td>
+                      {stepMode !== 7 && (
+                        <td className={`py-1 px-1 text-center bg-white text-slate-700 font-medium ${isCompactFit ? 'w-10 text-[14px]' : 'w-14 text-[16px]'}`}>계</td>
+                      )}
                       <td className={`py-1 px-0.5 text-center font-medium text-[#005691] ${isCompactFit ? 'w-8 text-[14.5px]' : 'w-12 text-[17px]'}`}>{sum.total.ban}</td>
                       <td className={`py-1 px-0.5 text-center font-medium text-gray-900 ${isCompactFit ? 'w-8 text-[14.5px]' : 'w-12 text-[17px]'}`}>{sum.total.takers + sum.total.nonTakers}</td>
                       <td className={`py-1 px-0.5 text-center font-bold ${stepMode === 7 ? 'text-[#005691]' : 'text-red-800'} ${isCompactFit ? 'w-8 text-[14.5px]' : 'w-12 text-[17px]'}`}>{sum.total.takers}</td>
