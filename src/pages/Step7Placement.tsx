@@ -94,7 +94,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   const banStyleOf = (slotIndex: number) => banStyleForSlot(slotIndex, banLabelConfig);
 
   const banLabel = (val: string, slotIndex?: number, roomId?: string): string =>
-    formatBanCell(val, slotIndex, roomId, banLabelConfig);
+    formatBanCell(val, slotIndex, roomId, banLabelConfig, entries.get(val)?.room);
 
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
@@ -3139,7 +3139,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
               <div className="px-6 py-4 border-b border-gray-200 shrink-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-slate-700 text-[14px]">표기 방식</span>
-                  {(['ko', 'en', 'none'] as BanLabelStyle[]).map(opt => (
+                  {(['neis', 'ko', 'en', 'none'] as BanLabelStyle[]).map(opt => (
                     <button
                       key={opt}
                       onClick={() => setSlotBanLabelStyle(banLabelModal, opt)}
@@ -3150,7 +3150,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                           : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
                       }`}
                     >
-                      {opt === 'ko' ? '가 나 다' : opt === 'en' ? 'A B C' : '표시 안 함'}
+                      {opt === 'neis' ? '편성현황 그대로' : opt === 'ko' ? '가 나 다' : opt === 'en' ? 'A B C' : '표시 안 함'}
                     </button>
                   ))}
                   <button
@@ -3176,6 +3176,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                       <tr className="divide-x divide-gray-200 border-b border-gray-200">
                         <th className="py-2 px-3 text-left">고사실</th>
                         <th className="py-2 px-3 text-left">과목</th>
+                        <th className="py-2 px-3 text-left">편성현황 분반</th>
                         <th className="py-2 px-3 w-40 text-center">분반 이름</th>
                       </tr>
                     </thead>
@@ -3193,6 +3194,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                               {r.banName && <span className="ml-1 text-slate-500 font-normal">({r.banName})</span>}
                             </td>
                             <td className="py-2 px-3 text-slate-700">{subject}</td>
+                            <td className="py-2 px-3 text-slate-500">{entries.get(cellVal)?.room || '-'}</td>
                             <td className="py-1.5 px-2 text-center">
                               <input
                                 type="text"

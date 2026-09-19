@@ -16,7 +16,8 @@ export interface BanLabelConfig {
 /** 해당 교시에 적용되는 표기 방식. */
 export function banStyleForSlot(slotIndex: number | undefined, cfg?: BanLabelConfig): BanLabelStyle {
   if (slotIndex !== undefined && cfg?.slotStyle?.[slotIndex]) return cfg.slotStyle[slotIndex];
-  return cfg?.defaultStyle ?? 'ko';
+  // 기본은 편성현황에 적힌 분반 이름을 그대로 씁니다.
+  return cfg?.defaultStyle ?? 'neis';
 }
 
 /**
@@ -27,7 +28,9 @@ export function banSuffix(
   banPart: string,
   slotIndex?: number,
   roomId?: string,
-  cfg?: BanLabelConfig
+  cfg?: BanLabelConfig,
+  /** 편성현황에 적힌 그 분반의 이름 (예: '학교지정-G1'). */
+  neisBanName?: string
 ): string {
   if (slotIndex !== undefined && roomId) {
     const manual = cfg?.manual?.[slotIndex]?.[roomId];
@@ -36,6 +39,13 @@ export function banSuffix(
 
   const style = banStyleForSlot(slotIndex, cfg);
   if (style === 'none') return '';
+
+  // 편성현황 그대로 — 접두어(학교지정-, 3학년 …)는 떼고 뒤쪽 이름만 씁니다.
+  if (style === 'neis') {
+    if (!neisBanName) return banPart;
+    const tail = neisBanName.split('-').pop()?.trim();
+    return tail || neisBanName;
+  }
 
   const m = banPart.match(/^(\d+)반$/);
   if (!m) return banPart; // 숫자 분반이 아니면 원래 값을 그대로 씁니다.
@@ -52,12 +62,13 @@ export function formatBanCell(
   cellValue: string,
   slotIndex?: number,
   roomId?: string,
-  cfg?: BanLabelConfig
+  cfg?: BanLabelConfig,
+  neisBanName?: string
 ): string {
   const hyphen = cellValue.lastIndexOf('-');
   if (hyphen === -1) return cellValue;
 
   const subject = cellValue.slice(0, hyphen);
-  const suffix = banSuffix(cellValue.slice(hyphen + 1).trim(), slotIndex, roomId, cfg);
+  const suffix = banSuffix(cellValue.slice(hyphen + 1).trim(), slotIndex, roomId, cfg, neisBanName);
   return suffix ? `${subject}-${suffix}` : subject;
 }

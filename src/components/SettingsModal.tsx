@@ -96,13 +96,13 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               분반 이름 표기
             </label>
             <div className="flex items-center gap-2">
-              {([['ko', '가 나 다'], ['en', 'A B C'], ['none', '표시 안 함']] as const).map(([value, label]) => (
+              {([['neis', '편성현황'], ['ko', '가 나 다'], ['en', 'A B C'], ['none', '표시 안 함']] as const).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
                   onClick={() => updateSettings({ banLabelStyle: value })}
                   className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition ${
-                    (settings.banLabelStyle ?? 'ko') === value
+                    (settings.banLabelStyle ?? 'neis') === value
                       ? 'bg-[#005691] text-white border-[#005691]'
                       : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
                   }`}
@@ -112,6 +112,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               ))}
             </div>
             <p className="text-xs text-gray-500 mt-1">
+              '편성현황'은 나이스에 적힌 분반 이름(G1, F …)을 그대로 씁니다.
               7. 고사장 배치에서 교시마다 따로 지정할 수도 있습니다.
             </p>
           </div>

@@ -58,7 +58,7 @@ export type SlotCapacityBasis = Record<number, CapacityBasis>;
  * 분반 이름 표기 방식 — 가나다(ko) / ABC(en) / 표시 안 함(none).
  * 학교마다 쓰는 방식이 다르고, 분반 이름을 아예 쓰지 않는 곳도 있습니다.
  */
-export type BanLabelStyle = 'ko' | 'en' | 'none';
+export type BanLabelStyle = 'neis' | 'ko' | 'en' | 'none';
 
 /** 교시별로 직접 지정한 분반 이름 (slotIndex ➔ roomId ➔ 표기). 비어 있으면 자동 표기를 씁니다. */
 export type SlotBanLabels = Record<number, Record<string, string>>;
@@ -71,6 +71,7 @@ const KO_BAN_LETTERS = '가나다라마바사아자차카타파하거너더러�
 /** 분반 번호(1부터)를 표기 글자로 바꿉니다. 범위를 넘으면 숫자를 그대로 씁니다. */
 export const banLetter = (n: number, style: BanLabelStyle): string => {
   if (style === 'none') return '';
+  if (style === 'neis') return String(n); // 편성현황 이름은 바깥에서 붙입니다.
   if (!Number.isFinite(n) || n < 1) return String(n);
   if (style === 'en') return n <= 26 ? String.fromCharCode(64 + n) : String(n);
   return KO_BAN_LETTERS[n - 1] ?? String(n);
