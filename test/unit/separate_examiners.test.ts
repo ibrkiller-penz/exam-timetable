@@ -57,20 +57,22 @@ describe('별도 고사실 응시자', () => {
     expect(rows.find(r => r.period === '2교시' && r.num === 3)!.separateRoom).toBe(2);
   });
 
-  it('고사실 명단에서는 끝으로 밀리고 비고에 별도라고 적힌다', () => {
+  it('고사실 명단의 좌석 목록에서는 빠지고, 별도 안내로 따로 나온다', () => {
     const rows = build({ '1반-2': { room: 1, slots: 'all' } });
     const report = buildExamRoomReport(rows, '1일차', '1교시', '3-1', rooms)!;
 
-    expect(report.students.length).toBe(4); // 명단에서 빠지지 않습니다.
+    // 좌석 목록은 실제로 앉는 세 명뿐이고, 연번·좌석이 1부터 나란히 이어집니다.
+    expect(report.students.map(s => s.hakbun.slice(-2))).toEqual(['01', '03', '04']);
+    expect(report.students.map(s => s.seq)).toEqual([1, 2, 3]);
+    expect(report.students.map(s => s.seat)).toEqual([1, 2, 3]);
 
-    const me = report.students[report.students.length - 1]; // 맨 끝으로 보냅니다.
-    expect(me.hakbun.endsWith('02')).toBe(true);
-    expect(me.note).toBe('별도');
-    expect(me.seat).toBe(null);
+    // 별도 응시자는 아래 안내로 따로 나옵니다. 명단에서 사라지지 않습니다.
+    expect(report.separate.length).toBe(1);
+    expect(report.separate[0].hakbun.endsWith('02')).toBe(true);
+    expect(report.separate[0].room).toBe(1);
 
-    // 앞쪽은 이 교실에 실제로 앜는 학생들입니다. 연번은 1부터 이어집니다.
-    expect(report.students.map(s => s.seq)).toEqual([1, 2, 3, 4]);
-    expect(report.students.slice(0, 3).every(s => s.note === '')).toBe(true);
+    // 응시인원 합계에는 별도 학생도 포함됩니다.
+    expect(report.totalStudents).toBe(4);
   });
 
   it('좌석배치도에서는 빠지고, 그 자리는 빈 칸으로 남는다', () => {

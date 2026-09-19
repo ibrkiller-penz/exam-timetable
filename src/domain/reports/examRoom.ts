@@ -8,13 +8,21 @@ export interface ExamRoomReportData {
   examRoom: string;
   subject: string;
   isWaitRoom: boolean;
+  /** 이 교실에 배정된 전체 인원 (별도 응시자 포함). */
   totalStudents: number;
+  /** 실제로 이 교실에 앉는 학생 (연번·좌석이 나란히). */
   students: Array<{
     seq: number;
     hakbun: string;
     name: string;
     seat: number | null;
     note: string;
+  }>;
+  /** 이 교실 소속이지만 별도 고사실에서 보는 학생. 명단에서 빼고 아래에 따로 알립니다. */
+  separate: Array<{
+    hakbun: string;
+    name: string;
+    room: number;
   }>;
 }
 
@@ -33,37 +41,35 @@ export function buildExamRoomReport(
   const first = filtered[0];
   const isWaitRoom = first.subject === '미응시';
 
-  // 좌석 좌표는 실제로 그 교실에 앞는 사람 수로 계산해야
-  // 좌석배치도와 번호가 어긋나지 않습니다. 별도 응시자는 뺀 수입니다.
-  const seatedCount = filtered.filter(r => !r.separateRoom).length;
+  // 별도 고사실에서 보는 학생은 이 교실에 앉지 않습니다.
+  // 좌석 명단에서 빼고, 아래 안내로 따로 알립니다. 명단에 섞어 두면
+  // 연번이 학번 순서를 벗어나고(30123이 맨 끝) 좌석 없는 줄이 끼어 헷갈립니다.
+  const seated = filtered.filter(r => !r.separateRoom).sort((a, b) => a.seq - b.seq);
+  const seatedCount = seated.length;
 
-  const students = filtered
-    // 별도 고사실에서 보는 학생은 명단 끝으로 보냅니다.
-    // 앞쪽은 이 교실에 실제로 앜는 학생들이라 연번과 좌석이 나란히 떨어집니다.
-    .sort((a, b) => {
-      const sa = a.separateRoom ? 1 : 0;
-      const sb = b.separateRoom ? 1 : 0;
-      if (sa !== sb) return sa - sb;
-      return a.seq - b.seq;
-    })
-    .map((r, idx) => {
-      let pSeat = r.seat;
-      if (r.seat !== null) {
-        const roomObj = rooms.find(rm => rm.roomName === r.examRoom);
-        if (roomObj) {
-          const total = seatedCount;
-          pSeat = calcPhysicalSeatNum(r.seat, roomObj.cols || 5, total, roomObj.layoutDirection || 'col', roomObj.rows);
-        }
-      }
-      return {
-        seq: idx + 1,
-        hakbun: hakbun(r.grade, r.ban, r.num),
-        name: r.name,
-        seat: pSeat,
-        // 비고 칸이 좁아 짧게 씨고, 별도실이 여럿이면 번호를 붙입니다.
-        note: r.separateRoom ? (r.separateRoom > 1 ? `별도 ${r.separateRoom}실` : '별도') : '',
-      };
-    });
+  const roomObj = rooms.find(rm => rm.roomName === examRoom);
+  const students = seated.map((r, idx) => {
+    let pSeat = r.seat;
+    if (r.seat !== null && roomObj) {
+      pSeat = calcPhysicalSeatNum(r.seat, roomObj.cols || 5, seatedCount, roomObj.layoutDirection || 'col', roomObj.rows);
+    }
+    return {
+      seq: idx + 1,
+      hakbun: hakbun(r.grade, r.ban, r.num),
+      name: r.name,
+      seat: pSeat,
+      note: '',
+    };
+  });
+
+  const separate = filtered
+    .filter(r => r.separateRoom)
+    .sort((a, b) => a.ban.localeCompare(b.ban, 'ko', { numeric: true }) || a.num - b.num)
+    .map(r => ({
+      hakbun: hakbun(r.grade, r.ban, r.num),
+      name: r.name,
+      room: r.separateRoom!,
+    }));
 
   return {
     day,
@@ -71,7 +77,8 @@ export function buildExamRoomReport(
     examRoom,
     subject: first.subject,
     isWaitRoom,
-    totalStudents: students.length,
+    totalStudents: filtered.length,
     students,
+    separate,
   };
 }

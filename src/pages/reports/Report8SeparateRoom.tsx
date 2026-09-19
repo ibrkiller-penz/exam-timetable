@@ -7,6 +7,7 @@ import { selPlacementSlots } from '../../store/selectors';
 import { displayName } from '../../domain/privacy';
 import { separateRoomFor, SeparateExaminer } from '../../domain/types';
 import { ReportGate } from './ReportGate';
+import { PdfSaveButton } from './PdfSaveButton';
 import { PrintPageSize } from './PrintPageSize';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
 
@@ -199,6 +200,7 @@ export const Report8SeparateRoom: React.FC = () => {
             <Download className="w-4 h-4" />
             엑셀
           </button>
+          <PdfSaveButton filename="별도 고사실 명렬.pdf" disabled={rosters.length === 0} />
           <button
             onClick={() => window.print()}
             disabled={rosters.length === 0}

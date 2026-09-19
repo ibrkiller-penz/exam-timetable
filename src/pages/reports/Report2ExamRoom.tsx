@@ -125,7 +125,15 @@ export const Report2ExamRoom: React.FC = () => {
             const cnt = Math.max(1, Math.ceil(rep.students.length / PER_PAGE));
             const sheets = Array.from({ length: cnt }, (_, i) => rep.students.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
 
-            return sheets.map((pageStudents, pageIdx) => (
+            return sheets.map((pageStudents, pageIdx) => {
+              // 20명까지는 한 칸으로 가운데 놓습니다. 한 칸에 다 들어가는데 두 칸으로
+              // 벌리면 오른쪽이 통째로 비어 종이가 한쪽으로 쏠려 보입니다.
+              // 20명을 넘으면 왼쪽을 20까지 채우고 나머지를 오른쪽에 둡니다.
+              const oneColumn = pageStudents.length <= PER_COL;
+              const cols = oneColumn ? [0] : [0, 1];
+              const isLastPage = pageIdx === sheets.length - 1;
+
+              return (
               <div
                 key={`${rn}-${pageIdx}`}
                 className="print-page page-portrait bg-white border border-gray-300 p-8 print:p-3 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
@@ -141,12 +149,12 @@ export const Report2ExamRoom: React.FC = () => {
                     ['교시', rep.period],
                     ['고사실', rep.examRoom],
                     ['과목(단위)', rep.subject],
-                    ['응시인원', `${rep.totalStudents}명`],
+                    ['응시인원', `${rep.totalStudents}명${rep.separate.length ? ` (별도 ${rep.separate.length})` : ''}`],
                   ]}
                 />
 
-                <div className="grid grid-cols-2 gap-3">
-                  {[0, 1].map(colIdx => (
+                <div className={`grid gap-3 ${oneColumn ? 'grid-cols-1 max-w-[62%] mx-auto' : 'grid-cols-2'}`}>
+                  {cols.map(colIdx => (
                     <table key={colIdx} className="w-full table-fixed text-[14px] print:text-[12.5px] text-center border-collapse border-2 border-gray-800">
                       {/* 칸 너비를 못 박아 둡니다. 안 그러면 인쇄할 때 성명이 두 줄로 접혀
                           줄 높이가 배가 되고, 한 장에 실리는 줄 수가 줄어듭니다. */}
@@ -167,18 +175,18 @@ export const Report2ExamRoom: React.FC = () => {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-gray-800">
+                        {/* 한 칸을 20줄로 고정합니다. 사람이 적어도 칸 수는 같아 종이 모양이 일정합니다. */}
                         {Array.from({ length: PER_COL }).map((_, i) => {
                           const st = pageStudents[colIdx * PER_COL + i];
-                          const blankSeq = pageIdx * PER_PAGE + colIdx * PER_COL + i + 1;
                           return (
-                            <tr key={i} className="divide-x divide-gray-800 h-8 print:h-7">
-                              <td className="text-slate-500">{st ? st.seq : blankSeq}</td>
-                              <td className="font-bold text-slate-700 whitespace-nowrap">{st?.hakbun || ''}</td>
-                              <td className="font-black text-[16px] print:text-[14px] text-slate-900 whitespace-nowrap">
+                            <tr key={i} className="divide-x divide-gray-800 h-8 print:h-7 align-middle">
+                              <td className="align-middle text-slate-500">{st ? st.seq : ''}</td>
+                              <td className="align-middle font-bold text-slate-700 whitespace-nowrap">{st?.hakbun || ''}</td>
+                              <td className="align-middle font-black text-[16px] print:text-[14px] text-slate-900 whitespace-nowrap">
                                 {st?.name ? displayName(st.name) : ''}
                               </td>
-                              <td className="font-black text-[17px] print:text-[15px] text-red-700">{st?.seat || ''}</td>
-                              <td className="text-[11px] print:text-[10px] font-bold text-slate-700 whitespace-nowrap">{st?.note || ''}</td>
+                              <td className="align-middle font-black text-[17px] print:text-[15px] text-red-700">{st?.seat || ''}</td>
+                              <td className="align-middle text-[11px] print:text-[10px] font-bold text-slate-700 whitespace-nowrap">{st?.note || ''}</td>
                             </tr>
                           );
                         })}
@@ -186,8 +194,24 @@ export const Report2ExamRoom: React.FC = () => {
                     </table>
                   ))}
                 </div>
+
+                {/* 이 교실 소속이지만 별도 고사실에서 보는 학생. 명단에서 빼고 여기서 알립니다. */}
+                {isLastPage && rep.separate.length > 0 && (
+                  <div className="mt-4 border-2 border-slate-800 rounded-lg px-4 py-3">
+                    <div className="font-black text-[14px] text-slate-700 mb-1.5">별도 고사실 응시</div>
+                    <ul className="space-y-0.5">
+                      {rep.separate.map(s => (
+                        <li key={s.hakbun} className="text-[15px] font-black text-slate-900">
+                          {s.hakbun} / {displayName(s.name)}
+                          <span className="font-bold text-slate-600"> 학생은 별도실({s.room}실)에서 응시합니다.</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </div>
-            ));
+              );
+            });
           })}
         </div>
       )}
