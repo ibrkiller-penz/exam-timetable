@@ -602,35 +602,45 @@ export function initSlotStudentPlacements(
     });
     const targetExamRooms = examRooms.length > 0 ? examRooms : rooms.filter(r => !isExtraRoom(r));
 
-    let takerIdx = 0;
-    for (const r of targetExamRooms) {
-      if (lockedCellsRow?.[r.id]) continue;
-      const roomCap = r.capacity && r.capacity > 0 ? r.capacity : 28;
-      let currentAssigned = Object.values(result).filter(id => id === r.id).length;
+    const openExamRooms = targetExamRooms.filter(r => !lockedCellsRow?.[r.id]);
+    const roomCapOf = (r: ExamRoom) => (r.capacity && r.capacity > 0 ? r.capacity : 28);
+    const assignedCount = (roomId: string) => Object.values(result).filter(id => id === roomId).length;
 
-      while (takerIdx < examTakers.length && currentAssigned < roomCap) {
-        const st = examTakers[takerIdx++];
-        const k = `${st.ban}-${st.num}`;
-        result[k] = r.id;
-        assignedStudentKeys.add(k);
-        currentAssigned++;
-      }
+    // 학번 순서를 유지한 채 고사실별 인원을 균등하게 나눕니다 (예: 91명 / 4실 ➔ 23, 23, 23, 22).
+    // 앞쪽 고사실부터 정원까지 채우면 마지막 고사실만 몇 명 남는 기형적인 배치가 됩니다.
+    let takerIdx = 0;
+    if (openExamRooms.length > 0) {
+      const quotaBase = Math.floor(examTakers.length / openExamRooms.length);
+      const quotaRemainder = examTakers.length % openExamRooms.length;
+
+      openExamRooms.forEach((r, idx) => {
+        const quota = quotaBase + (idx < quotaRemainder ? 1 : 0);
+        const toTake = Math.min(quota, Math.max(0, roomCapOf(r) - assignedCount(r.id)));
+        for (let i = 0; i < toTake && takerIdx < examTakers.length; i++) {
+          const st = examTakers[takerIdx++];
+          const k = `${st.ban}-${st.num}`;
+          result[k] = r.id;
+          assignedStudentKeys.add(k);
+        }
+      });
     }
 
-    // Overflow exam takers go to available empty/wait rooms if needed
+    // 정원이 작은 고사실 때문에 할당량을 못 채운 잔여 인원은 여유 있는 고사실에 순서대로 채웁니다.
     while (takerIdx < examTakers.length) {
+      const availRoom = openExamRooms.find(r => assignedCount(r.id) < roomCapOf(r));
+      if (!availRoom) break;
       const st = examTakers[takerIdx++];
-      const availRoom = rooms.find(r => {
-        if (lockedCellsRow?.[r.id]) return false;
-        const cap = r.capacity && r.capacity > 0 ? r.capacity : 28;
-        const assigned = Object.values(result).filter(id => id === r.id).length;
-        return assigned < cap;
-      });
-      if (availRoom) {
-        const k = `${st.ban}-${st.num}`;
-        result[k] = availRoom.id;
-        assignedStudentKeys.add(k);
-      }
+      const k = `${st.ban}-${st.num}`;
+      result[k] = availRoom.id;
+      assignedStudentKeys.add(k);
+    }
+
+    // 고사실이 부족해 끝내 배치하지 못한 응시자는 미배치('')로 남깁니다.
+    // 대기실은 대기 인원 몫이므로, 응시자를 밀어넣어 대기 학생을 밀어내지 않습니다.
+    for (; takerIdx < examTakers.length; takerIdx++) {
+      const st = examTakers[takerIdx];
+      const k = `${st.ban}-${st.num}`;
+      if (!assignedStudentKeys.has(k)) result[k] = '';
     }
   } else {
     // === 분반 위주 배치 (Class Division Based Placement) ===
@@ -793,8 +803,10 @@ export function initSlotStudentPlacements(
       }
     }
   }
+  }
 
   // 2. Assign wait rooms
+  // 분반 위주 / 학번순 어느 전략으로 배치했든 대기 인원 배정은 항상 수행해야 합니다.
   const slotSubjects = ps.subjects;
   const nonTakers = students.filter(st => !st.subjects.some(sub => slotSubjects.includes(sub)));
 
@@ -861,7 +873,6 @@ export function initSlotStudentPlacements(
     if (!assignedStudentKeys.has(k)) {
       result[k] = '';
     }
-  }
   }
 
   return result;
