@@ -554,6 +554,62 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     });
   };
 
+  /**
+   * 빈 고사실을 이 교시에만 대기실로 엽니다.
+   * 인원은 0명으로 두고, 담당자가 8. 학생 배치에서 필요한 만큼만 옮깁니다.
+   * (대기 인원을 자동으로 다시 나누면 한 명만 옮기려던 자리가 흔들립니다.)
+   */
+  const handleMakeWaitRoom = (slotIndex: number, roomId: string) => {
+    if (isStageLocked) return;
+    const room = rooms.find(r => r.id === roomId);
+    const roomLabel = room ? room.roomName : roomId;
+    pushHistory(`고사실 [${roomLabel}] 대기실 열기`);
+    setPlacementCell(slotIndex, roomId, '대기 - 0명');
+    setAlertModal({
+      isOpen: true,
+      message: `✅ [${roomLabel}]을(를) 이 교시의 대기실로 열었습니다.
+
+지금은 비어 있습니다. 8. 학생 배치에서 칸을 더블클릭해 필요한 학생만 옮겨 주세요.`,
+    });
+  };
+
+  // 고사장·대기실로 바꾸기 전에, 이 교시에 그 실을 몇 명까지 쓸지 먼저 물어봅니다.
+  // 정원을 먼저 정해야 그 정원에 맞춰 인원이 나뉘기 때문입니다.
+  const [capacityPrompt, setCapacityPrompt] = useState<{
+    slotIndex: number;
+    roomId: string;
+    kind: 'exam' | 'wait';
+    subject?: string;
+    value: string;
+  } | null>(null);
+
+  // 정원을 저장한 다음 화면이 한 번 그려진 뒤에 변환합니다.
+  const [pendingConversion, setPendingConversion] = useState<{
+    slotIndex: number;
+    roomId: string;
+    kind: 'exam' | 'wait';
+    subject?: string;
+  } | null>(null);
+
+  const openCapacityPrompt = (slotIndex: number, roomId: string, kind: 'exam' | 'wait', subject?: string) => {
+    if (isStageLocked) return;
+    const room = roomsAt(slotIndex).find(r => r.id === roomId);
+    setCapacityPrompt({ slotIndex, roomId, kind, subject, value: String(room?.capacity && room.capacity > 0 ? room.capacity : 28) });
+  };
+
+  const confirmCapacityPrompt = () => {
+    if (!capacityPrompt) return;
+    const { slotIndex, roomId, kind, subject, value } = capacityPrompt;
+    const n = Number(value);
+    if (!Number.isFinite(n) || n <= 0) {
+      setAlertModal({ isOpen: true, message: '정원은 1명 이상으로 적어 주세요.', isError: true });
+      return;
+    }
+    setSlotRoomCapacity(slotIndex, roomId, Math.round(n));
+    setCapacityPrompt(null);
+    setPendingConversion({ slotIndex, roomId, kind, subject });
+  };
+
   // Modal to select subject when adding/shrinking room in a slot with multiple subjects
   const [subjectSelectModal, setSubjectSelectModal] = useState<{
     isOpen: boolean;
@@ -788,6 +844,21 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       },
     });
   };
+
+  // 새 정원이 반영된 뒤에 변환합니다. 그래야 인원이 새 정원 기준으로 나뉘어집니다.
+  useEffect(() => {
+    if (!pendingConversion) return;
+    const { slotIndex, roomId, kind, subject } = pendingConversion;
+    setPendingConversion(null);
+    if (kind === 'exam') {
+      handleAddExamRoomFromWait(slotIndex, subject, roomId);
+    } else if (placement[slotIndex]?.[roomId]) {
+      handleShrinkExamRoomToWait(slotIndex, subject, roomId);
+    } else {
+      handleMakeWaitRoom(slotIndex, roomId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingConversion, slotRoomCapacity]);
 
   // Clear All Students in a Room
   const handleClearRoomStudents = (r: ExamRoom) => {
@@ -2362,7 +2433,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                       <button
                                         onClick={e => {
                                           e.stopPropagation();
-                                          handleAddExamRoomFromWait(ps.index, undefined, r.id);
+                                          openCapacityPrompt(ps.index, r.id, 'exam');
                                         }}
                                         className={`px-2 py-0.5 bg-rose-900 hover:bg-rose-950 text-white rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 whitespace-nowrap ${
                                           isCompactFit ? 'text-[11.5px]' : 'text-[13px]'
@@ -2389,7 +2460,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                     <button
                                       onClick={e => {
                                         e.stopPropagation();
-                                        handleShrinkExamRoomToWait(ps.index, subjectName, r.id);
+                                        openCapacityPrompt(ps.index, r.id, 'wait', subjectName);
                                       }}
                                       className={`mt-1.5 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 mx-auto whitespace-nowrap ${
                                         isCompactFit ? 'text-[11.5px]' : 'text-[13px]'
@@ -2409,7 +2480,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                     <button
                                       onClick={e => {
                                         e.stopPropagation();
-                                        handleAddExamRoomFromWait(ps.index, undefined, r.id);
+                                        openCapacityPrompt(ps.index, r.id, 'exam');
                                       }}
                                       className={`px-1.5 py-0.5 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded-md font-bold inline-flex items-center justify-center gap-0.5 shadow-2xs ${
                                         isCompactFit ? 'text-[9.5px]' : 'text-[11px]'
@@ -2418,6 +2489,20 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                     >
                                       <Plus className="w-2.5 h-2.5" />
                                       <span>고사장 변환</span>
+                                    </button>
+                                    {/* 빈 실을 대기실로 열어 두고, 한두 명만 손으로 옮기는 쓰임새가 있습니다. */}
+                                    <button
+                                      onClick={e => {
+                                        e.stopPropagation();
+                                        openCapacityPrompt(ps.index, r.id, 'wait');
+                                      }}
+                                      className={`px-1.5 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 hover:border-amber-300 rounded-md font-bold inline-flex items-center justify-center gap-0.5 shadow-2xs ${
+                                        isCompactFit ? 'text-[9.5px]' : 'text-[11px]'
+                                      }`}
+                                      title="이 빈 고사실을 빈 대기실로 엽니다 (인원은 직접 옮깁니다)"
+                                    >
+                                      <Clock className="w-2.5 h-2.5" />
+                                      <span>대기실 변환</span>
                                     </button>
                                     <button
                                       onClick={e => {
@@ -3138,6 +3223,74 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       )}
 
       {/* 분반 이름 지정 */}
+      {/* 고사장·대기실로 바꾸기 전에 정원부터 묻습니다. */}
+      {capacityPrompt && (() => {
+        const ps = placementSlots.find(s2 => s2.index === capacityPrompt.slotIndex);
+        const room = rooms.find(r => r.id === capacityPrompt.roomId);
+        const isExam = capacityPrompt.kind === 'exam';
+        const isNewWait = !isExam && !placement[capacityPrompt.slotIndex]?.[capacityPrompt.roomId];
+        const titleText = isExam ? '고사장 변환' : isNewWait ? '대기실 열기' : '대기실 변환';
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setCapacityPrompt(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-[#005691] text-white px-5 py-4 flex items-center justify-between">
+                <div>
+                  <div className="font-black text-[17px]">{titleText}</div>
+                  <div className="text-[13px] text-blue-100 font-medium mt-0.5">
+                    {ps?.title ?? ''} · {room?.roomName ?? ''}
+                  </div>
+                </div>
+                <button onClick={() => setCapacityPrompt(null)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="px-6 py-5">
+                <label className="block font-bold text-slate-700 text-[14px] mb-2">
+                  이 교시에 이 실을 몇 명까지 쓸까요?
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={1}
+                    autoFocus
+                    value={capacityPrompt.value}
+                    onChange={e => setCapacityPrompt({ ...capacityPrompt, value: e.target.value })}
+                    onKeyDown={e => {
+                      if (e.key === 'Enter') confirmCapacityPrompt();
+                      if (e.key === 'Escape') setCapacityPrompt(null);
+                    }}
+                    className="w-28 px-3 py-2 border-2 border-gray-300 focus:border-[#005691] rounded-lg text-[18px] font-black text-center outline-hidden"
+                  />
+                  <span className="font-bold text-slate-600 text-[15px]">석</span>
+                </div>
+                <p className="text-[13px] text-slate-500 mt-3 leading-relaxed">
+                  {isNewWait
+                    ? '빈 대기실로 엽니다. 인원은 0명이니, 8. 학생 배치에서 필요한 학생만 옮겨 주세요.'
+                    : '이 교시, 이 실에만 적용되는 정원입니다. 다른 교시는 그대로입니다.'}
+                </p>
+              </div>
+
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
+                <button
+                  onClick={() => setCapacityPrompt(null)}
+                  className="px-4 py-2 bg-white hover:bg-gray-100 text-slate-700 border border-gray-300 rounded-lg font-bold text-[14px] transition"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={confirmCapacityPrompt}
+                  className="px-4 py-2 bg-[#005691] hover:bg-[#00426e] text-white rounded-lg font-bold text-[14px] transition"
+                >
+                  {titleText}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {banLabelModal !== null && (() => {
         const ps = placementSlots.find(s => s.index === banLabelModal);
         if (!ps) return null;

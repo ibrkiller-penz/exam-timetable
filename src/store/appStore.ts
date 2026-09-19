@@ -1487,7 +1487,11 @@ export const useAppStore = create<AppStore>((set, get) => ({
         const count = roomStudents.length;
 
         if (count === 0) {
-          if (!currentVal || isWaitCell(currentVal)) {
+          // 담당자가 손으로 열어 둔 빈 대기실은 지우지 않습니다.
+          // 한두 명을 옮기려고 미리 열어 둔 실이 사라지면 옮길 곳이 없어집니다.
+          if (isWaitCell(currentVal)) {
+            nextRow[room.id] = '대기 - 0명';
+          } else if (!currentVal) {
             delete nextRow[room.id];
           }
         } else {

@@ -989,21 +989,13 @@ export function sanitizePlacementGrid(
       if (!val) continue;
 
       if (isWaitCell(val)) {
+        // 빈 대기실(0명)도 그대로 둡니다.
+        // 담당자가 '대기실로 열어두고 한두 명을 손으로 옮기는' 쓰임새가 있어서,
+        // 자동으로 지우면 방금 만든 대기실이 사라집니다.
         if (extraRoomIds.has(roomId)) {
-          const count = parseWaitCount(val);
-          const properVal = count > 0 ? `대기 - ${count}명` : '';
+          const properVal = `대기 - ${Math.max(0, parseWaitCount(val))}명`;
           if (val !== properVal) {
-            if (properVal) {
-              newRow[roomId] = properVal;
-            } else {
-              delete newRow[roomId];
-            }
-            rowModified = true;
-            modified = true;
-          }
-        } else {
-          if (parseWaitCount(val) <= 0) {
-            delete newRow[roomId];
+            newRow[roomId] = properVal;
             rowModified = true;
             modified = true;
           }
