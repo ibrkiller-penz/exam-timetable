@@ -457,7 +457,7 @@ export const Report7Labels: React.FC = () => {
                             멀리서도 읽혀야 봉투를 빨리 고를 수 있습니다. */}
                         <div className="flex-1 my-1 py-2 px-2 text-center border-y-2 border-slate-900 bg-slate-50/50 rounded flex flex-col items-center justify-center gap-1 overflow-hidden">
                           <span
-                            className="font-black text-slate-900 tracking-tight leading-none break-keep"
+                            className="font-black text-slate-900 tracking-tight leading-[1.1] break-keep"
                             style={{ fontSize: `${subjectFontSize(cleanSubj)}px` }}
                           >
                             {cleanSubj}

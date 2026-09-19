@@ -242,7 +242,7 @@ export const Report8SeparateRoom: React.FC = () => {
               </div>
 
               <div className="p-8 overflow-auto print-page page-portrait">
-                <h1 className="text-center font-black text-[30px] leading-none text-[#005691] tracking-tight mb-1">
+                <h1 className="text-center font-black text-[30px] leading-[1.15] text-[#005691] tracking-tight mb-1">
                   별도 고사실 응시 안내
                 </h1>
                 <p className="text-center text-[15px] font-bold text-slate-600 mb-5">
