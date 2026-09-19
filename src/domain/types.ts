@@ -49,20 +49,21 @@ export type SlotRoomCapacity = Record<number, Record<string, number>>;
  *
  * 우선순위
  *  1. 그 교시에만 지정한 정원 예외
- *  2. 전교생이 같은 시험을 보는 교시(미응시 0명)면 그 반의 학생 수
- *     — 학생이 자기 반 교실에 그대로 앉으므로 정원도 반 인원이 기준입니다.
+ *  2. 전교생이 같은 상황인 교시 — 전원 응시(미응시 0명)이거나 전원 대기(응시 0명) —
+ *     라면 그 반의 학생 수. 학생이 자기 반 교실에 그대로 앉으므로 정원도 반 인원이 기준입니다.
  *  3. 고사실 기본 정원
  */
 export const capacityForSlot = (
   room: ExamRoom,
   slotIndex: number,
   slotRoomCapacity?: SlotRoomCapacity,
-  slot?: Pick<PlacementSlot, 'nonTakers'>
+  slot?: Pick<PlacementSlot, 'nonTakers' | 'takers'>
 ): number => {
   const override = slotRoomCapacity?.[slotIndex]?.[room.id];
   if (override && override > 0) return override;
 
-  if (slot && slot.nonTakers === 0 && !isExtraRoom(room) && room.maxClassSize && room.maxClassSize > 0) {
+  const wholeGradeInHomeRooms = slot && (slot.nonTakers === 0 || slot.takers === 0);
+  if (wholeGradeInHomeRooms && !isExtraRoom(room) && room.maxClassSize && room.maxClassSize > 0) {
     return room.maxClassSize;
   }
 
@@ -78,7 +79,7 @@ export const roomsForSlot = (
   rooms: ExamRoom[],
   slotIndex: number,
   slotRoomCapacity?: SlotRoomCapacity,
-  slot?: Pick<PlacementSlot, 'nonTakers'>
+  slot?: Pick<PlacementSlot, 'nonTakers' | 'takers'>
 ): ExamRoom[] =>
   rooms.map(r => {
     const cap = capacityForSlot(r, slotIndex, slotRoomCapacity, slot);

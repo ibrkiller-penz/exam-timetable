@@ -1991,7 +1991,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                         const roomCap = capacityForSlot(r, ps.index, slotRoomCapacity, ps);
                         const hasCapOverride = Boolean(slotRoomCapacity?.[ps.index]?.[r.id]);
                         // 전교생이 같은 시험을 보는 교시는 반 인원이 곧 정원입니다.
-                        const isAllTakeSlot = ps.nonTakers === 0 && !isExtraRoom(r) && !!r.maxClassSize;
+                        // 전원 응시 또는 전원 자습이면 각 반이 제 교실에 있으므로 반 인원이 정원입니다.
+                        const isHomeRoomSlot = (ps.nonTakers === 0 || ps.takers === 0) && !isExtraRoom(r) && !!r.maxClassSize;
                         const isOverCapacity = isUsable && !isForbidden && actualCount > roomCap;
 
                         return (
@@ -2147,10 +2148,14 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                           : 'border-gray-200 text-[#005691]'
                                       }`}
                                       title={
-                                        hasCapOverride
+                                        stages.stage4
+                                          ? "7. 고사장 배치가 확정되어 수정할 수 없습니다. 상단 '확정 취소'를 누르면 다시 고칠 수 있습니다."
+                                          : isLocked
+                                          ? '잠긴 고사실이라 수정할 수 없습니다. 칸 우측 상단 자물쇠를 풀어 주세요.'
+                                          : hasCapOverride
                                           ? `이 교시에만 지정한 정원입니다 (고사실 기본 ${r.capacity}명)`
-                                          : isAllTakeSlot
-                                          ? `전교생이 같은 시험을 보는 교시라 ${r.banName} 학생 수(${r.maxClassSize}명)가 정원입니다 — 고치면 이 교시에만 적용됩니다`
+                                          : isHomeRoomSlot
+                                          ? `${ps.takers === 0 ? '전교생이 자습하는 교시' : '전교생이 같은 시험을 보는 교시'}라 ${r.banName} 학생 수(${r.maxClassSize}명)가 정원입니다 — 고치면 이 교시에만 적용됩니다`
                                           : '고사실 기본 정원 — 고치면 이 교시에만 적용됩니다'
                                       }
                                     />
