@@ -55,6 +55,54 @@ export function getStudentsForSubjectBanEntry(
 }
 
 /**
+ * 이 분반에 실제로 속한 학생을 찾습니다.
+ *  1. 편성현황에서 강의실 이름이 같은 학생
+ *  2. 이름이 달라 못 찾으면, 편성현황의 분반 묶음을 이름 순으로 늘어놓고
+ *     분반 목록과 i번째끼리 짝지음 (분반 목록도 같은 기준으로 만들어졌습니다)
+ *  3. 그래도 없으면 분반 인원 수만큼 잘라서 씀
+ */
+function banMembers(
+  entry: SubjectBanEntry,
+  entries: Map<SubjectBanKey, SubjectBanEntry>,
+  subjectStudents: Student[],
+  neis?: NeisRow[]
+): Student[] {
+  if (neis && neis.length > 0) {
+    const direct = new Set(
+      neis.filter(row => row.subject === entry.subject &&
+                         (sameBanRoom(row.room, entry.room) || sameBanRoom(row.room2, entry.room)))
+          .map(row => `${row.ban}-${row.num}`)
+    );
+    const hit = subjectStudents.filter(st => direct.has(`${st.ban}-${st.num}`));
+    if (hit.length > 0) return hit;
+
+    const groups = new Map<string, Student[]>();
+    for (const row of neis) {
+      if (row.subject !== entry.subject) continue;
+      const key = row.room2 || row.room;
+      if (!key) continue;
+      const st = subjectStudents.find(x => x.ban === row.ban && x.num === row.num);
+      if (!st) continue;
+      const list = groups.get(key);
+      if (list) list.push(st);
+      else groups.set(key, [st]);
+    }
+
+    const ordered = Array.from(entries.values())
+      .filter(e => e.subject === entry.subject)
+      .sort((a, b) => a.index - b.index);
+    const idx = ordered.findIndex(e => e.key === entry.key);
+    const groupKeys = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+    if (idx >= 0 && idx < groupKeys.length) {
+      const byOrder = groups.get(groupKeys[idx]) ?? [];
+      if (byOrder.length > 0) return byOrder;
+    }
+  }
+
+  return getStudentsForSubjectBanEntry(entry, entries, subjectStudents);
+}
+
+/**
  * Distribute wait students across available rooms using waterfill algorithm
  * strictly respecting each room's capacity (default 28) to prevent exceeding capacity.
  */
@@ -775,8 +823,28 @@ export function initSlotStudentPlacements(
       });
 
     if (hasSplitOrAdded) {
-      // Even distribution across active (unlocked) exam rooms for this subject
-      const activeRooms = subRooms.filter(r => !lockedCellsRow?.[r.id]);
+      // 고사장을 더 쓴 교시입니다.
+      // 편성현황에 있는 분반은 그대로 제 방에 앉히고, 추가한 방에만 남은 인원을 나눕니다.
+      // 예전에는 교시 전체를 균등 분배해 버려 분반이 통째로 흩어졌습니다.
+      const realBanRooms = subRooms.filter(r => {
+        if (lockedCellsRow?.[r.id]) return false;
+        const val = placementRow[r.id]!;
+        return entries.has(val);
+      });
+
+      for (const r of realBanRooms) {
+        const entry = entries.get(placementRow[r.id]!)!;
+        const mine = banMembers(entry, entries, subjectStudents, neis);
+        for (const st of mine) {
+          const k = `${st.ban}-${st.num}`;
+          if (assignedStudentKeys.has(k)) continue;
+          result[k] = r.id;
+          assignedStudentKeys.add(k);
+        }
+      }
+
+      // 남은 인원(분반을 못 찾았거나 추가된 방 몫)만 나머지 방에 고르게 나눕니다.
+      const activeRooms = subRooms.filter(r => !lockedCellsRow?.[r.id] && !realBanRooms.includes(r));
       const studentsToPlace = subjectStudents.filter(st => !assignedStudentKeys.has(`${st.ban}-${st.num}`));
       const numRooms = activeRooms.length;
 
@@ -810,58 +878,7 @@ export function initSlotStudentPlacements(
         const entry = entries.get(val) || entries.get(normKey) || Array.from(entries.values()).find(e => e.key === val || e.key === normKey);
         if (!entry) continue;
 
-        let matched: Student[] = [];
-        if (neis && neis.length > 0) {
-          // 편성현황(NEIS)에서 이 분반에 실제로 속한 학생을 찾습니다.
-          // 강의실 이름이 '학교지정-G1'과 'G1'처럼 접두어만 다를 수 있어 느슨하게 맞춥니다.
-          const neisSet = new Set(
-            neis.filter(row => row.subject === entry.subject &&
-                               (sameBanRoom(row.room, entry.room) || sameBanRoom(row.room2, entry.room)))
-                .map(row => `${row.ban}-${row.num}`)
-          );
-          matched = subjectStudents.filter(st => neisSet.has(`${st.ban}-${st.num}`));
-        }
-
-        // 이름이 달라 직접 못 찾으면, 편성현황의 분반 묶음을 순서로 짝지읍니다.
-        // 분반 목록(subjectBans)은 강의실 이름 순으로 정렬해 만들었으므로,
-        // 편성현황의 분반도 같은 순서로 늘어놓으면 i번째끼리 대응됩니다.
-        if (matched.length === 0 && neis && neis.length > 0) {
-          const groups = new Map<string, Student[]>();
-          for (const row of neis) {
-            if (row.subject !== entry.subject) continue;
-            const key = row.room2 || row.room;
-            if (!key) continue;
-            const st = subjectStudents.find(x => x.ban === row.ban && x.num === row.num);
-            if (!st) continue;
-            const list = groups.get(key);
-            if (list) list.push(st);
-            else groups.set(key, [st]);
-          }
-
-          const orderedEntries = Array.from(entries.values())
-            .filter(e => e.subject === entry.subject)
-            .sort((a, b) => a.index - b.index);
-          const idx = orderedEntries.findIndex(e => e.key === entry.key);
-          const orderedGroups = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-
-          if (idx >= 0 && idx < orderedGroups.length) {
-            matched = groups.get(orderedGroups[idx]) ?? [];
-          }
-        }
-
-        // 그래도 못 찾으면 최소한 분반 인원 수만이라도 맞춰 자릅니다.
-        if (matched.length === 0) {
-          const subjectEntries = Array.from(entries.values())
-            .filter(e => e.subject === entry.subject)
-            .sort((a, b) => a.index - b.index);
-
-          let offset = 0;
-          for (const e of subjectEntries) {
-            if (e.key === entry.key) break;
-            offset += e.stuCount;
-          }
-          matched = subjectStudents.slice(offset, offset + entry.stuCount);
-        }
+        const matched = banMembers(entry, entries, subjectStudents, neis);
 
         // 분반은 통째로 그 고사실에 앉힙니다. 좌석보다 많아도 쪼개지 않습니다.
         // 쪼개면 남은 인원이 다음 방으로 밀리면서 모든 분반이 어긋납니다.
