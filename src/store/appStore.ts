@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle } from '../domain/types';
+import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis } from '../domain/types';
 import { createInitialDays, createInitialTimes, createInitialTimetable, APP_VERSION } from '../domain/constants';
 import { MSG } from '../domain/messages';
 import { confirmStage1, cancelStage1, confirmStage2, cancelStage2, confirmStage3, cancelStage3, confirmStage4, cancelStage4, confirmStage5, cancelStage5 } from '../domain/stages';
@@ -58,6 +58,7 @@ export const createInitialGradeData = (grade: GradeId, defaults?: any): GradeDat
     slotRoomCapacity: {},
     slotBanLabels: {},
     slotBanLabelStyle: {},
+    slotCapacityBasis: {},
     attendance: [],
     subjectCodes: {},
     ui: {
@@ -98,6 +99,7 @@ export const extractGradeData = (state: AppState): GradeData => {
     slotRoomCapacity: state.slotRoomCapacity,
     slotBanLabels: state.slotBanLabels,
     slotBanLabelStyle: state.slotBanLabelStyle,
+    slotCapacityBasis: state.slotCapacityBasis,
     attendance: state.attendance,
     subjectCodes: state.subjectCodes,
     ui: state.ui,
@@ -190,6 +192,8 @@ interface AppStoreActions {
   setSlotBanLabel: (slotIndex: number, roomId: string, label: string | null) => void;
   /** 교시별 분반 표기 방식(가나다/ABC). null이면 설정의 기본 방식을 따릅니다. */
   setSlotBanLabelStyle: (slotIndex: number, style: BanLabelStyle | null) => void;
+  /** 교시별 정원 기준(고사실 좌석 / 반 인원). null이면 교시 성격에 맞는 기본값을 씁니다. */
+  setSlotCapacityBasis: (slotIndex: number, basis: CapacityBasis | null) => void;
   setPlacementGrid: (placement: AppState['placement']) => void;
   transferStudentsAndUpdatePlacement: (slotIndex: number, transfers: Record<string, string>) => void;
   setSlotStudentPlacements: (slotIndex: number, placements: Record<string, string>) => void;
@@ -1402,6 +1406,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (style) all[slotIndex] = style;
       else delete all[slotIndex];
       const next = { ...state, slotBanLabelStyle: all };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  setSlotCapacityBasis: (slotIndex, basis) => {
+    set(state => {
+      const all = { ...(state.slotCapacityBasis || {}) };
+      if (basis) all[slotIndex] = basis;
+      else delete all[slotIndex];
+      const next = { ...state, slotCapacityBasis: all };
       saveStateToIdb(next);
       return next;
     });

@@ -45,6 +45,16 @@ export const isUsableRoom = (r: ExamRoom): boolean =>
 export type SlotRoomCapacity = Record<number, Record<string, number>>;
 
 /**
+ * 정원을 무엇으로 잡을지.
+ *  - 'room'  고사실 좌석 수 (이동수업 분반이 모여 앉을 때)
+ *  - 'class' 그 반의 학생 수 (학급이 통째로 앉을 때)
+ */
+export type CapacityBasis = 'room' | 'class';
+
+/** 교시별 정원 기준 예외. 없으면 교시 성격에 맞는 기본값을 씁니다. */
+export type SlotCapacityBasis = Record<number, CapacityBasis>;
+
+/**
  * 분반 이름 표기 방식 — 가나다(ko) / ABC(en) / 표시 안 함(none).
  * 학교마다 쓰는 방식이 다르고, 분반 이름을 아예 쓰지 않는 곳도 있습니다.
  */
@@ -75,17 +85,41 @@ export const banLetter = (n: number, style: BanLabelStyle): string => {
  *     라면 그 반의 학생 수. 학생이 자기 반 교실에 그대로 앉으므로 정원도 반 인원이 기준입니다.
  *  3. 고사실 기본 정원
  */
+/**
+ * 교시에 맞는 기본 정원 기준.
+ * 아무도 시험을 보지 않거나 학급이 통째로 앉는 칸은 '반 인원', 그 밖에는 '고사실 좌석'입니다.
+ * 이동수업 분반(G1, J1 …)이 모여 앉는 칸에 반 인원을 쓰면 분반이 잘려 흩어집니다.
+ */
+export const defaultCapacityBasis = (
+  room: ExamRoom,
+  slot?: Pick<PlacementSlot, 'nonTakers' | 'takers'>,
+  cellValue?: string
+): CapacityBasis => {
+  if (isExtraRoom(room) || !room.maxClassSize || room.maxClassSize <= 0) return 'room';
+  if (slot && slot.takers === 0) return 'class';
+
+  if (cellValue) {
+    const hyphen = cellValue.lastIndexOf('-');
+    const banPart = hyphen === -1 ? '' : cellValue.slice(hyphen + 1).trim();
+    if (banPart && banPart.replace('반', '') === room.banName.replace('반', '')) return 'class';
+  }
+  return 'room';
+};
+
 export const capacityForSlot = (
   room: ExamRoom,
   slotIndex: number,
   slotRoomCapacity?: SlotRoomCapacity,
-  slot?: Pick<PlacementSlot, 'nonTakers' | 'takers'>
+  slot?: Pick<PlacementSlot, 'nonTakers' | 'takers'>,
+  cellValue?: string,
+  /** 사용자가 이 교시에 지정한 정원 기준. 없으면 교시 성격에 맞는 기본값을 씁니다. */
+  basis?: CapacityBasis
 ): number => {
   const override = slotRoomCapacity?.[slotIndex]?.[room.id];
   if (override && override > 0) return override;
 
-  const wholeGradeInHomeRooms = slot && (slot.nonTakers === 0 || slot.takers === 0);
-  if (wholeGradeInHomeRooms && !isExtraRoom(room) && room.maxClassSize && room.maxClassSize > 0) {
+  const effective = basis ?? defaultCapacityBasis(room, slot, cellValue);
+  if (effective === 'class' && !isExtraRoom(room) && room.maxClassSize && room.maxClassSize > 0) {
     return room.maxClassSize;
   }
 
@@ -101,10 +135,13 @@ export const roomsForSlot = (
   rooms: ExamRoom[],
   slotIndex: number,
   slotRoomCapacity?: SlotRoomCapacity,
-  slot?: Pick<PlacementSlot, 'nonTakers' | 'takers'>
+  slot?: Pick<PlacementSlot, 'nonTakers' | 'takers'>,
+  /** 그 교시의 배치 줄. 어떤 분반이 앉는지 알아야 반 인원을 정원으로 쓸지 판단할 수 있습니다. */
+  row?: Record<string, string>,
+  basis?: CapacityBasis
 ): ExamRoom[] =>
   rooms.map(r => {
-    const cap = capacityForSlot(r, slotIndex, slotRoomCapacity, slot);
+    const cap = capacityForSlot(r, slotIndex, slotRoomCapacity, slot, row?.[r.id], basis);
     return cap === r.capacity ? r : { ...r, capacity: cap };
   });
 
@@ -243,6 +280,7 @@ export interface GradeData {
   slotRoomCapacity?: SlotRoomCapacity;
   slotBanLabels?: SlotBanLabels;
   slotBanLabelStyle?: SlotBanLabelStyle;
+  slotCapacityBasis?: SlotCapacityBasis;
   attendance: AttendanceRow[];
   subjectCodes: Record<string, string>;
   ui: {
@@ -269,6 +307,7 @@ export interface AppState {
   slotRoomCapacity?: SlotRoomCapacity;
   slotBanLabels?: SlotBanLabels;
   slotBanLabelStyle?: SlotBanLabelStyle;
+  slotCapacityBasis?: SlotCapacityBasis;
   attendance: AttendanceRow[];
   subjectCodes: Record<string, string>;
   ui: {

@@ -6,7 +6,7 @@ import { AlertModal } from '../components/AlertModal';
 import { CloudModal } from '../components/CloudModal';
 import { saveCloudImmediately } from '../domain/firebase';
 import { MSG } from '../domain/messages';
-import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle } from '../domain/types';
+import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle, CapacityBasis } from '../domain/types';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
@@ -35,6 +35,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     slotRoomCapacity = {},
     slotBanLabels = {},
     slotBanLabelStyle = {},
+    slotCapacityBasis = {},
     rooms,
     days,
     students,
@@ -62,6 +63,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     setSlotRoomCapacity,
     setSlotBanLabel,
     setSlotBanLabelStyle,
+    setSlotCapacityBasis,
   } = useAppStore();
 
   /**
@@ -121,8 +123,15 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   const roomsAt = React.useCallback(
     (slotIndex: number) =>
-      roomsForSlot(rooms, slotIndex, slotRoomCapacity, placementSlots.find(s => s.index === slotIndex)),
-    [rooms, slotRoomCapacity, placementSlots]
+      roomsForSlot(
+        rooms,
+        slotIndex,
+        slotRoomCapacity,
+        placementSlots.find(s => s.index === slotIndex),
+        placement[slotIndex],
+        slotCapacityBasis[slotIndex]
+      ),
+    [rooms, slotRoomCapacity, placementSlots, placement, slotCapacityBasis]
   );
 
   /**
@@ -355,6 +364,81 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     pushHistory(`[${ps.title}] 정원 변경에 따른 재배치`);
     setPlacementGrid({ ...livePlacement, [ps.index]: row });
     setSlotStudentPlacements(ps.index, nextPlacements);
+  };
+
+  /**
+   * 전원이 시험을 보는 교시를 '분반' 또는 '학반' 기준으로 다시 배치합니다.
+   *  - 분반: NEIS 이동수업 분반(G1, J1 …)대로 모여 앉습니다. 정원은 고사실 좌석 수입니다.
+   *  - 학반: 학급이 자기 교실에 그대로 앉습니다. 정원은 그 반의 학생 수입니다.
+   */
+  const handleSetSlotArrangement = (ps: PlacementSlot, mode: 'ban' | 'class') => {
+    if (isStageLocked) return;
+    const basis: CapacityBasis = mode === 'class' ? 'class' : 'room';
+
+    pushHistory(`[${ps.title}] ${mode === 'class' ? '학반' : '분반'} 기준 배치`);
+    setSlotCapacityBasis(ps.index, basis);
+
+    const live = useAppStore.getState();
+    const nextRooms = roomsForSlot(rooms, ps.index, live.slotRoomCapacity, ps, placement[ps.index], basis);
+
+    if (mode === 'class') {
+      // 학급이 자기 교실에 그대로 앉습니다.
+      const row: Record<string, string> = {};
+      const sp: Record<string, string> = {};
+      const sameBan = (st: Student, r: ExamRoom) =>
+        st.ban === r.banName || st.ban.replace('반', '') === r.banName.replace('반', '');
+
+      for (const r of nextRooms) {
+        if (isExtraRoom(r) || !r.banName) continue;
+        if (placement[ps.index]?.[r.id] === '배치금지') { row[r.id] = '배치금지'; continue; }
+
+        const mine = students.filter(st => sameBan(st, r));
+        const takers = mine.filter(st => st.subjects.some(sub => ps.subjects.includes(sub)));
+        if (takers.length === 0) continue;
+
+        // 그 반이 가장 많이 보는 과목을 그 교실의 시험 과목으로 삼습니다.
+        const tally = new Map<string, number>();
+        takers.forEach(st => ps.subjects.forEach(sub => {
+          if (st.subjects.includes(sub)) tally.set(sub, (tally.get(sub) ?? 0) + 1);
+        }));
+        const subject = [...tally.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ps.subjects[0];
+
+        row[r.id] = `${subject}-${r.banName}`;
+        takers.forEach(st => { sp[`${st.ban}-${st.num}`] = r.id; });
+      }
+
+      setPlacementGrid({ ...placement, [ps.index]: row });
+      setSlotStudentPlacements(ps.index, sp);
+      setAlertModal({
+        isOpen: true,
+        message: `✅ [${ps.title}]를 학반 기준으로 다시 배치했습니다.
+
+각 학급이 자기 교실에서 시험을 봅니다. 정원은 그 반의 학생 수를 씁니다.`,
+      });
+      return;
+    }
+
+    // 분반 기준 — NEIS 분반대로 다시 배치합니다.
+    const res = resetAndAutoPlaceSlot(
+      ps.index,
+      nextRooms[0]?.id ?? '',
+      placement,
+      placementSlots,
+      nextRooms,
+      entries,
+      students,
+      neis,
+      false,
+      lockedCells[ps.index]
+    );
+    setPlacementGrid(res.placement);
+    setSlotStudentPlacements(ps.index, res.slotStudentPlacements);
+    setAlertModal({
+      isOpen: true,
+      message: `✅ [${ps.title}]를 분반 기준으로 다시 배치했습니다.
+
+NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁니다.`,
+    });
   };
 
   const handleToggleForbiddenCell = (slot?: number, roomId?: string) => {
@@ -1107,7 +1191,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
       message: MSG.S7_AUTO_ALL,
       onConfirm: () => {
         pushHistory('전체 자동배치');
-        const next = autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity);
+        const next = autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity, slotCapacityBasis);
         setPlacementGrid(next);
         const allPlacements: Record<number, Record<string, string>> = {};
         for (const ps of placementSlots) {
@@ -1867,6 +1951,33 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         <div className={`font-bold mt-0.5 ${ps.subjects.length === 0 ? 'text-slate-500' : 'text-[#005691]'} ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>
                           {ps.subjects.length === 0 ? '시험 없음 · 전체 자습' : ps.subjects.join(', ')}
                         </div>
+                        {/* 전원이 시험을 보는 교시는 분반으로 모을지, 학급이 자기 교실에 앉을지 고릅니다. */}
+                        {stepMode === 7 && ps.subjects.length > 0 && ps.nonTakers === 0 && !isStageLocked && (
+                          <div className="mt-1 flex items-center justify-center gap-1">
+                            {([['ban', '분반'], ['class', '학반']] as const).map(([mode, label]) => {
+                              const active = (slotCapacityBasis[ps.index] ?? 'room') === (mode === 'class' ? 'class' : 'room');
+                              return (
+                                <button
+                                  key={mode}
+                                  onClick={() => handleSetSlotArrangement(ps, mode)}
+                                  className={`px-2 py-0.5 rounded-md font-bold border transition ${
+                                    isCompactFit ? 'text-[11px]' : 'text-[12.5px]'
+                                  } ${
+                                    active
+                                      ? 'bg-[#005691] text-white border-[#005691]'
+                                      : 'bg-white text-slate-600 border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                  title={mode === 'ban'
+                                    ? 'NEIS 분반대로 모여 앉습니다. 정원은 고사실 좌석 수입니다.'
+                                    : '학급이 자기 교실에 그대로 앉습니다. 정원은 그 반의 학생 수입니다.'}
+                                >
+                                  {label}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+
                         {stepMode === 7 && ps.subjects.length > 0 && (
                           <button
                             onClick={() => setBanLabelModal(ps.index)}
@@ -1936,11 +2047,11 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                           : (typeof derivedCount === 'number' ? derivedCount : 0);
 
                         // 이 교시에만 지정된 정원이 있으면 그 값을, 없으면 고사실 기본 정원을 씁니다.
-                        const roomCap = capacityForSlot(r, ps.index, slotRoomCapacity, ps);
+                        const roomCap = capacityForSlot(r, ps.index, slotRoomCapacity, ps, cellVal, slotCapacityBasis[ps.index]);
                         const hasCapOverride = Boolean(slotRoomCapacity?.[ps.index]?.[r.id]);
                         // 전교생이 같은 시험을 보는 교시는 반 인원이 곧 정원입니다.
                         // 전원 응시 또는 전원 자습이면 각 반이 제 교실에 있으므로 반 인원이 정원입니다.
-                        const isHomeRoomSlot = (ps.nonTakers === 0 || ps.takers === 0) && !isExtraRoom(r) && !!r.maxClassSize;
+                        const isHomeRoomSlot = !isExtraRoom(r) && !!r.maxClassSize && roomCap === r.maxClassSize && roomCap !== r.capacity;
                         const isOverCapacity = isUsable && !isForbidden && actualCount > roomCap;
 
                         return (
@@ -2348,299 +2459,56 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
             </div>
 
           <div className="p-4 flex-1 flex flex-col overflow-hidden">
-            {selectedCell ? (
-              <>
-                {/* 현재 교시 미배치 학생 알림 및 바로가기 */}
-                {(() => {
-                  const unplacedInSlot = students.filter(st => {
-                    const rId = curSlotPlacements[`${st.ban}-${st.num}`];
-                    return !rId || rId === 'unplaced' || !curSlotRow[rId] || curSlotRow[rId] === '배치금지';
-                  });
-                  if (unplacedInSlot.length > 0) {
-                    return (
-                      <div className="mb-3 p-3 bg-red-50 border border-red-300 rounded-xl flex items-center justify-between shadow-2xs">
-                        <div className="flex items-center gap-2">
-                          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-                          <div>
-                            <div className="text-[13px] font-bold text-red-900">
-                              이 교시 미배치 학생 {unplacedInSlot.length}명
-                            </div>
-                            <div className="text-[11px] text-red-700">
-                              아직 시험실/대기실에 배정되지 않았습니다.
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleOpenUnplacedModal(selectedCell.slot)}
-                          className="px-2.5 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-xs transition active:scale-95 shrink-0 cursor-pointer"
-                        >
-                          명단 확인
-                        </button>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-                {placement[selectedCell.slot]?.[selectedCell.roomId] === '배치금지' && (
-                  <div className="mb-3 p-3 bg-rose-50 border border-rose-200 rounded-xl text-rose-900 text-[13.5px] font-bold flex items-center gap-2 shadow-2xs">
-                    <Ban className="w-5 h-5 text-rose-600 shrink-0" />
-                    <span>이 고사실은 해당 교시에 '배치금지'로 설정되어 있습니다.</span>
+            {(() => {
+              if (!curSlot) {
+                return (
+                  <div className="flex-1 flex items-center justify-center text-[15px] text-slate-500 p-6 text-center leading-relaxed">
+                    표에서 칸을 하나 누르면 그 교시의 미배치 학생을 보여 줍니다.
                   </div>
-                )}
-                {lockedCells[selectedCell.slot]?.[selectedCell.roomId] && (
-                  <div className="mb-3 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-[13.5px] font-bold flex items-center gap-2">
-                    <Lock className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>잠겨있는 셀입니다. 수정이 불가합니다. (자물쇠 아이콘으로 잠금 해제 가능)</span>
-                  </div>
-                )}
+                );
+              }
 
-                {/* 1. 미배치 과목 반 배치 (기하-1반 등) */}
-                {examBanItems.length > 0 && (
-                  <div className="mb-3 space-y-1.5 shrink-0">
-                    <div className="text-xs font-bold text-gray-700 flex items-center gap-1">
-                      <BookOpen className="w-3.5 h-3.5 text-blue-600" />
-                      <span>시험 과목 반 배치 (클릭하여 현재 고사실에 배치):</span>
-                    </div>
-                    <div className="space-y-1 max-h-32 overflow-y-auto">
-                      {examBanItems.map((it, idx) => {
-                        const subjectName = it.key.split('-')[0] || '';
-                        const color = colorForSubject(subjectName);
-                        const isLockedCell = lockedCells[selectedCell.slot]?.[selectedCell.roomId];
-                        return (
-                          <button
-                            key={idx}
-                            disabled={isStageLocked || isLockedCell}
-                            onClick={() => setPlacementCell(selectedCell.slot, selectedCell.roomId, it.key)}
-                            className={`w-full text-left p-2.5 rounded-xl text-sm border transition flex items-center justify-between font-bold ${color.bg} ${color.hoverBg} ${color.border} ${color.text} shadow-2xs`}
-                          >
-                            <span>{it.key}</span>
-                            <span className="text-xs">{it.count || it.room}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
+              const unplaced = students.filter(st => {
+                const rId = curSlotPlacements[`${st.ban}-${st.num}`];
+                return !rId || rId === 'unplaced' || !curSlotRow[rId] || curSlotRow[rId] === '배치금지';
+              }).sort((a, b) => (a.ban !== b.ban ? a.ban.localeCompare(b.ban, 'ko') : a.num - b.num));
 
-                {/* 2. 대기 균등분배 & 현재 고사실 배정 요약 */}
-                <div className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs font-extrabold text-gray-800 flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5 text-blue-600" />
-                      <span>대기/미배치 관리</span>
-                    </div>
+              if (unplaced.length === 0) {
+                return (
+                  <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                    <p className="text-[15px] font-bold text-slate-700">미배치 학생이 없습니다.</p>
+                    <p className="text-[13.5px] text-slate-500">{curSlot.title} 학생이 모두 자리를 받았습니다.</p>
+                  </div>
+                );
+              }
+
+              return (
+                <>
+                  <div className="flex items-center justify-between mb-2.5">
+                    <span className="text-[14.5px] font-black text-rose-700">
+                      {curSlot.title} 미배치 {unplaced.length}명
+                    </span>
                     <button
-                      type="button"
-                      onClick={() => handleDistributeWaitSingleSlot(selectedCell.slot)}
-                      disabled={isStageLocked}
-                      className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-[11px] font-bold shadow-2xs flex items-center gap-1 active:scale-95 transition cursor-pointer"
-                      title="대기 인원을 고사실 정원 한도 내에서 균등 분배합니다."
+                      onClick={() => handleOpenUnplacedModal(curSlot.index)}
+                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[13px] font-bold transition"
+                      title="미배치 학생을 고사실에 배정합니다"
                     >
-                      <Sparkles className="w-3 h-3" />
-                      <span>대기 균등분배</span>
+                      배정하기
                     </button>
                   </div>
-
-                  {/* 현재 고사실 배정 학생 요약 및 비우기 */}
-                  {curRoomStudents.length > (curRoom?.capacity && curRoom.capacity > 0 ? curRoom.capacity : 28) && (
-                    <div className="p-2.5 bg-orange-50 border border-orange-300 rounded-xl flex items-center gap-2 text-orange-950">
-                      <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0" />
-                      <div className="text-xs font-bold leading-tight">
-                        <span>⚠️ 정원 초과 강제 배정 반</span>
-                        <div className="text-[11px] text-orange-800 font-semibold mt-0.5">
-                          정원 {curRoom?.capacity || 28}석 중 {curRoomStudents.length}명 배정 (+{curRoomStudents.length - (curRoom?.capacity || 28)}명 초과)
-                        </div>
+                  <div className="flex-1 overflow-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
+                    {unplaced.map(st => (
+                      <div key={`${st.ban}-${st.num}`} className="px-3 py-1.5 text-[14px] flex items-center gap-2">
+                        <span className="font-bold text-slate-700 w-16 shrink-0">{st.ban}</span>
+                        <span className="text-slate-500 w-10 shrink-0">{st.num}번</span>
+                        <span className="font-bold text-gray-900 truncate">{st.name}</span>
                       </div>
-                    </div>
-                  )}
-
-                  {curRoomStudents.length > 0 && (
-                    <div className="pt-2 border-t border-gray-200">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <div className="text-xs font-bold text-gray-800 flex items-center gap-1">
-                          <Users className="w-3.5 h-3.5 text-blue-600" />
-                          <span>현재 고사실 학생 ({curRoomStudents.length}명)</span>
-                        </div>
-                        {!isStageLocked && !lockedCells[selectedCell.slot]?.[selectedCell.roomId] && (
-                          <button
-                            type="button"
-                            onClick={handleUnplaceCurrentRoomStudents}
-                            className="text-[11px] text-rose-600 hover:text-rose-800 font-bold hover:underline cursor-pointer"
-                            title="현재 고사실의 학생들을 모두 비워 미배치 상태로 되돌립니다."
-                          >
-                            미배치로 비우기
-                          </button>
-                        )}
-                      </div>
-                      <div className="overflow-y-auto p-1.5 bg-white border border-gray-200 rounded-lg grid grid-cols-4 gap-1 max-h-32">
-                        {curRoomStudents.map(st => {
-                          const stId = `${st.grade}${String(st.ban).padStart(2, '0')}${String(st.num).padStart(2, '0')}`;
-                          return (
-                            <div
-                              key={`${st.ban}-${st.num}`}
-                              title={`${stId} ${st.name} (${st.ban}반 ${st.num}번)`}
-                              className="py-0.5 px-0.5 text-center font-mono font-bold text-[11px] rounded bg-blue-50 text-blue-900 border border-blue-200"
-                            >
-                              {stId}
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-3.5 pt-3.5 border-t border-gray-200 space-y-2.5">
-                  {/* Context-aware buttons for converting 대기실 ↔ 고사장 & 배치금지 */}
-                  {(() => {
-                    const curCellVal = placement[selectedCell.slot]?.[selectedCell.roomId] || '';
-                    const isWait = isWaitCell(curCellVal);
-                    const isForbidden = curCellVal === '배치금지';
-                    const isExam = Boolean(curCellVal && !isWait && !isForbidden);
-                    const isLocked = lockedCells[selectedCell.slot]?.[selectedCell.roomId];
-                    if (isStageLocked || isLocked) return null;
-
-                    if (isForbidden) {
-                      return (
-                        <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-2">
-                          <div className="text-[13px] font-bold text-rose-900 flex items-center gap-1.5">
-                            <Ban className="w-4 h-4 text-rose-600" />
-                            <span>배치금지 설정된 고사실</span>
-                          </div>
-                          <p className="text-[12px] text-rose-700 leading-tight">
-                            이 교시에는 해당 고사실에 어떤 시험 과목 및 대기 학생도 배정되지 않도록 배제되어 있습니다.
-                          </p>
-                          <button
-                            onClick={() => handleToggleForbiddenCell()}
-                            className="w-full py-2.5 bg-white hover:bg-rose-100 text-rose-700 border border-rose-300 text-[13.5px] font-bold rounded-lg transition flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
-                            title="배치금지 설정을 해제합니다."
-                          >
-                            <CheckCircle2 className="w-4 h-4 text-rose-600" />
-                            <span>배치금지 해제</span>
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    if (isWait) {
-                      return (
-                        <div className="p-3 bg-blue-50/80 border border-blue-200 rounded-xl space-y-2">
-                          <div className="text-[13px] font-bold text-blue-900 flex items-center gap-1.5">
-                            <ArrowRightLeft className="w-4 h-4 text-blue-600" />
-                            <span>대기실 ➔ 시험 고사장 변환</span>
-                          </div>
-                          <p className="text-[12px] text-blue-700 leading-tight">
-                            이 대기실을 해당 교시 시험 고사장으로 변환합니다. 학생은 비워져 수동 배치가 가능해집니다.
-                          </p>
-                          <button
-                            onClick={() => handleAddExamRoomFromWait(selectedCell.slot, undefined, selectedCell.roomId)}
-                            className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-[13.5px] font-bold rounded-lg transition flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
-                            title="이 대기실을 시험 고사장으로 변환합니다."
-                          >
-                            <ArrowRightLeft className="w-4 h-4" />
-                            <span>시험 고사장으로 변환</span>
-                          </button>
-                          <button
-                            onClick={() => handleToggleForbiddenCell()}
-                            className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[12.5px] font-bold rounded-lg transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95"
-                            title="이 고사실을 배치금지로 지정합니다."
-                          >
-                            <Ban className="w-3.5 h-3.5 text-rose-600" />
-                            <span>배치금지 설정</span>
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    if (isExam) {
-                      const subject = curCellVal.split('-')[0];
-                      return (
-                        <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-xl space-y-2">
-                          <div className="text-[13px] font-bold text-amber-900 flex items-center gap-1.5">
-                            <ArrowRightLeft className="w-4 h-4 text-amber-600" />
-                            <span>고사장 ➔ 대기실 변환</span>
-                          </div>
-                          <p className="text-[12px] text-amber-700 leading-tight">
-                            이 고사장을 대기실로 변환합니다. 배정된 학생들은 직전 고사장으로 합쳐집니다.
-                          </p>
-                          <button
-                            onClick={() => handleShrinkExamRoomToWait(selectedCell.slot, subject, selectedCell.roomId)}
-                            className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-[13.5px] font-bold rounded-lg transition flex items-center justify-center gap-1.5 shadow-xs active:scale-95"
-                            title="이 고사장을 대기실로 변환합니다."
-                          >
-                            <ArrowRightLeft className="w-4 h-4" />
-                            <span>대기실로 변환</span>
-                          </button>
-                          <button
-                            onClick={() => handleToggleForbiddenCell()}
-                            className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[12.5px] font-bold rounded-lg transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95"
-                            title="이 고사실을 배치금지로 지정합니다."
-                          >
-                            <Ban className="w-3.5 h-3.5 text-rose-600" />
-                            <span>배치금지 설정</span>
-                          </button>
-                        </div>
-                      );
-                    }
-
-                    return (
-                      <div className="space-y-2">
-                        <button
-                          onClick={() => handleAddExamRoomFromWait(selectedCell.slot, undefined, selectedCell.roomId)}
-                          className="w-full py-2.5 bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[13px] font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95"
-                          title="이 빈 고사실을 시험 고사장으로 변환합니다."
-                        >
-                          <Plus className="w-4 h-4 text-blue-600" />
-                          <span>이 빈 고사실을 시험 고사장으로 변환</span>
-                        </button>
-                        <button
-                          onClick={() => handleToggleForbiddenCell()}
-                          className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-[12.5px] font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs active:scale-95"
-                          title="이 고사실에 이 시간은 배치를 못하도록 배치금지로 지정합니다."
-                        >
-                          <Ban className="w-3.5 h-3.5 text-rose-600" />
-                          <span>이 고사실 배치금지 설정</span>
-                        </button>
-                      </div>
-                    );
-                  })()}
-
-                  <div className="flex gap-2.5">
-                    <button
-                      onClick={handleDeleteCurrentCell}
-                      disabled={isStageLocked || lockedCells[selectedCell.slot]?.[selectedCell.roomId]}
-                      className={`flex-1 py-2.5 text-[15px] font-bold rounded-xl transition ${
-                        lockedCells[selectedCell.slot]?.[selectedCell.roomId]
-                          ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
-                          : 'bg-white hover:bg-gray-50 text-[#0f172a]'
-                      }`}
-                    >
-                      현재 셀 삭제
-                    </button>
-                    <button
-                      onClick={handleDeleteSlot}
-                      disabled={isStageLocked}
-                      className="flex-1 py-2.5 bg-[#e6f1f8] hover:bg-[#e6f1f8] text-rose-800 border border-gray-200 text-[15px] font-bold rounded-xl transition"
-                    >
-                      교시 전체 삭제
-                    </button>
+                    ))}
                   </div>
-                  <button
-                    onClick={() => handleFillSubsequentWait(selectedCell.slot)}
-                    disabled={isStageLocked}
-                    className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[15px] font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs"
-                    title="선택한 교시부터 마지막 교시까지 빈 고사실들에 대기 인원 자동 배정"
-                  >
-                    <Clock className="w-4 h-4 text-emerald-600" />
-                    <span>이 교시부터 이후 대기 자동 배정</span>
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-[15px] text-[#0f172a] p-6 text-center leading-relaxed font-normal">
-                배치 격자에서 셀을 선택하면 배치 가능한 항목 목록이 여기에 표시됩니다.
-              </div>
-            )}
+                </>
+              );
+            })()}
           </div>
         </div>
       )}
