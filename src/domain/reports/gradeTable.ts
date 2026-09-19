@@ -1,6 +1,7 @@
 import { ExamRoom, ExamDay, ExamTime, PlacementSlot, PlacementGrid, SubjectBanKey, SubjectBanEntry, isUsableRoom, isWaitCell } from '../types';
 import { getForTime } from '../util/time';
 import { cellDerived } from '../placement';
+import { BanLabelConfig, banSuffix } from '../banLabel';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 
@@ -20,7 +21,8 @@ export function buildGradeTable(
   times: ExamTime[],
   placementSlots: PlacementSlot[],
   placement: PlacementGrid,
-  entries: Map<SubjectBanKey, SubjectBanEntry>
+  entries: Map<SubjectBanKey, SubjectBanEntry>,
+  banCfg?: BanLabelConfig
 ): { columns: ExamRoom[]; rows: GradeTableRow[] } {
   const cols = rooms.filter(isUsableRoom);
   const rows: GradeTableRow[] = [];
@@ -65,7 +67,13 @@ export function buildGradeTable(
         displayCount = typeof d.stuCount === 'number' ? d.stuCount : '·';
         if (typeof displayCount === 'number') slotTotal += displayCount;
 
-        if (oldSubj !== rawSubj) {
+        // 분반 표기가 있으면 고사실마다 '과목 가반'처럼 붙여 어느 분반인지 드러냅니다.
+        // 표기를 쓰지 않는 학교에서는 예전처럼 같은 과목이 이어지면 한 번만 적습니다.
+        const suffix = banSuffix(hyphenIdx !== -1 ? v.slice(hyphenIdx + 1).trim() : '', ps.index, c.id, banCfg);
+        if (suffix) {
+          displaySubj = `${rawSubj} ${suffix}`;
+          oldSubj = rawSubj;
+        } else if (oldSubj !== rawSubj) {
           displaySubj = rawSubj;
           oldSubj = rawSubj;
         } else {

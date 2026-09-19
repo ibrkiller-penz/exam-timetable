@@ -9,7 +9,7 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 export const Report7Labels: React.FC = () => {
-  const { rooms, days, times, placement, evalSubjects, subjectCodes, setSubjectCode, stages, meta } = useAppStore();
+  const { rooms, days, times, placement, evalSubjects, subjectCodes, setSubjectCode, stages, meta, settings, slotBanLabels, slotBanLabelStyle } = useAppStore();
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
@@ -21,9 +21,12 @@ export const Report7Labels: React.FC = () => {
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [pdfProgress, setPdfProgress] = useState({ current: 0, total: 0 });
 
+  // 화면에서 정한 분반 표기를 인쇄물에도 그대로 씁니다.
+  const banCfg = { defaultStyle: settings.banLabelStyle, slotStyle: slotBanLabelStyle, manual: slotBanLabels };
+
   const labels = useMemo(() => {
-    return buildLabels(placementSlots, placement, rooms, days, times, entries);
-  }, [placementSlots, placement, rooms, days, times, entries]);
+    return buildLabels(placementSlots, placement, rooms, days, times, entries, banCfg);
+  }, [placementSlots, placement, rooms, days, times, entries, settings.banLabelStyle, slotBanLabelStyle, slotBanLabels]);
 
   // A4 가로 1장에 4개(2x2)씩 분할
   const chunkedLabels = useMemo(() => {

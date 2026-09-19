@@ -6,11 +6,14 @@ import { Printer, Download} from 'lucide-react';
 import { exportMultipleDOMTablesToExcel } from '../../utils/excelExport';
 
 export const Report1GradeTable: React.FC = () => {
-  const { meta, rooms, days, times, placement, stages } = useAppStore();
+  const { meta, rooms, days, times, placement, stages, settings, slotBanLabels, slotBanLabelStyle } = useAppStore();
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
-  const { columns, rows } = buildGradeTable(rooms, days, times, placementSlots, placement, entries);
+  // 화면에서 정한 분반 표기를 인쇄물에도 그대로 씁니다.
+  const banCfg = { defaultStyle: settings.banLabelStyle, slotStyle: slotBanLabelStyle, manual: slotBanLabels };
+
+  const { columns, rows } = buildGradeTable(rooms, days, times, placementSlots, placement, entries, banCfg);
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6 print:overflow-visible print:h-auto print:p-0">

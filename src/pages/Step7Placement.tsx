@@ -8,6 +8,7 @@ import { saveCloudImmediately } from '../domain/firebase';
 import { MSG } from '../domain/messages';
 import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle } from '../domain/types';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
+import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
@@ -67,31 +68,6 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
    * 분반 번호를 학급 반과 헷갈리지 않게 A반·B반으로 보여줍니다.
    * 저장 형식은 그대로 `과목-1반` 이며 화면 표기만 바꿉니다.
    */
-  /** 이 교시에 쓰는 분반 표기 방식. 교시별 지정이 없으면 설정의 기본값(가나다)을 씁니다. */
-  const banStyleOf = (slotIndex: number): BanLabelStyle =>
-    slotBanLabelStyle[slotIndex] ?? settings.banLabelStyle ?? 'ko';
-
-  /**
-   * 셀에 보여줄 이름을 만듭니다. 저장 형식은 그대로 `과목-1반`이고 표기만 바꿉니다.
-   * 교시·고사실별로 직접 지정한 이름이 있으면 그 이름을 씁니다.
-   */
-  const banLabel = (val: string, slotIndex?: number, roomId?: string): string => {
-    if (slotIndex !== undefined && roomId) {
-      const manual = slotBanLabels[slotIndex]?.[roomId];
-      if (manual) {
-        const hyphen = val.lastIndexOf('-');
-        return hyphen === -1 ? `${val}-${manual}` : `${val.slice(0, hyphen)}-${manual}`;
-      }
-    }
-    const style = slotIndex !== undefined ? banStyleOf(slotIndex) : (settings.banLabelStyle ?? 'ko');
-    // '표시 안 함'이면 분반 꼬리표를 통째로 떼고 과목 이름만 남깁니다.
-    if (style === 'none') return val.replace(/-\d+반\s*$/, '');
-    return val.replace(/-(\d+)반/g, (whole, n) => {
-      const letter = banLetter(Number(n), style);
-      return letter ? `-${letter}반` : whole;
-    });
-  };
-
   /**
    * 과목-분반 이름은 한 줄로 보여 줍니다.
    * 칸을 넘치면 줄을 바꾸는 대신 글자를 줄여 표의 높이를 일정하게 유지합니다.
@@ -104,6 +80,17 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     if (len <= 15) return steps[2];
     return steps[3];
   };
+
+  /** 화면과 인쇄물이 같은 규칙을 쓰도록 분반 표기 설정을 한 곳에서 만듭니다. */
+  const banLabelConfig = React.useMemo(
+    () => ({ defaultStyle: settings.banLabelStyle, slotStyle: slotBanLabelStyle, manual: slotBanLabels }),
+    [settings.banLabelStyle, slotBanLabelStyle, slotBanLabels]
+  );
+
+  const banStyleOf = (slotIndex: number) => banStyleForSlot(slotIndex, banLabelConfig);
+
+  const banLabel = (val: string, slotIndex?: number, roomId?: string): string =>
+    formatBanCell(val, slotIndex, roomId, banLabelConfig);
 
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
@@ -1764,7 +1751,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                   </th>
                 )}
                 <th colSpan={4} className={`py-1.5 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'text-[14.5px]' : 'text-[17px]'}`}>
-                  인원 요약 현황
+                  {stepMode === 7 ? '배정 가능 인원' : '인원 요약 현황'}
                 </th>
                 {rooms.map(r => {
                   // calculate total students placed in this room across all slots
@@ -2059,12 +2046,20 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                 onClick={e => {
                                   e.stopPropagation();
                                   handleCellClick(ps.index, r.id);
-                                  if (stepMode !== 7) handleCellDoubleClick(ps.index, r.id);
+                                  // 7번에서 과목-분반 글자를 누르면 그 교시의 분반 이름을 고치는 창이 열립니다.
+                                  if (stepMode === 7) {
+                                    if (!isWait && !isForbidden && cellVal) setBanLabelModal(ps.index);
+                                  } else {
+                                    handleCellDoubleClick(ps.index, r.id);
+                                  }
                                 }}
                               >
                                 <div className="flex flex-col items-center justify-center gap-0.5">
                                   <div
-                                    className={`font-black leading-tight whitespace-nowrap overflow-hidden ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-500' : `${color.text} hover:underline`}`}
+                                    className={`font-black leading-tight whitespace-nowrap overflow-hidden ${
+                                      isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-500' : `${color.text} hover:underline`
+                                    } ${stepMode === 7 && !isWait && cellVal ? 'cursor-text' : ''}`}
+                                    title={stepMode === 7 && !isWait && cellVal ? '눌러서 분반 이름을 고칩니다' : undefined}
                                     style={{ fontSize: `${cellLabelFontSize(stepMode === 7 && isWait ? '대기' : banLabel(cellVal, ps.index, r.id), isCompactFit)}px` }}
                                   >
                                     {stepMode === 7 && isWait

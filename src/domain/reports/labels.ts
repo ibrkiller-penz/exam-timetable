@@ -1,5 +1,6 @@
 import { LabelRow, PlacementSlot, PlacementGrid, ExamRoom, ExamDay, ExamTime, SubjectBanKey, SubjectBanEntry, DayLabel, PeriodLabel, isUsableRoom, isWaitCell } from '../types';
 import { onlySubject } from '../util/text';
+import { BanLabelConfig, banSuffix } from '../banLabel';
 
 export function buildLabels(
   placementSlots: PlacementSlot[],
@@ -7,7 +8,8 @@ export function buildLabels(
   rooms: ExamRoom[],
   days: ExamDay[],
   times: ExamTime[],
-  entries: Map<SubjectBanKey, SubjectBanEntry>
+  entries: Map<SubjectBanKey, SubjectBanEntry>,
+  banCfg?: BanLabelConfig
 ): LabelRow[] {
   const out: LabelRow[] = [];
   let seq = 0;
@@ -34,7 +36,8 @@ export function buildLabels(
         time: timeStr,
         subject: cleanSubject,
         examRoom: r.roomName,
-        classRoom: e ? e.room : banLabel,
+        // 화면에서 정한 분반 표기를 그대로 씁니다 (가나다 / ABC / 직접 지정 / 표시 안 함).
+        classRoom: banSuffix(e ? e.room : banLabel, ps.index, r.id, banCfg),
         stuCount: e ? e.stuCount : 0,
       });
     }
