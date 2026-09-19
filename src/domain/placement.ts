@@ -206,22 +206,38 @@ export function panelItems(
   const room = rooms.find(r => r.id === roomId);
   if (!ci || !ps || !room) return [];
 
-  const placedSet = new Set(Object.values(placement[i] ?? {}).filter(v => v.endsWith('반')));
+  // 이미 칸에 놓인 분반. 분반 이름이 'G1'처럼 '반'으로 끝나지 않을 수 있어
+  // '대기'와 '배치금지'만 걸러냅니다.
+  const placedSet = new Set(
+    Object.values(placement[i] ?? {}).filter(v => v && !isWaitCell(v) && !isForbiddenCell(v))
+  );
   const items: PanelItem[] = [];
 
   for (let sIdx = 0; sIdx < ps.subjects.length; sIdx++) {
     const s = ps.subjects[sIdx];
+
+    // 편성현황에 등록된 분반을 그대로 씁니다.
+    // 예전에는 '과목-1반, 과목-2반 …'이라고 이름을 지어내서, 편성현황의
+    // 분반 이름(학교지정-G1 등)과 맞지 않아 배치가 통째로 어긋났습니다.
+    const subEntries = Array.from(entries.values())
+      .filter(e => e.subject === s)
+      .sort((a, b) => a.index - b.index);
+
+    if (subEntries.length > 0) {
+      for (const e of subEntries) {
+        if (!placedSet.has(e.key)) {
+          items.push({ type: 'ban', key: e.key, room: e.room, count: `${e.stuCount}명` });
+        }
+      }
+      continue;
+    }
+
+    // 편성현황에 분반이 없을 때만 예전처럼 번호를 붙입니다.
     const bCount = ps.banCounts[sIdx] ?? 0;
     for (let n = 1; n <= bCount; n++) {
       const key = `${s}-${n}반`;
       if (!placedSet.has(key)) {
-        const e = entries.get(key);
-        items.push({
-          type: 'ban',
-          key,
-          room: e ? e.room : '',
-          count: e ? `${e.stuCount}명` : '',
-        });
+        items.push({ type: 'ban', key, room: '', count: '' });
       }
     }
   }
