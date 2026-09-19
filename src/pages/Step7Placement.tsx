@@ -276,6 +276,46 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     return { slotRow, slotPlacements, message: lines.join('\n') };
   };
 
+  /**
+   * 정원을 바꾼 뒤 그 교시의 배치 인원을 새 정원에 맞춰 다시 나눕니다.
+   * 7. 고사장 배치는 '몇 명을 받을 방인가'를 정하는 단계이므로, 정원을 줄이면
+   * 넘치는 인원이 다른 방으로 옮겨가야 합니다. 학생 개개인의 조정은 8. 학생 배치에서 합니다.
+   */
+  const rebalanceSlotAfterCapacityChange = (ps: PlacementSlot) => {
+    if (stages.stage4) return;
+
+    // 방금 바꾼 정원이 확실히 반영되도록 스토어에서 직접 읽습니다.
+    // 컴포넌트가 다시 그려지기 전에 호출될 수 있어 클로저 값은 한 박자 늦을 수 있습니다.
+    const live = useAppStore.getState();
+    const livePlacement = live.placement || {};
+    const nextRooms = roomsForSlot(rooms, ps.index, live.slotRoomCapacity, ps);
+    const nextPlacements = initSlotStudentPlacements(
+      ps.index,
+      livePlacement[ps.index] ?? {},
+      placementSlots,
+      nextRooms,
+      entries,
+      students,
+      neis,
+      undefined,
+      lockedCells[ps.index]
+    );
+
+    // 대기실 라벨(대기 - N명)도 새 인원으로 맞춥니다.
+    const row = { ...(livePlacement[ps.index] ?? {}) };
+    for (const r of rooms) {
+      const val = row[r.id];
+      if (!val || !isWaitCell(val)) continue;
+      const count = students.filter(st => nextPlacements[`${st.ban}-${st.num}`] === r.id).length;
+      if (count > 0) row[r.id] = `대기 - ${count}명`;
+      else delete row[r.id];
+    }
+
+    pushHistory(`[${ps.title}] 정원 변경에 따른 재배치`);
+    setPlacementGrid({ ...livePlacement, [ps.index]: row });
+    setSlotStudentPlacements(ps.index, nextPlacements);
+  };
+
   const handleToggleForbiddenCell = (slot?: number, roomId?: string) => {
     if (stages.stage4) return;
     const targetSlot = slot ?? selectedCell?.slot;
@@ -1854,7 +1894,21 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                             </>
                             )}
 
-                            {/* 미배치는 학생을 실제로 넣어본 결과라 8. 학생 배치에서만 다룹니다. */}
+                            {/* 7번에서는 학생 명단 대신 '정원이 모자라다'는 사실만 알립니다.
+                                정원 설계가 이 단계의 일이므로 숫자는 보여야 합니다. */}
+                            {stepMode === 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
+                              <div
+                                className={`w-full font-black bg-rose-100 text-rose-800 border border-rose-300 rounded-lg flex items-center justify-center gap-1 ${
+                                  isCompactFit ? 'text-[11.5px] px-1.5 py-0.5 mt-1' : 'text-[13px] px-2 py-1 mt-1.5'
+                                }`}
+                                title={`고사실 정원을 모두 더해도 ${sum.remaining.takers + sum.remaining.nonTakers}명이 들어갈 자리가 없습니다. 정원을 올리거나 대기실을 더 쓰세요.`}
+                              >
+                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                                <span>자리 부족 {sum.remaining.takers + sum.remaining.nonTakers}명</span>
+                              </div>
+                            )}
+
+                            {/* 미배치 학생 명단은 8. 학생 배치에서만 다룹니다. */}
                             {stepMode !== 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
                               <button
                                 onClick={() => handleOpenUnplacedModal(ps.index)}
@@ -2048,6 +2102,10 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                         const v = Number(e.target.value);
                                         setSlotRoomCapacity(ps.index, r.id, v > 0 ? v : null);
                                       }}
+                                      onBlur={() => rebalanceSlotAfterCapacityChange(ps)}
+                                      onKeyDown={e => {
+                                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                                      }}
                                       className={`px-1 py-0.5 border rounded-md text-center font-black disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#005691] ${
                                         isCompactFit ? 'w-14 text-[14px]' : 'w-[4.5rem] text-[16.5px]'
                                       } ${
@@ -2079,7 +2137,10 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                     </span>
                                     {hasCapOverride && !stages.stage4 && !isLocked && (
                                       <button
-                                        onClick={() => setSlotRoomCapacity(ps.index, r.id, null)}
+                                        onClick={() => {
+                                          setSlotRoomCapacity(ps.index, r.id, null);
+                                          setTimeout(() => rebalanceSlotAfterCapacityChange(ps), 0);
+                                        }}
                                         className="text-slate-400 hover:text-rose-700 transition"
                                         title={`기본 정원(${r.capacity}명)으로 되돌리기`}
                                       >
