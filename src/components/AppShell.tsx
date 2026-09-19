@@ -457,6 +457,10 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
 
             {!isLocal && (
               <>
+                {/* 오프라인 배포판은 우리 사이트에서 직접 받습니다.
+                    저장소가 비공개라 GitHub 릴리스 링크는 학교에서 404 가 납니다.
+                    zip 은 public/ 에 둡니다. 빌드가 dist 를 비워도 public/ 은 매번
+                    다시 복사되므로, 어떤 방식으로 배포하든 링크가 끊기지 않습니다. */}
                 <a
                   href="/ExamTimetable-Offline.zip"
                   download

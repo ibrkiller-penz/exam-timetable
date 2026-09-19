@@ -2,10 +2,13 @@
  * 오프라인 배포판 포장.
  *
  * 학교마다 USB로 복사해 인터넷 없이 쓰는 것이 목적입니다.
- * electron-builder 가 만든 win-unpacked 폴더(설치 없이 실행되는 형태)를 zip 으로 묶어
- * dist/ExamTimetable-Offline.zip 에 놓습니다. 앱의 "오프라인 로컬 버전 다운로드" 버튼이
- * 바로 이 경로(/ExamTimetable-Offline.zip)를 가리키므로, 이어서 firebase deploy 하면
- * 누구나 내려받을 수 있습니다.
+ * electron-builder 가 만든 win-unpacked 폴더(설치 없이 실행되는 형태)를 zip 으로 묶습니다.
+ * 결과물은 public/ExamTimetable-Offline.zip 에 놓습니다. 앱의 "오프라인 로컬 버전
+ * 다운로드" 버튼이 이 경로를 가리킵니다.
+ *
+ * dist/ 가 아니라 public/ 인 이유: vite build 가 dist 를 통째로 비우므로, dist 에 두면
+ * 다음 빌드 때 사라져 링크가 끊깁니다. public/ 은 빌드마다 dist 로 다시 복사됩니다.
+ * (저장소가 비공개라 GitHub 릴리스 링크는 학교에서 404 가 나므로 쓸 수 없습니다.)
  *
  * 왜 설치파일(NSIS)이 아니라 unpacked 폴더인가:
  *  - USB에 그대로 두고 더블클릭하면 됩니다. 관리자 권한도, 설치 단계도 없습니다.
@@ -22,15 +25,11 @@ const { execFileSync } = require('child_process');
 const projectRoot = path.resolve(__dirname, '..');
 const releaseDir = path.resolve(process.argv[2] || path.join(projectRoot, 'release'));
 const unpacked = path.join(releaseDir, 'win-unpacked');
-const distDir = path.join(projectRoot, 'dist');
-const zipPath = path.join(distDir, 'ExamTimetable-Offline.zip');
+const publicDir = path.join(projectRoot, 'public');
+const zipPath = path.join(publicDir, 'ExamTimetable-Offline.zip');
 
 if (!fs.existsSync(path.join(unpacked, '시험시간표.exe'))) {
   console.error(`win-unpacked 에 exe 가 없습니다: ${unpacked}\n먼저 electron-builder --win 을 돌리세요.`);
-  process.exit(1);
-}
-if (!fs.existsSync(distDir)) {
-  console.error('dist/ 가 없습니다. 먼저 npm run build 를 돌리세요.');
   process.exit(1);
 }
 

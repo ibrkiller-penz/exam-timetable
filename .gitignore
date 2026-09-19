@@ -45,3 +45,6 @@ public/*.zip
 # electron-builder 재시도용 임시 출력 폴더와 로그
 release-*/
 release-*.log
+
+# 오프라인 배포판 zip — 빌드 산출물이라 저장소에 넣지 않습니다.
+public/ExamTimetable-Offline.zip
