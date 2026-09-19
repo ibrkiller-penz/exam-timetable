@@ -64,16 +64,37 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           <div>
             <label className="block font-normal text-gray-700 mb-1">
-              좌석배치도 기본 열 수
+              좌석배치도 기본 행렬
             </label>
-            <input
-              type="number"
-              min={3}
-              max={8}
-              value={settings.seatColumns}
-              onChange={e => updateSettings({ seatColumns: Number(e.target.value) || 5 })}
-              className="w-full px-3 py-1.5 border border-gray-300 rounded-lg"
-            />
+            <div className="flex items-center gap-2">
+              <div className="flex-1">
+                <span className="block text-xs text-gray-500 mb-1">열 (가로 줄 수)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={12}
+                  value={settings.seatColumns}
+                  onChange={e => updateSettings({ seatColumns: Number(e.target.value) || 5 })}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg"
+                />
+              </div>
+              <span className="text-gray-400 font-bold mt-5">×</span>
+              <div className="flex-1">
+                <span className="block text-xs text-gray-500 mb-1">행 (한 줄당 좌석 수)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={20}
+                  value={settings.seatsPerColumn}
+                  onChange={e => updateSettings({ seatsPerColumn: Number(e.target.value) || 8 })}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg"
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              한 고사실에 {(settings.seatColumns || 5) * (settings.seatsPerColumn || 8)}석이 그려집니다.
+              고사실마다 다르게 하려면 10-4 좌석배치도에서 바꿉니다.
+            </p>
           </div>
 
           <div className="flex items-center justify-between pt-2">
