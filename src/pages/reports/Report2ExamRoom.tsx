@@ -19,8 +19,13 @@ export const Report2ExamRoom: React.FC = () => {
 
   const report = buildExamRoomReport(attendance, selectedDay, selectedPeriod, curRoom, rooms);
 
-  const leftCol = report ? report.students.slice(0, 25) : [];
-  const rightCol = report ? report.students.slice(25, 50) : [];
+  // 한 장에 40명(20명 × 2줄)까지 싫습니다.
+  // 50칸을 한 장에 욱여넣으면 줄이 눈려 읽기 힘들고, 빈 칸도 많이 남습니다.
+  const PER_PAGE = 40;
+  const PER_COL = PER_PAGE / 2;
+  const all = report ? report.students : [];
+  const pageCount = Math.max(1, Math.ceil(all.length / PER_PAGE));
+  const pages = Array.from({ length: pageCount }, (_, i) => all.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
 
   const dayDate = days[Number(selectedDay.replace('일차', '')) - 1]?.date ?? '';
 
@@ -77,80 +82,70 @@ export const Report2ExamRoom: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="고사실 명단" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />
       ) : (
-        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
-          <h1 className="text-center font-extrabold text-2xl mb-6 text-[#005691]">
-            {report.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표'}
-          </h1>
+        <div className="flex flex-col gap-8">
+          {pages.map((pageStudents, pageIdx) => (
+            <div
+              key={pageIdx}
+              className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
+            >
+              <div className="flex items-center justify-center gap-3 mb-6">
+                <h1 className="text-center font-extrabold text-2xl text-[#005691]">
+                  {report.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표'}
+                </h1>
+                {/* 두 장 이상이면 몇 번째 장인지 밝혀 놓습니다. */}
+                {pageCount > 1 && (
+                  <span className="text-[15px] font-black text-slate-700 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-0.5">
+                    #{pageIdx + 1} / {pageCount}
+                  </span>
+                )}
+              </div>
 
-          <div className="border border-gray-800 grid grid-cols-5 text-center text-xs mb-4">
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">시행일</div>
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">교시</div>
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">고사실</div>
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">과목(단위)</div>
-            <div className="py-1.5 bg-gray-100 font-bold">응시인원</div>
+              <div className="border border-gray-800 grid grid-cols-5 text-center text-xs mb-4">
+                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">시행일</div>
+                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">교시</div>
+                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">고사실</div>
+                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">과목(단위)</div>
+                <div className="py-1.5 bg-gray-100 font-bold">응시인원</div>
 
-            <div className="py-1.5 border-t border-r border-gray-800">{dayDate || '-'}</div>
-            <div className="py-1.5 border-t border-r border-gray-800">{report.period}</div>
-            <div className="py-1.5 border-t border-r border-gray-800 font-bold">{report.examRoom}</div>
-            <div className="py-1.5 border-t border-r border-gray-800 font-semibold">{report.subject}</div>
-            <div className="py-1.5 border-t border-gray-800 font-bold text-[#005691]">{report.totalStudents}명</div>
-          </div>
+                <div className="py-1.5 border-t border-r border-gray-800">{dayDate || '-'}</div>
+                <div className="py-1.5 border-t border-r border-gray-800">{report.period}</div>
+                <div className="py-1.5 border-t border-r border-gray-800 font-bold">{report.examRoom}</div>
+                <div className="py-1.5 border-t border-r border-gray-800 font-semibold">{report.subject}</div>
+                <div className="py-1.5 border-t border-gray-800 font-bold text-[#005691]">{report.totalStudents}명</div>
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            {/* Left 25 */}
-            <table className="w-full text-xs text-center border-collapse border border-gray-800">
-              <thead className="bg-gray-100 border-b border-gray-800">
-                <tr className="divide-x divide-gray-800">
-                  <th className="py-1.5 px-1 w-10">연번</th>
-                  <th className="py-1.5 px-2">학번</th>
-                  <th className="py-1.5 px-2">성명</th>
-                  <th className="py-1.5 px-2 w-14">좌석</th>
-                  <th className="py-1.5 px-2 w-14">비고</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {Array.from({ length: 25 }).map((_, i) => {
-                  const s = leftCol[i];
-                  return (
-                    <tr key={i} className="divide-x divide-gray-800 h-7">
-                      <td>{s ? s.seq : i + 1}</td>
-                      <td className="font-medium">{s?.hakbun || ''}</td>
-                      <td className="font-bold">{s?.name ? displayName(s.name) : ''}</td>
-                      <td className="font-extrabold text-red-800">{s?.seat || ''}</td>
-                      <td className="text-[10px] font-bold text-slate-700 whitespace-nowrap">{s?.note || ''}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-
-            {/* Right 25 */}
-            <table className="w-full text-xs text-center border-collapse border border-gray-800">
-              <thead className="bg-gray-100 border-b border-gray-800">
-                <tr className="divide-x divide-gray-800">
-                  <th className="py-1.5 px-1 w-10">연번</th>
-                  <th className="py-1.5 px-2">학번</th>
-                  <th className="py-1.5 px-2">성명</th>
-                  <th className="py-1.5 px-2 w-14">좌석</th>
-                  <th className="py-1.5 px-2 w-14">비고</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-800">
-                {Array.from({ length: 25 }).map((_, i) => {
-                  const s = rightCol[i];
-                  return (
-                    <tr key={i} className="divide-x divide-gray-800 h-7">
-                      <td>{s ? s.seq : i + 26}</td>
-                      <td className="font-medium">{s?.hakbun || ''}</td>
-                      <td className="font-bold">{s?.name ? displayName(s.name) : ''}</td>
-                      <td className="font-extrabold text-red-800">{s?.seat || ''}</td>
-                      <td></td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                {[0, 1].map(colIdx => (
+                  <table key={colIdx} className="w-full text-xs text-center border-collapse border border-gray-800">
+                    <thead className="bg-gray-100 border-b border-gray-800">
+                      <tr className="divide-x divide-gray-800">
+                        <th className="py-1.5 px-1 w-10">연번</th>
+                        <th className="py-1.5 px-2">학번</th>
+                        <th className="py-1.5 px-2">성명</th>
+                        <th className="py-1.5 px-2 w-14">좌석</th>
+                        <th className="py-1.5 px-2 w-16">비고</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {Array.from({ length: PER_COL }).map((_, i) => {
+                        const s = pageStudents[colIdx * PER_COL + i];
+                        const blankSeq = pageIdx * PER_PAGE + colIdx * PER_COL + i + 1;
+                        return (
+                          <tr key={i} className="divide-x divide-gray-800 h-7">
+                            <td>{s ? s.seq : blankSeq}</td>
+                            <td className="font-medium">{s?.hakbun || ''}</td>
+                            <td className="font-bold">{s?.name ? displayName(s.name) : ''}</td>
+                            <td className="font-extrabold text-red-800">{s?.seat || ''}</td>
+                            <td className="text-[10px] font-bold text-slate-700 whitespace-nowrap">{s?.note || ''}</td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                ))}
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
