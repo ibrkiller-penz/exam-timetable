@@ -9,7 +9,8 @@
     "build:local": "npm run build && node scripts/deploy-local.cjs",
     "preview": "vite preview",
     "test": "vitest run",
-    "dist:win": "npm run build && electron-builder --win"
+    "dist:win": "npm run build && electron-builder --win",
+    "dist:offline": "npm run build && electron-builder --win && node scripts/package-offline.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
@@ -26,6 +27,7 @@
     "jspdf": "^4.2.1",
     "lucide-react": "^0.475.0",
     "lz-string": "^1.5.0",
+    "pretendard": "^1.3.9",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "tailwind-merge": "^3.0.1",

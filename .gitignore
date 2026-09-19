@@ -41,3 +41,7 @@ public/*.zip
 
 # Vite entry point must be tracked (the *.html rule above would exclude it)
 !index.html
+
+# electron-builder 재시도용 임시 출력 폴더와 로그
+release-*/
+release-*.log
