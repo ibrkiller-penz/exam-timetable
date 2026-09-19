@@ -1,10 +1,11 @@
 import { create } from 'zustand';
-import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis, SeparateExaminer } from '../domain/types';
+import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis, SeparateExaminer, separateRoomFor, AttendanceRow } from '../domain/types';
 import { createInitialDays, createInitialTimes, createInitialTimetable, APP_VERSION } from '../domain/constants';
 import { MSG } from '../domain/messages';
 import { confirmStage1, cancelStage1, confirmStage2, cancelStage2, confirmStage3, cancelStage3, confirmStage4, cancelStage4, confirmStage5, cancelStage5 } from '../domain/stages';
 import { moveToConvenience, deleteStudent, buildSubjectTables, buildRooms, normalizeNeisRooms } from '../domain/baseData';
 import { buildTakers, buildStudents } from '../domain/subjects';
+import { buildPlacementInfo } from '../domain/placementInfo';
 import { recommendIdealTimetable, RecommendationResult } from '../domain/recommendTimetable';
 import { initSlotStudentPlacements, sanitizePlacementGrid } from '../domain/autoPlace';
 import { subjectBanEntries } from '../domain/placement';
@@ -205,6 +206,8 @@ interface AppStoreActions {
   clearAllPlacement: () => void;
   /** 별도 고사장 응시자를 지정하거나 해제합니다. entry가 null이면 해제입니다. */
   setSeparateExaminer: (studentKey: string, entry: SeparateExaminer | null) => void;
+  /** 지정된 별도 응시자를 응시현황에 다시 반영하고, 바뀐 줄 수를 돌려줍니다. */
+  syncSeparateExaminers: () => number;
   /** 모든 칸의 잠금 상태를 한꺼번에 바꿉니다. */
   setAllLockedCells: (locked: Record<number, Record<string, boolean>>) => void;
   confirmStage4: () => string[]; // returns notices
@@ -223,6 +226,41 @@ interface AppStoreActions {
 }
 
 export type AppStore = AppState & AppStoreActions;
+
+/**
+ * 별도 응시자 지정을 응시현황(attendance)에 반영합니다.
+ *
+ * 1) 그 학생의 줄에 별도실 번호를 답니다.
+ * 2) 그 학생이 빠지거나 돌아온 고사실은 좌석 번호를 다시 매깁니다.
+ *    빠진 자리를 비워 두면 좌석배치도에 구멍이 생기고, 명단의 좌석 번호와도
+ *    어긋납니다.
+ */
+function applySeparateToAttendance(state: AppState, map: Record<string, SeparateExaminer>): AttendanceRow[] {
+  if (!state.attendance || state.attendance.length === 0) return state.attendance;
+
+  const slots = buildPlacementInfo(state.timetable, state.students, state.evalSubjects);
+  const slotOf = new Map(slots.map(ps => [`${ps.day}일차${ps.period}교시`, ps.index]));
+
+  const marked = state.attendance.map(r => {
+    const slotIndex = slotOf.get(`${r.day}${r.period}`);
+    const room = slotIndex === undefined ? undefined : separateRoomFor(`${r.ban}-${r.num}`, slotIndex, map);
+    return room === r.separateRoom ? r : { ...r, separateRoom: room };
+  });
+
+  // 좌석은 고사실마다 1번부터 빈틈없이 이어져야 합니다.
+  const seatCounter = new Map<string, number>();
+  return [...marked]
+    .sort((a, b) => a.seq - b.seq)
+    .map(r => {
+      const key = `${r.day}|${r.period}|${r.examRoom}`;
+      if (r.separateRoom) {
+        return r.seat === null ? r : { ...r, seat: null, key2: `${r.day}${r.period}${r.examRoom}_` };
+      }
+      const n = (seatCounter.get(key) ?? 0) + 1;
+      seatCounter.set(key, n);
+      return r.seat === n ? r : { ...r, seat: n, key2: `${r.day}${r.period}${r.examRoom}_${n}` };
+    });
+}
 
 export const useAppStore = create<AppStore>((set, get) => ({
   ...createInitialState(),
@@ -1565,13 +1603,34 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setSeparateExaminer: (studentKey, entry) => {
     set(state => {
-      const next_ = { ...(state.separateExaminers ?? {}) };
-      if (entry) next_[studentKey] = entry;
-      else delete next_[studentKey];
-      const next = { ...state, separateExaminers: next_ };
+      const nextMap = { ...(state.separateExaminers ?? {}) };
+      if (entry) nextMap[studentKey] = entry;
+      else delete nextMap[studentKey];
+
+      // 응시현황은 8단계를 확정할 때 한 번 만들어집니다. 별도 응시자는 그 뒤에
+      // 지정하게 되는데, 표시가 응시현황에 남지 않으면 명단 비고도 좌석배치도도
+      // 그대로입니다. 지정하는 즉시 반영합니다.
+      const next = { ...state, separateExaminers: nextMap, attendance: applySeparateToAttendance(state, nextMap) };
       saveStateToIdb(next);
       return next;
     });
+  },
+
+  /**
+   * 지금 지정된 별도 응시자를 응시현황에 통째로 다시 반영합니다.
+   * 이 기능이 생기기 전에 지정해 둔 자료를 맞출 때 씁니다.
+   */
+  syncSeparateExaminers: () => {
+    let changed = 0;
+    set(state => {
+      const map = state.separateExaminers ?? {};
+      const attendance = applySeparateToAttendance(state, map);
+      changed = attendance.reduce((n, r, i) => (r === state.attendance[i] ? n : n + 1), 0);
+      const next = { ...state, attendance };
+      saveStateToIdb(next);
+      return next;
+    });
+    return changed;
   },
 
   clearAllPlacement: () => {

@@ -38,6 +38,8 @@ export interface SheetSpec {
   landscape?: boolean;
   /** 숫자로 두어야 계산이 되는 열 (0부터). */
   numericCols?: number[];
+  /** 글자와 줄 높이를 더 키웁니다 (좌석배치도처럼 멀리서 보는 표). */
+  big?: boolean;
 }
 
 /** 시트 이름에 못 쓰는 글자를 걸러내고 31자로 자릅니다. */
@@ -67,7 +69,10 @@ export function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec, used: Set<string
       fitToPage: true,
       fitToWidth: 1,
       fitToHeight: 0,
-      margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.2, footer: 0.2 },
+      // 종이 한가운데 놓습니다. 왼쪽 위에 몰려 있으면 여백만 넓고 표는 작아 보입니다.
+      horizontalCentered: true,
+      verticalCentered: spec.rows.length <= 30,
+      margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0.2, footer: 0.2 },
     },
   });
 
@@ -84,9 +89,9 @@ export function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec, used: Set<string
     r++;
     const row = ws.getRow(r);
     row.getCell(1).value = spec.title;
-    row.getCell(1).font = { name: '맑은 고딕', size: 16, bold: true, color: { argb: NAVY } };
+    row.getCell(1).font = { name: '맑은 고딕', size: 20, bold: true, color: { argb: NAVY } };
     row.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' };
-    row.height = 26;
+    row.height = 32;
     ws.mergeCells(`A${r}:${lastCol}${r}`);
   }
 
@@ -94,9 +99,9 @@ export function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec, used: Set<string
     r++;
     const row = ws.getRow(r);
     row.getCell(1).value = spec.subtitle;
-    row.getCell(1).font = { name: '맑은 고딕', size: 10, color: { argb: 'FF64748B' } };
+    row.getCell(1).font = { name: '맑은 고딕', size: 11, color: { argb: 'FF64748B' } };
     row.getCell(1).alignment = { horizontal: 'center' };
-    row.height = 16;
+    row.height = 19;
     ws.mergeCells(`A${r}:${lastCol}${r}`);
   }
 
@@ -109,12 +114,12 @@ export function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec, used: Set<string
     h.forEach((v, i) => {
       const cell = row.getCell(i + 1);
       cell.value = v ?? '';
-      cell.font = { name: '맑은 고딕', size: 10, bold: true, color: { argb: 'FF00426E' } };
+      cell.font = { name: '맑은 고딕', size: spec.big ? 13 : 11, bold: true, color: { argb: 'FF00426E' } };
       cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: HEAD_BG } };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = boxed;
     });
-    row.height = 20;
+    row.height = spec.big ? 26 : 22;
   }
   const headerEnd = r;
 
@@ -126,11 +131,11 @@ export function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec, used: Set<string
       const v = dataRow[i];
       const numeric = spec.numericCols?.includes(i) && v !== '' && v !== null && v !== undefined && !isNaN(Number(v));
       cell.value = numeric ? Number(v) : (v ?? '');
-      cell.font = { name: '맑은 고딕', size: 10 };
+      cell.font = { name: '맑은 고딕', size: spec.big ? 13 : 11 };
       cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
       cell.border = boxed;
     }
-    row.height = 18;
+    row.height = spec.big ? 24 : 20;
   }
 
   // 열 너비 — 없으면 머리글과 내용 중 가장 긴 것에 맞춥니다.
@@ -145,7 +150,7 @@ export function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec, used: Set<string
       ...spec.rows.map(row => textWidth(row[i])),
       4
     );
-    ws.getColumn(i + 1).width = Math.min(Math.max(widest + 2.5, 6), 40);
+    ws.getColumn(i + 1).width = Math.min(Math.max(widest + 3.5, spec.big ? 12 : 7), 42);
   }
 
   spec.merges?.forEach(range => {

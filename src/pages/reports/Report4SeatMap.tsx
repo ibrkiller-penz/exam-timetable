@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
+import { usePrintAll } from './usePrintAll';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
@@ -23,6 +24,7 @@ export const Report4SeatMap: React.FC = () => {
   const curLayout = roomObj?.layoutDirection ?? settings.seatLayoutDirection ?? 'col';
 
   // 지금 열·행·배치순서를 어느 고사실에 옮길지 고르는 창.
+  const { printingAll, printAll } = usePrintAll();
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyTargets, setApplyTargets] = useState<string[]>([]);
 
@@ -128,6 +130,14 @@ export const Report4SeatMap: React.FC = () => {
         </div>
 
         <button
+          onClick={printAll}
+          disabled={!stages.stage5}
+          className="px-4 py-2 bg-[#00426e] hover:bg-[#003356] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
+          title="이 교시의 모든 고사실을 한 번에 인쇄합니다."
+        >
+          <Printer className="w-4 h-4" /> 전체 출력
+        </button>
+        <button
           onClick={() => window.print()}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
@@ -156,7 +166,8 @@ export const Report4SeatMap: React.FC = () => {
                 subtitle: `${dayDate || ''} ${rep.period} · ${rep.examRoom} · ${rep.subject} · ${rep.totalStudents}명 — 위쪽이 교탁입니다.`,
                 headers: [rep.grid.map((_, i) => `${i + 1}열`)],
                 rows: body,
-                widths: rep.grid.map(() => 13),
+                widths: rep.grid.map(() => 15),
+                big: true,
                 landscape: rep.columns >= 6,
               };
             }).filter((x): x is NonNullable<typeof x> => Boolean(x));

@@ -16,7 +16,8 @@ import { ReportGate } from './ReportGate';
  */
 export const Report8SeparateRoom: React.FC = () => {
   const { students, settings, separateExaminers = {}, setSeparateExaminer, attendance, stages,
-          placement, studentPlacements = {}, rooms } = useAppStore();
+          placement, studentPlacements = {}, rooms, syncSeparateExaminers } = useAppStore();
+  const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const placementSlots = useAppStore(selPlacementSlots);
 
   const [tab, setTab] = useState<'manage' | 'print'>('manage');
@@ -151,6 +152,22 @@ export const Report8SeparateRoom: React.FC = () => {
           <span className="text-[13px] text-slate-500">
             지정된 학생 <strong className="text-[#005691]">{checkedCount}명</strong> · 별도실 {roomCount}실
           </span>
+          {/* 지정은 누를 때마다 바로 반영됩니다.
+              이 버튼은 이 기능이 생기기 전에 지정해 둔 자료를 맞출 때 씁니다. */}
+          {tab === 'manage' && (
+            <button
+              onClick={() => {
+                const n = syncSeparateExaminers();
+                setSyncMsg(n > 0 ? `응시현황 ${n}줄을 다시 맞춰 놓았습니다.` : '이미 모두 맞춰져 있습니다.');
+                setTimeout(() => setSyncMsg(null), 3000);
+              }}
+              className="px-3 py-1.5 bg-white hover:bg-blue-50 text-slate-600 hover:text-[#005691] border border-gray-300 hover:border-[#005691] rounded-lg text-[13px] font-bold transition"
+              title="지금 지정된 별도 응시자를 응시현황·명단·좌석배치도에 다시 반영합니다."
+            >
+              응시현황에 반영
+            </button>
+          )}
+          {syncMsg && <span className="text-[13px] font-bold text-emerald-700">{syncMsg}</span>}
         </div>
 
         {tab === 'print' && (
