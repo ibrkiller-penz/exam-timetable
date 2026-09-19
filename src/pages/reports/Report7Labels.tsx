@@ -6,8 +6,6 @@ import { downloadWorkbook } from '../../utils/excelStyled';
 import { onlySubject } from '../../domain/util/text';
 import { PrintPageSize } from './PrintPageSize';
 import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 
 /**
  * 봉투 라벨의 과목명 글자 크기.
@@ -210,6 +208,8 @@ export const Report7Labels: React.FC = () => {
     setPdfProgress({ current: 1, total: pages.length });
 
     try {
+      // 무거운 라이브러리라 여기서 불러옵니다. 라벨을 안 뽑는 사람은 받지 않습니다.
+      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([import('jspdf'), import('html2canvas')]);
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'mm',

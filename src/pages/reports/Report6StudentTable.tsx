@@ -1,7 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { displayName } from '../../domain/privacy';
-import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/appStore';
 import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
@@ -158,6 +156,8 @@ export const Report6StudentTable: React.FC = () => {
     setPdfProgress({ current: 1, total: pages.length });
 
     try {
+      // 무거운 라이브러리라 여기서 불러옵니다. 수험표를 안 뽑는 사람은 받지 않습니다.
+      const [{ jsPDF }, { default: html2canvas }] = await Promise.all([import('jspdf'), import('html2canvas')]);
       const pdf = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
