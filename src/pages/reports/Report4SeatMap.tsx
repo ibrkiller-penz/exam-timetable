@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
+import { ReportSheetHeader } from './ReportSheetHeader';
 import { usePrintAll } from './usePrintAll';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -189,26 +190,19 @@ export const Report4SeatMap: React.FC = () => {
            제목을 크게 쓰고, 좌석 칸이 페이지를 꽉 채우도록 늘립니다.
            열이 많으면 세로 A4에 칸이 눌려 이름이 읽히지 않으므로 가로로 눕힙니다. */
         <div className={`print-page ${report.columns >= 6 ? 'page-landscape' : 'page-portrait'} bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto flex flex-col`}>
-          <h1 className="text-center font-black text-[40px] leading-none mb-1 text-[#005691] tracking-tight">
-            {report.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도'}
-          </h1>
-          <p className="text-center text-[22px] font-black text-slate-800 mb-4">
-            {report.examRoom} · {report.period} · {report.subject}
-          </p>
-
-          <div className="w-full border-2 border-gray-800 grid text-center text-[14px] mb-4 shrink-0" style={{ gridTemplateColumns: '1.5fr 0.9fr 1fr 1.7fr 1fr' }}>
-            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">시행일</div>
-            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">교시</div>
-            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">고사실</div>
-            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">과목(단위)</div>
-            <div className="py-1.5 bg-gray-100 font-black">응시인원</div>
-
-            <div className="py-2 border-t border-r border-gray-800 font-bold">{dayDate || '-'}</div>
-            <div className="py-2 border-t border-r border-gray-800 font-bold">{report.period}</div>
-            <div className="py-2 border-t border-r border-gray-800 font-black text-[17px]">{report.examRoom}</div>
-            <div className="py-2 border-t border-r border-gray-800 font-bold">{report.subject}</div>
-            <div className="py-2 border-t border-gray-800 font-black text-[17px] text-[#005691]">{report.totalStudents}명</div>
-          </div>
+          <ReportSheetHeader
+            title={report.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도'}
+            subtitle={`${report.examRoom} · ${report.period} · ${report.subject}`}
+            infoColumns="1.5fr 0.9fr 1fr 1.7fr 1fr"
+            emphasize={[2, 4]}
+            info={[
+              ['시행일', dayDate || '-'],
+              ['교시', report.period],
+              ['고사실', report.examRoom],
+              ['과목(단위)', report.subject],
+              ['응시인원', `${report.totalStudents}명`],
+            ]}
+          />
 
           {/* 교탁 — 어느 쪽이 앞인지 한눈에 보여야 자리를 제대로 찾습니다. */}
           <div className="flex justify-center mb-3 shrink-0">

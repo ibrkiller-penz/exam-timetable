@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
+import { ReportSheetHeader } from './ReportSheetHeader';
 import { buildClassTableReport } from '../../domain/reports/classTable';
 import { DayIdx } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
@@ -117,19 +118,18 @@ export const Report5ClassTable: React.FC = () => {
                 key={pageIdx}
                 className="print-page page-portrait bg-white border border-gray-300 p-8 print:p-3 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
-                {/* 교실에 붙이는 종이라 멀리서도 어느 반 며칠째인지 보여야 합니다. */}
-                <div className="flex justify-between items-end mb-5 gap-4">
-                  <div>
-                    <h1 className="font-black text-[34px] print:text-[28px] leading-none text-[#005691] tracking-tight">
-                      {report.ban} 시험시간표
-                      {cnt > 1 && <span className="text-[17px] text-slate-500 ml-2">#{pageIdx + 1}/{cnt}</span>}
-                    </h1>
-                    <p className="text-[17px] print:text-[15px] font-black text-slate-700 mt-1.5">
-                      {report.day}일차 · 소속 고사실 {actualRoomName || '없음'}
-                    </p>
-                  </div>
-                  <span className="font-black text-[24px] print:text-[20px] text-slate-800 whitespace-nowrap">{dateFormatted}</span>
-                </div>
+                <ReportSheetHeader
+                  title={`${report.ban} 시험시간표`}
+                  subtitle={`${report.day}일차 · ${dateFormatted}`}
+                  pageLabel={cnt > 1 ? `#${pageIdx + 1} / ${cnt}` : undefined}
+                  emphasize={[1, 3]}
+                  info={[
+                    ['학급', report.ban],
+                    ['소속 고사실', actualRoomName || '없음'],
+                    ['시행일', dateFormatted || '-'],
+                    ['인원', `${report.students.length}명`],
+                  ]}
+                />
 
                 <table className="w-full table-fixed text-[14px] print:text-[13px] text-center border-collapse border-2 border-gray-800">
                   {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}

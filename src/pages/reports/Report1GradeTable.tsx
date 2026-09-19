@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppStore } from '../../store/appStore';
 import { selPlacementSlots, selSubjectBanEntries } from '../../store/selectors';
 import { buildGradeTable } from '../../domain/reports/gradeTable';
+import { ReportSheetHeader } from './ReportSheetHeader';
 import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
@@ -84,14 +85,11 @@ export const Report1GradeTable: React.FC = () => {
               key={pageIdx}
               className="print-page page-landscape bg-white border border-gray-300 p-6 print:p-2 rounded-xl shadow-xs print:border-none print:shadow-none"
             >
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <h1 className="text-center font-extrabold text-2xl text-[#005691]">{meta.title}</h1>
-                {pages.length > 1 && (
-                  <span className="text-[14px] font-black text-slate-600 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-0.5">
-                    #{pageIdx + 1} / {pages.length}
-                  </span>
-                )}
-              </div>
+              <ReportSheetHeader
+                title={meta.title}
+                subtitle="고사실별 시험시간표 — 윗줄은 과목, 아랫줄은 응시 인원입니다."
+                pageLabel={pages.length > 1 ? `#${pageIdx + 1} / ${pages.length}` : undefined}
+              />
 
               <table className="w-full text-[11.5px] print:text-[10.5px] text-center border-collapse table-fixed break-words">
                 <thead>

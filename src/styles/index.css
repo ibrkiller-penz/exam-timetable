@@ -99,15 +99,19 @@
     gap: 0 !important;
   }
 
-  /* 인쇄할 때는 용지가 크기를 정하므로, 화면용으로 잡아 둔 치수를 풉니다. */
+  /* 인쇄 폭을 못 박습니다.
+     auto로 두면 바깥 상자가 얼마나 넓은지에 따라 표가 좁게 나옵니다.
+     용지에서 여백을 뺀 만큼(A4 세로 210-12*2, 가로 297-10*2)을 그대로 씁니다. */
   .print-page {
-    width: auto !important;
     max-width: none !important;
     min-height: 0 !important;
     border: none !important;
     box-shadow: none !important;
     border-radius: 0 !important;
+    margin: 0 !important;
   }
+  .print-page.page-portrait { width: 186mm !important; }
+  .print-page.page-landscape { width: 277mm !important; }
 
   /* 표의 음영과 글자색이 그대로 찍히도록 합니다. */
   *, *::before, *::after {

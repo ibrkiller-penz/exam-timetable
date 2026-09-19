@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
+import { ReportSheetHeader } from './ReportSheetHeader';
 import { usePrintAll } from './usePrintAll';
 import { buildRoomTimetableReport } from '../../domain/reports/roomTimetable';
 import { Printer, Download} from 'lucide-react';
@@ -93,20 +94,17 @@ export const Report3RoomTimetable: React.FC = () => {
         if (!rep) return null;
         return (
         <div key={rm.id} className="print-page page-landscape bg-white border border-gray-300 p-8 print:p-4 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
-          {/* 교실 문에 붙이는 종이입니다. 고사실 이름이 제목만큼 커야 복도에서 찾습니다. */}
-          <div className="flex justify-between items-end mb-5 gap-4 border-b-4 border-[#005691] pb-3">
-            <div>
-              <h1 className="font-black text-[34px] leading-none text-[#005691] tracking-tight">고사실 시험시간표</h1>
-              <p className="text-[15px] font-bold text-slate-500 mt-1.5">교시별 시험 과목과 응시 인원입니다.</p>
-            </div>
-            <div className="text-right shrink-0">
-              <div className="text-[13px] font-bold text-slate-400">고사실</div>
-              <div className="font-black text-[38px] leading-none text-slate-900 tracking-tight">{rm.roomName}</div>
-              {rm.banName && rm.banName !== rm.roomName && (
-                <div className="text-[14px] font-bold text-slate-500 mt-0.5">{rm.banName}</div>
-              )}
-            </div>
-          </div>
+          <ReportSheetHeader
+            title="고사실 시험시간표"
+            subtitle={`${rm.roomName}${rm.banName && rm.banName !== rm.roomName ? ` (${rm.banName})` : ''}`}
+            emphasize={[0, 2]}
+            info={[
+              ['고사실', rm.roomName],
+              ['소속반', rm.banName || '-'],
+              ['시험 일수', `${rep.activeDays.length}일`],
+              ['하루 교시', `${rep.activePeriods.length}교시`],
+            ]}
+          />
 
           <table className="w-full text-[15px] print:text-[14px] text-center border-collapse">
             <thead>

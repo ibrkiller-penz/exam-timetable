@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
+import { ReportSheetHeader } from './ReportSheetHeader';
 import { usePrintAll } from './usePrintAll';
 import { buildExamRoomReport } from '../../domain/reports/examRoom';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -121,30 +122,20 @@ export const Report2ExamRoom: React.FC = () => {
                 key={`${rn}-${pageIdx}`}
                 className="print-page page-portrait bg-white border border-gray-300 p-8 print:p-3 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
-                <div className="flex items-center justify-center gap-3 mb-4">
-                  <h1 className="text-center font-black text-[34px] print:text-[26px] leading-none text-[#005691] tracking-tight">
-                    {rep.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표'}
-                  </h1>
-                  {cnt > 1 && (
-                    <span className="text-[15px] font-black text-slate-700 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-0.5">
-                      #{pageIdx + 1} / {cnt}
-                    </span>
-                  )}
-                </div>
-
-                <div className="w-full border-2 border-gray-800 grid text-center text-[13.5px] print:text-[12px] mb-3" style={{ gridTemplateColumns: '1.5fr 0.9fr 1fr 1.7fr 1fr' }}>
-                  <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">시행일</div>
-                  <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">교시</div>
-                  <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">고사실</div>
-                  <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">과목(단위)</div>
-                  <div className="py-1.5 bg-gray-100 font-black">응시인원</div>
-
-                  <div className="py-1.5 border-t border-r border-gray-800">{dayDate || '-'}</div>
-                  <div className="py-1.5 border-t border-r border-gray-800">{rep.period}</div>
-                  <div className="py-1.5 border-t border-r border-gray-800 font-black text-[17px] print:text-[15px]">{rep.examRoom}</div>
-                  <div className="py-1.5 border-t border-r border-gray-800 font-semibold">{rep.subject}</div>
-                  <div className="py-1.5 border-t border-gray-800 font-black text-[17px] print:text-[15px] text-[#005691]">{rep.totalStudents}명</div>
-                </div>
+                <ReportSheetHeader
+                  title={rep.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표'}
+                  subtitle={`${rep.examRoom} · ${rep.period} · ${rep.subject}`}
+                  pageLabel={cnt > 1 ? `#${pageIdx + 1} / ${cnt}` : undefined}
+                  infoColumns="1.5fr 0.9fr 1fr 1.7fr 1fr"
+                  emphasize={[2, 4]}
+                  info={[
+                    ['시행일', dayDate || '-'],
+                    ['교시', rep.period],
+                    ['고사실', rep.examRoom],
+                    ['과목(단위)', rep.subject],
+                    ['응시인원', `${rep.totalStudents}명`],
+                  ]}
+                />
 
                 <div className="grid grid-cols-2 gap-3">
                   {[0, 1].map(colIdx => (
