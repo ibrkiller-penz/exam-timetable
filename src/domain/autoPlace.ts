@@ -954,12 +954,30 @@ export function initSlotStudentPlacements(
     }
   }
 
-  // Any remaining non-takers who could not fit into wait rooms remain as unassigned wait students (result[k] = '')
+  // Pass 2C: 그래도 남은 대기 학생을 자리 있는 대기실에 채웁니다.
+  //
+  // 위의 두 패스는 칸에 적힌 숫자(`대기 - 24명`)를 몫으로 씁니다. 그 숫자는
+  // 지난번에 나눈 결과일 뿐이라, 담당자가 새로 연 빈 대기실(`대기 - 0명`)은
+  // 몫이 0이라 아무도 받지 못하고 학생이 미배치로 남았습니다.
+  // 자리가 남아 있는데 학생이 떠 있는 일은 없어야 하므로, 마지막에 정원까지 채웁니다.
   for (; nonTakerIdx < remainingNonTakers.length; nonTakerIdx++) {
     const st = remainingNonTakers[nonTakerIdx];
     const k = `${st.ban}-${st.num}`;
-    if (!assignedStudentKeys.has(k)) {
-      result[k] = '';
+    if (assignedStudentKeys.has(k)) continue;
+
+    const room = rooms.find(r => {
+      if (lockedCellsRow?.[r.id]) return false; // 잠근 칸은 건드리지 않습니다.
+      const val = placementRow[r.id];
+      if (!val || !isWaitCell(val)) return false;
+      const cap = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
+      return Object.values(result).filter(id => id === r.id).length < cap;
+    });
+
+    if (room) {
+      result[k] = room.id;
+      assignedStudentKeys.add(k);
+    } else {
+      result[k] = ''; // 대기실 정원을 모두 더해도 자리가 없습니다. 미배치로 두고 알립니다.
     }
   }
 

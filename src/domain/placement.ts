@@ -46,7 +46,15 @@ export function slotSummary(
   placementSlots: PlacementSlot[],
   entries: Map<SubjectBanKey, SubjectBanEntry>,
   studentPlacements?: Record<number, Record<string, string>>,
-  students?: Student[]
+  students?: Student[],
+  /**
+   * 학생을 실제로 앉힌 결과만 셉니다 (8. 학생 배치).
+   *
+   * 끄면, 앉힌 결과가 없을 때 편성현황의 분반 인원으로 대신 셉니다.
+   * 7. 고사장 배치에서는 그 어림수가 쓸모 있지만, 8. 학생 배치에서 쓰면
+   * 배치를 초기화해도 인원이 그대로 차 있는 것처럼 보입니다.
+   */
+  strictStudents = false
 ): SlotSummary {
   const ps = placementSlots.find(s => s.index === i);
   if (!ps) {
@@ -80,7 +88,7 @@ export function slotSummary(
         }
       }
     }
-  } else {
+  } else if (!strictStudents) {
     for (const v of Object.values(row)) {
       if (!v || v === '' || v === '배치금지') continue;
       if (isWaitCell(v)) {

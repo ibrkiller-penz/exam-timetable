@@ -2134,7 +2134,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
             </thead>
             <tbody className="divide-y-2 divide-gray-200 font-normal">
               {placementSlots.map((ps, slotIdx) => {
-                const sum = slotSummary(ps.index, placement, placementSlots, entries, studentPlacements, students);
+                // 8. 학생 배치는 실제로 앉힌 결과만 셉니다. 비우면 0명으로 보여야 합니다.
+                const sum = slotSummary(ps.index, placement, placementSlots, entries, studentPlacements, students, stepMode !== 7);
                 const hasError = sum.errorKey !== 'OK';
                 // 일차가 바뀌는 첫 줄에 굵은 경계선을 그어 날짜를 구분합니다.
                 const isNewDay = slotIdx === 0 || placementSlots[slotIdx - 1].day !== ps.day;
@@ -2286,9 +2287,11 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                         // Calculate actual count from studentPlacements if available
                         const slotPlacements = studentPlacements?.[ps.index];
                         const derivedCount = cellDerived(cellVal, entries).stuCount;
+                        // 8. 학생 배치는 실제로 앉힌 학생만 셉니다.
+                        // 편성현황에서 끌어온 어림수를 쓰면, 배치를 비워도 인원이 차 있는 것처럼 보입니다.
                         const actualCount: number = slotPlacements
                           ? students.filter(st => slotPlacements[`${st.ban}-${st.num}`] === r.id).length
-                          : (typeof derivedCount === 'number' ? derivedCount : 0);
+                          : (stepMode === 7 && typeof derivedCount === 'number' ? derivedCount : 0);
 
                         // 이 교시에만 지정된 정원이 있으면 그 값을, 없으면 고사실 기본 정원을 씁니다.
                         const roomCap = capacityForSlot(r, ps.index, slotRoomCapacity, ps, cellVal, slotCapacityBasis[ps.index]);
