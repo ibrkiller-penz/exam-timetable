@@ -22,5 +22,5 @@ export function usePrintAll() {
     });
   }, []);
 
-  return { printingAll, printAll };
+  return { printingAll, setPrintingAll, printAll };
 }

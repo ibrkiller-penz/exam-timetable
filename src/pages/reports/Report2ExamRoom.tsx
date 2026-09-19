@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
+import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { PdfSaveButton } from './PdfSaveButton';
 import { usePrintAll } from './usePrintAll';
 import { buildExamRoomReport } from '../../domain/reports/examRoom';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -11,12 +13,14 @@ import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report2ExamRoom: React.FC = () => {
-  const { attendance, stages, days, rooms } = useAppStore();
+  const { stages, days, rooms } = useAppStore();
+  // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
+  const attendance = useAttendance();
 
   const [selectedDay, setSelectedDay] = useState<DayLabel>('1일차');
   const [selectedPeriod, setSelectedPeriod] = useState<PeriodLabel>('1교시');
   const [selectedRoom, setSelectedRoom] = useState<string>('');
-  const { printingAll, printAll } = usePrintAll();
+  const { printingAll, setPrintingAll, printAll } = usePrintAll();
 
   const uniqueRooms = Array.from(new Set(attendance.map(r => r.examRoom))).filter(Boolean);
   const curRoom = selectedRoom || uniqueRooms[0] || '1-1';
@@ -76,6 +80,8 @@ export const Report2ExamRoom: React.FC = () => {
         >
           <Printer className="w-4 h-4" /> 전체 출력
         </button>
+        <PdfSaveButton filename={`고사실 명단 ${selectedDay} ${selectedPeriod}.pdf`} disabled={!stages.stage5}
+          prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }} />
         <button
           onClick={() => window.print()}
           disabled={!stages.stage5}

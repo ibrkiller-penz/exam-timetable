@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
+import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { PdfSaveButton } from './PdfSaveButton';
 import { buildClassTableReport } from '../../domain/reports/classTable';
 import { DayIdx } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
@@ -12,7 +14,9 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 
 export const Report5ClassTable: React.FC = () => {
-  const { students, attendance, days, times, rooms, stages } = useAppStore();
+  const { students,  days, times, rooms, stages } = useAppStore();
+  // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
+  const attendance = useAttendance();
 
   const [selectedBan, setSelectedBan] = useState<string>('');
   const [selectedDay, setSelectedDay] = useState<DayIdx>(1);
@@ -68,7 +72,8 @@ export const Report5ClassTable: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <button
+          <PdfSaveButton filename={`${report?.ban ?? '학급'} 시험시간표.pdf`} disabled={!stages.stage5} />
+        <button
           onClick={() => window.print()}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"

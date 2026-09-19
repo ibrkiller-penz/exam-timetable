@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { buildAttendance, seatBySeq, hasErrorSeat } from '../../src/domain/attendance';
 import { buildSeatMapReport } from '../../src/domain/reports/seatMap';
+import { applySeparate } from '../../src/domain/separate';
 import { buildExamRoomReport } from '../../src/domain/reports/examRoom';
 import type { ExamRoom, PlacementSlot, Student, SubjectBanEntry, NeisRow, SeparateExaminers } from '../../src/domain/types';
 
@@ -90,5 +91,42 @@ describe('별도 고사실 응시자', () => {
     const rows = seatBySeq(build({ '1반-2': { room: 1, slots: 'all' } }));
     expect(rows.find(r => r.period === '1교시' && r.num === 2)!.seat).toBe(null);
     expect(() => hasErrorSeat(rows, rooms, slots, students)).not.toThrow();
+  });
+});
+
+/**
+ * 별도 지정은 8단계를 확정한 '뒤'에 하게 됩니다.
+ * 저장된 응시현황만 믿으면 명단 비고가 비고 좌석배치도에도 그대로 남습니다.
+ * 인쇄물은 볼 때마다 지정을 다시 입혀야 합니다.
+ */
+describe('지정을 나중에 해도 인쇄물에 반영된다', () => {
+  const sub = '한국사(1)';
+  const slots = [
+    { index: 1, day: 1 as any, period: 1 as any, title: '1일차 1교시', subjects: [sub], banCounts: [1], banCountTotal: 1, takers: 4, nonTakers: 0 },
+  ];
+
+  // 8단계 확정 때 만들어진 줄 — 아직 별도 표시가 없습니다.
+  const saved = [1, 2, 3, 4].map(n => ({
+    key1: `1일차1교시3-1_${n}`, key2: `1일차1교시3-1_${n}`, key3: `1반${n}번1일차1교시`,
+    day: '1일차' as const, period: '1교시' as const, examRoom: '3-1', subject: sub,
+    grade: '3', ban: '1반', num: n, name: `학생${n}`, classRoom: '1반', seq: n, seat: n,
+  }));
+
+  it('나중에 지정해도 좌석이 빠지고 번호가 다시 이어진다', () => {
+    const out = applySeparate(saved, slots, { '1반-2': { room: 1, slots: 'all' } });
+
+    const me = out.find((r: any) => r.num === 2)!;
+    expect(me.separateRoom).toBe(1);
+    expect(me.seat).toBe(null);
+
+    // 남은 세 명은 1,2,3번 자리를 받습니다. 빈 자리가 생기면 안 됩니다.
+    expect(out.filter((r: any) => r.num !== 2).map((r: any) => r.seat)).toEqual([1, 2, 3]);
+  });
+
+  it('지정을 풀면 표시가 걷히고 좌석이 되돌아온다', () => {
+    const marked = applySeparate(saved, slots, { '1반-2': { room: 1, slots: 'all' } });
+    const back = applySeparate(marked, slots, {});
+    expect(back.every((r: any) => !r.separateRoom)).toBe(true);
+    expect(back.map((r: any) => r.seat)).toEqual([1, 2, 3, 4]);
   });
 });

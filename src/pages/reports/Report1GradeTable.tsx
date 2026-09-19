@@ -4,6 +4,7 @@ import { selPlacementSlots, selSubjectBanEntries } from '../../store/selectors';
 import { buildGradeTable } from '../../domain/reports/gradeTable';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { PdfSaveButton } from './PdfSaveButton';
 import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
@@ -41,6 +42,7 @@ export const Report1GradeTable: React.FC = () => {
       <PrintPageSize landscape={true} />
       <div className="flex items-center justify-between mb-4 no-print">
         <h2 className="text-xl font-bold text-[#005691]">10-1. 전체 시험시간표</h2>
+        <PdfSaveButton filename={`${meta.title || '고사'} 전체 시험시간표.pdf`} disabled={!hasPlacement} />
         <button
           onClick={() => window.print()}
           disabled={!hasPlacement}

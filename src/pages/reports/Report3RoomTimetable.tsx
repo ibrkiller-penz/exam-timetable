@@ -1,17 +1,21 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { PdfSaveButton } from './PdfSaveButton';
 import { usePrintAll } from './usePrintAll';
 import { buildRoomTimetableReport } from '../../domain/reports/roomTimetable';
 import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report3RoomTimetable: React.FC = () => {
-  const { attendance, rooms, days, times, stages } = useAppStore();
+  const { rooms, days, times, stages } = useAppStore();
+  // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
+  const attendance = useAttendance();
   const [selectedRoomId, setSelectedRoomId] = useState<string>(rooms[0]?.id ?? '');
-  const { printingAll, printAll } = usePrintAll();
+  const { printingAll, setPrintingAll, printAll } = usePrintAll();
 
   const room = rooms.find(r => r.id === selectedRoomId) ?? rooms[0];
   const report = room ? buildRoomTimetableReport(room, attendance, days, times) : null;
@@ -43,6 +47,8 @@ export const Report3RoomTimetable: React.FC = () => {
         >
           <Printer className="w-4 h-4" /> 전체 출력
         </button>
+        <PdfSaveButton filename={'고사실 시험시간표.pdf'} disabled={!stages.stage5}
+          prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }} />
         <button
           onClick={() => window.print()}
           disabled={!stages.stage5}

@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
+import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { PdfSaveButton } from './PdfSaveButton';
 import { usePrintAll } from './usePrintAll';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -12,7 +14,9 @@ import { downloadWorkbook } from '../../utils/excelStyled';
 import { saveCloudImmediately } from '../../domain/firebase';
 
 export const Report4SeatMap: React.FC = () => {
-  const { attendance, days, settings, rooms, ui, setReportSelection, updateRoom, updateSettings, stages } = useAppStore();
+  const { days, settings, rooms, ui, setReportSelection, updateRoom, updateSettings, stages } = useAppStore();
+  // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
+  const attendance = useAttendance();
 
   const selectedDay = ui.report.day || '1일차';
   const selectedPeriod = ui.report.period || '1교시';
@@ -26,7 +30,7 @@ export const Report4SeatMap: React.FC = () => {
   const curLayout = roomObj?.layoutDirection ?? settings.seatLayoutDirection ?? 'col';
 
   // 지금 열·행·배치순서를 어느 고사실에 옮길지 고르는 창.
-  const { printingAll, printAll } = usePrintAll();
+  const { printingAll, setPrintingAll, printAll } = usePrintAll();
   const [applyOpen, setApplyOpen] = useState(false);
   const [applyTargets, setApplyTargets] = useState<string[]>([]);
 
@@ -140,6 +144,8 @@ export const Report4SeatMap: React.FC = () => {
         >
           <Printer className="w-4 h-4" /> 전체 출력
         </button>
+        <PdfSaveButton filename={`좌석배치도 ${selectedDay} ${selectedPeriod}.pdf`} disabled={!stages.stage5}
+          prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }} />
         <button
           onClick={() => window.print()}
           disabled={!stages.stage5}
@@ -251,6 +257,30 @@ export const Report4SeatMap: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {/* 이 교실 소속이지만 별도 고사실에서 보는 학생.
+              자리에서는 빼되, 감독 선생님이 누가 없는지 알아야 합니다. */}
+          {(() => {
+            const away = attendance
+              .filter(r => r.day === selectedDay && r.period === selectedPeriod && r.examRoom === curRoom && r.separateRoom)
+              .sort((a, b) => a.seq - b.seq);
+            if (away.length === 0) return null;
+            return (
+              <div className="mt-4 border-2 border-slate-800 rounded-lg px-4 py-3 shrink-0">
+                <div className="font-black text-[15px] text-slate-700 mb-1.5">별도 고사실 응시</div>
+                <ul className="space-y-0.5">
+                  {away.map(r => (
+                    <li key={r.key3} className="text-[17px] font-black text-slate-900">
+                      {`${r.grade}${String(r.ban).replace('반', '').padStart(2, '0')}${String(r.num).padStart(2, '0')}`}
+                      {' / '}
+                      {displayName(r.name)}
+                      <span className="font-bold text-slate-600"> 학생은 별도실({r.separateRoom}실)에서 응시합니다.</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            );
+          })()}
         </div>
       )}
 

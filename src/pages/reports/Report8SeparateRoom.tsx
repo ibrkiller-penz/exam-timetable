@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Printer, Search, UserCheck, X, Download } from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 import { useAppStore } from '../../store/appStore';
+import { useAttendance } from './useAttendance';
 import { selPlacementSlots } from '../../store/selectors';
 import { displayName } from '../../domain/privacy';
 import { separateRoomFor, SeparateExaminer } from '../../domain/types';
@@ -17,8 +18,10 @@ import { buildStudentTableReport } from '../../domain/reports/studentTable';
  * 시험이 끝나면 답안지를 원고사실 것과 합칩니다.
  */
 export const Report8SeparateRoom: React.FC = () => {
-  const { students, settings, separateExaminers = {}, setSeparateExaminer, attendance, stages,
+  const { students, settings, separateExaminers = {}, setSeparateExaminer,  stages,
           placement, studentPlacements = {}, rooms, syncSeparateExaminers, days, times } = useAppStore();
+  // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
+  const attendance = useAttendance();
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const placementSlots = useAppStore(selPlacementSlots);
 

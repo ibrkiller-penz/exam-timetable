@@ -3,13 +3,16 @@ import { displayName } from '../../domain/privacy';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/appStore';
+import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
 import { selPlacementSlots } from '../../store/selectors';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
 import { Printer, AlertTriangle, LayoutGrid, Square, Users, User, Building, FileDown, Loader2 } from 'lucide-react';
 
 export const Report6StudentTable: React.FC = () => {
-  const { students, attendance, days, times, rooms, stages, settings, meta, updateSettings } = useAppStore();
+  const { students,  days, times, rooms, stages, settings, meta, updateSettings } = useAppStore();
+  // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
+  const attendance = useAttendance();
   const placementSlots = useAppStore(selPlacementSlots);
 
   const [selectedBan, setSelectedBan] = useState<string>('');
