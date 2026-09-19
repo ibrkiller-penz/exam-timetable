@@ -1,0 +1,43 @@
+﻿# Dependencies
+node_modules/
+dist/
+dist_local/
+release/
+" release"/
+upx_tool/
+upx.zip
+
+# Student data & personal info protection
+*.exam.json
+test_user_data.json
+save/
+
+# Environment & Logs
+.firebase/
+.env
+.env.local
+*.log
+Thumbs.db
+desktop.ini
+
+# Scratch / Temporary scripts
+clean.js
+fix.js
+fix.cjs
+fix_report.py
+patch_*.cjs
+patch_*.js
+t.js
+test_conflicts.js
+test_lz.js
+test_reports.ts
+testUnplaced.ts
+dump_state*.ts
+
+*.zip
+*.html
+*.exe
+public/*.zip
+
+# Vite entry point must be tracked (the *.html rule above would exclude it)
+!index.html
