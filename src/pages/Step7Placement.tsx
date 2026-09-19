@@ -1475,7 +1475,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
         onConfirm={handleConfirm}
         onCancel={handleCancel}
         guideMessage={stepMode === 7
-          ? "시간표 Grid 상에서 고사실과 대기실을 배치하고, 수용 정원을 지정합니다."
+          ? undefined
           : "분반 수와 시험실 수가 일치하면 [분반 위주], 다르면 [학번순]으로 학생이 자동 배정됩니다."}
         actions={
           // 버튼이 많아 좁아지면 글자가 세로로 쪼개져 읽기 어려워집니다. 줄바꿈을 막고 줄어들지 않게 합니다.
@@ -1504,6 +1504,14 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
               </button>
             </div>
 
+            <button
+              onClick={handleAutoPlaceAll}
+              disabled={stages.stage4}
+              className="px-4 py-2 bg-[#005691] hover:bg-blue-800 text-white rounded-xl text-base font-bold flex items-center gap-1.5 shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
+              title="미응시자 자기반 대기 보장 및 이동 최소화 최적 배치 실행"
+            >
+              <Sparkles className="w-4 h-4" /> 전체 자동배치
+            </button>
             {/* Re-place Current Slot Button */}
             {curSlot && (
               <button
@@ -1517,40 +1525,6 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
               </button>
             )}
 
-            <button
-              onClick={handleAutoPlaceAll}
-              disabled={stages.stage4}
-              className="px-4 py-2 bg-[#005691] hover:bg-blue-800 text-white rounded-xl text-base font-bold flex items-center gap-1.5 shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-              title="미응시자 자기반 대기 보장 및 이동 최소화 최적 배치 실행"
-            >
-              <Sparkles className="w-4 h-4" /> 전체 자동배치
-            </button>
-
-            {stepMode === 7 && (
-              <>
-                <button
-                  onClick={() => addRoom({
-                    id: `room_${Date.now()}`,
-                    roomName: `${rooms.filter(r => !isExtraRoom(r)).length + 1}반`,
-                    banName: `${rooms.filter(r => !isExtraRoom(r)).length + 1}반`,
-                    stuCount: null,
-                    maxClassSize: 28,
-                    capacity: batchCapacity || 28,
-                  })}
-                  disabled={stages.stage4}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-300 rounded-xl text-xs font-bold flex items-center gap-1 transition"
-                >
-                  <Plus className="w-3.5 h-3.5 text-blue-600" /> + 고사실 추가
-                </button>
-                <button
-                  onClick={() => addExtraRoom()}
-                  disabled={stages.stage4}
-                  className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1 transition"
-                >
-                  <Plus className="w-3.5 h-3.5 text-amber-600" /> + 별도실 추가
-                </button>
-              </>
-            )}
 
             {stepMode === 8 && (
               <>
@@ -1621,33 +1595,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
         }
       />
 
-      {/* Sub Tab Navigation */}
-      <div className="bg-slate-100 border-b border-gray-200 px-6 py-2 flex items-center justify-between">
-        <div className="flex items-center gap-2 bg-slate-200/80 p-1 rounded-xl">
-          <button
-            type="button"
-            onClick={() => onSelectSubTab ? onSelectSubTab('7') : onPrevStep?.()}
-            className={`px-4 py-1.5 rounded-lg font-extrabold text-sm transition-all ${
-              stepMode === 7
-                ? 'bg-[#005691] text-white shadow-xs'
-                : 'text-slate-700 hover:bg-white hover:shadow-2xs'
-            }`}
-          >
-            <span>7. 고사장 배치 (정원 설정)</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => onSelectSubTab ? onSelectSubTab('8') : onNextStep?.()}
-            className={`px-4 py-1.5 rounded-lg font-extrabold text-sm transition-all ${
-              stepMode === 8
-                ? 'bg-[#005691] text-white shadow-xs'
-                : 'text-slate-700 hover:bg-white hover:shadow-2xs'
-            }`}
-          >
-            <span>8. 학생 배치 (자동배정)</span>
-          </button>
-        </div>
-
+      {/* 7·8 단계 이동은 왼쪽 작성 단계 목록으로 합니다. 여기에는 단계별 도구만 둡니다. */}
+      <div className="bg-slate-100 border-b border-gray-200 px-6 py-2 flex items-center justify-end">
         {stepMode === 7 ? (
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-slate-200 text-xs font-bold shadow-2xs">
@@ -1762,9 +1711,9 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           </span>
         </div>
 
+        {stepMode !== 7 && (
         <button
           onClick={() => setIsPanelOpen(!isPanelOpen)}
-          hidden={stepMode === 7}
           className={`px-3 py-1.5 rounded-lg font-bold border transition flex items-center gap-1.5 ${
             isPanelOpen
               ? 'bg-blue-50 text-[#005691] border-blue-200 shadow-xs'
@@ -1775,6 +1724,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           <Layers className="w-3.5 h-3.5" />
           <span>{isPanelOpen ? '배치 패널 닫기' : '배치 패널 열기'}</span>
         </button>
+        )}
       </div>
 
       <div className="p-4 flex-1 flex gap-4 overflow-hidden">
