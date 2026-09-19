@@ -1930,63 +1930,64 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                           </span>
                           <span className={`text-gray-900 font-black whitespace-nowrap ${isCompactFit ? 'text-[15px]' : 'text-[17.5px]'}`}>{ps.period}교시</span>
                         </div>
-                        <div className={`font-bold mt-0.5 ${ps.subjects.length === 0 ? 'text-slate-500' : 'text-[#005691]'} ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>
-                          {ps.subjects.length === 0 ? '시험 없음 · 전체 자습' : ps.subjects.join(', ')}
+                        {/* 과목이 둘 이상이면 한 줄에 하나씩 적어 중간에 끊기지 않게 합니다. */}
+                        <div className={`font-bold mt-0.5 leading-snug ${ps.subjects.length === 0 ? 'text-slate-500' : 'text-[#005691]'} ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>
+                          {ps.subjects.length === 0
+                            ? '시험 없음 · 전체 자습'
+                            : ps.subjects.map(sub => (
+                                <div key={sub} className="whitespace-nowrap overflow-hidden text-ellipsis" title={sub}>
+                                  {sub}
+                                </div>
+                              ))}
                         </div>
                         {/* 전원이 시험을 보는 교시는 분반으로 모을지, 학급이 자기 교실에 앉을지 고릅니다. */}
+                        {/* 교시 도구는 한 줄로 모아 칸이 길어지지 않게 합니다. */}
                         {!isStageLocked && ps.subjects.length > 0 && (
-                          <button
-                            onClick={() => handleResetAndAutoPlaceSlot(ps.index)}
-                            className="mt-1 p-1 text-slate-400 hover:text-[#005691] hover:bg-blue-50 rounded-md transition"
-                            title="이 교시 재배치 — 이 교시만 비우고 다시 자동배치합니다 (다른 교시 영향 없음)"
-                            aria-label="이 교시 재배치"
-                          >
-                            <RefreshCw className="w-4 h-4" />
-                          </button>
-                        )}
+                          <div className={`mt-1 flex items-center justify-center gap-1 ${isCompactFit ? 'text-[11px]' : 'text-[12.5px]'}`}>
+                            <button
+                              onClick={() => handleResetAndAutoPlaceSlot(ps.index)}
+                              className="p-0.5 text-slate-400 hover:text-[#005691] hover:bg-blue-50 rounded transition"
+                              title="이 교시 재배치 — 이 교시만 비우고 다시 자동배치합니다"
+                              aria-label="이 교시 재배치"
+                            >
+                              <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
 
-                        {stepMode === 7 && ps.subjects.length > 0 && ps.nonTakers === 0 && !isStageLocked && (
-                          <div className="mt-1 flex items-center justify-center gap-1">
-                            {([['ban', '분반'], ['class', '학반']] as const).map(([mode, label]) => {
-                              const active = (slotCapacityBasis[ps.index] ?? 'room') === (mode === 'class' ? 'class' : 'room');
-                              return (
-                                <button
-                                  key={mode}
-                                  onClick={() => handleSetSlotArrangement(ps, mode)}
-                                  className={`px-2 py-0.5 rounded-md font-bold border transition ${
-                                    isCompactFit ? 'text-[11px]' : 'text-[12.5px]'
-                                  } ${
-                                    active
-                                      ? 'bg-[#005691] text-white border-[#005691]'
-                                      : 'bg-white text-slate-600 border-gray-300 hover:bg-gray-50'
-                                  }`}
-                                  title={mode === 'ban'
-                                    ? 'NEIS 분반대로 모여 앉습니다. 정원은 고사실 좌석 수입니다.'
-                                    : '학급이 자기 교실에 그대로 앉습니다. 정원은 그 반의 학생 수입니다.'}
-                                >
-                                  {label}
-                                </button>
-                              );
-                            })}
+                            {stepMode === 7 && ps.nonTakers === 0 && (
+                              <span className="inline-flex rounded-md border border-gray-300 overflow-hidden">
+                                {([['ban', '분반'], ['class', '학반']] as const).map(([mode, label]) => {
+                                  const active = (slotCapacityBasis[ps.index] ?? 'room') === (mode === 'class' ? 'class' : 'room');
+                                  return (
+                                    <button
+                                      key={mode}
+                                      onClick={() => handleSetSlotArrangement(ps, mode)}
+                                      className={`px-1.5 py-0.5 font-bold transition ${
+                                        active ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-gray-50'
+                                      }`}
+                                      title={mode === 'ban'
+                                        ? '편성현황 분반대로 모여 앉습니다. 정원은 고사실 좌석 수입니다.'
+                                        : '학급이 자기 교실에 그대로 앉습니다. 정원은 그 반의 학생 수입니다.'}
+                                    >
+                                      {label}
+                                    </button>
+                                  );
+                                })}
+                              </span>
+                            )}
+
+                            {stepMode === 7 && (
+                              <button
+                                onClick={() => setBanLabelModal(ps.index)}
+                                className="px-1.5 py-0.5 bg-white hover:bg-blue-50 text-slate-600 hover:text-[#005691] border border-gray-300 rounded-md font-bold transition"
+                                title="이 교시의 분반 이름을 고칩니다"
+                              >
+                                이름
+                              </button>
+                            )}
                           </div>
                         )}
 
-                        {stepMode === 7 && ps.subjects.length > 0 && (
-                          <button
-                            onClick={() => setBanLabelModal(ps.index)}
-                            className={`mt-1 px-2 py-0.5 bg-white hover:bg-blue-50 text-slate-600 hover:text-[#005691] border border-gray-300 hover:border-blue-300 rounded-md font-bold transition ${
-                              isCompactFit ? 'text-[11px]' : 'text-[12.5px]'
-                            }`}
-                            title="이 교시의 분반 이름을 가나다 / ABC 중에서 고르거나 직접 지정합니다"
-                          >
-                            분반 이름
-                          </button>
-                        )}
-                        {!isStageLocked && (
-                          <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
-                            {/* 7번에서는 학생 명단 대신 '정원이 모자라다'는 사실만 알립니다.
-                                정원 설계가 이 단계의 일이므로 숫자는 보여야 합니다. */}
-                            {stepMode === 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
+                        {stepMode === 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
                               <div
                                 className={`w-full font-black bg-rose-100 text-rose-800 border border-rose-300 rounded-lg flex items-center justify-center gap-1 ${
                                   isCompactFit ? 'text-[11.5px] px-1.5 py-0.5 mt-1' : 'text-[13px] px-2 py-1 mt-1.5'
@@ -2011,8 +2012,6 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                 <span>미배치 {sum.remaining.takers + sum.remaining.nonTakers}명</span>
                               </button>
                             )}
-                          </div>
-                        )}
                       </td>
                       {stepMode !== 7 && (
                         <td className={`py-1 px-1 text-center bg-white text-slate-700 font-medium ${isCompactFit ? 'w-10 text-[14px]' : 'w-14 text-[16px]'}`}>계</td>
