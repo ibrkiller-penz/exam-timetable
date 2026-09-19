@@ -25,7 +25,14 @@ function getSaveDir() {
 let mainWindow = null;
 
 function createWindow() {
-  const htmlPath = path.join(__dirname, 'dist', 'index.html');
+  // dist 위치는 포장 방식마다 다릅니다.
+  //  - 로컬 배포(deploy-local): electron.cjs 와 dist 가 같은 폴더에 나란히
+  //  - electron-builder: electron.cjs 가 public/ 아래라 dist 는 한 단계 위
+  const htmlCandidates = [
+    path.join(__dirname, 'dist', 'index.html'),
+    path.join(__dirname, '..', 'dist', 'index.html'),
+  ];
+  const htmlPath = htmlCandidates.find(p => fs.existsSync(p)) || htmlCandidates[0];
 
   mainWindow = new BrowserWindow({
     width: 1440,
