@@ -3,6 +3,7 @@ import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
+import { PrintPageSize } from './PrintPageSize';
 import { usePrintAll } from './usePrintAll';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -51,6 +52,7 @@ export const Report4SeatMap: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
+      <PrintPageSize landscape={(report?.columns ?? 0) >= 6} />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-[#005691]">10-4. 고사실 좌석배치도</h2>

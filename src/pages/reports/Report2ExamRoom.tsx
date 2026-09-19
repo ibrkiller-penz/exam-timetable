@@ -3,6 +3,7 @@ import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
+import { PrintPageSize } from './PrintPageSize';
 import { usePrintAll } from './usePrintAll';
 import { buildExamRoomReport } from '../../domain/reports/examRoom';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -34,6 +35,7 @@ export const Report2ExamRoom: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
+      <PrintPageSize />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-[#005691]">10-2. 고사실 명단</h2>

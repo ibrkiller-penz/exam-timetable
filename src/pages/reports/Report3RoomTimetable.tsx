@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
+import { PrintPageSize } from './PrintPageSize';
 import { usePrintAll } from './usePrintAll';
 import { buildRoomTimetableReport } from '../../domain/reports/roomTimetable';
 import { Printer, Download} from 'lucide-react';
@@ -17,6 +18,7 @@ export const Report3RoomTimetable: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
+      <PrintPageSize landscape={true} />
       <div className="flex items-center justify-between mb-4 no-print">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-[#005691]">10-3. 고사실 시험시간표</h2>

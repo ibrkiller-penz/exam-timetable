@@ -264,7 +264,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
         {/* Steps Navigation */}
         <div className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
           <div className="px-3.5 py-1 text-[13px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center justify-between">
-            <span>작성 단계</span><span className="text-[13px] text-slate-400 font-bold">Step 1 ~ 8</span>
+            <span>작성 단계</span>
           </div>
 
           {steps.map(s => {

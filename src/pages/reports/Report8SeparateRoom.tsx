@@ -6,6 +6,7 @@ import { selPlacementSlots } from '../../store/selectors';
 import { displayName } from '../../domain/privacy';
 import { separateRoomFor, SeparateExaminer } from '../../domain/types';
 import { ReportGate } from './ReportGate';
+import { PrintPageSize } from './PrintPageSize';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
 
 /**
@@ -134,6 +135,7 @@ export const Report8SeparateRoom: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
+      <PrintPageSize />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-[#005691]">10-8. 별도 고사실</h2>
