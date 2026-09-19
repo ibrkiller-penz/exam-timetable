@@ -25,7 +25,7 @@ export const ReportSheetHeader: React.FC<{
 }> = ({ title, subtitle, info, infoColumns, pageLabel, emphasize = [] }) => (
   <div className="shrink-0">
     <div className="flex items-center justify-center gap-3 mb-1">
-      <h1 className="text-center font-black text-[36px] print:text-[30px] leading-none text-[#005691] tracking-tight">
+      <h1 className="text-center font-black text-[42px] print:text-[34px] leading-none text-[#005691] tracking-tight break-keep">
         {title}
       </h1>
       {pageLabel && (

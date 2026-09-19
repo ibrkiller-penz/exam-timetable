@@ -103,8 +103,7 @@ export const Report3RoomTimetable: React.FC = () => {
         return (
         <div key={rm.id} className="print-page page-landscape bg-white border border-gray-300 p-8 print:p-4 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <ReportSheetHeader
-            title="고사실 시험시간표"
-            subtitle={`${rm.roomName}${rm.banName && rm.banName !== rm.roomName ? ` (${rm.banName})` : ''}`}
+            title={`고사실 시험시간표 (${rm.roomName})`}
             emphasize={[0, 2]}
             info={[
               ['고사실', rm.roomName],
