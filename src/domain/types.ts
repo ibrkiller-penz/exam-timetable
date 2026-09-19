@@ -37,6 +37,42 @@ export const isExtraRoom = (r: ExamRoom): boolean =>
 export const isUsableRoom = (r: ExamRoom): boolean =>
   r.roomName !== '' && r.roomName !== '0' && r.capacity >= 0;
 
+/**
+ * 교시별 고사실 정원 예외 (slotIndex ➔ roomId ➔ 정원).
+ * 특정 교시에만 한 고사실의 정원을 다르게 잡고 싶을 때 쓰며,
+ * 값이 없는 칸은 고사실의 기본 정원(ExamRoom.capacity)을 그대로 따릅니다.
+ */
+export type SlotRoomCapacity = Record<number, Record<string, number>>;
+
+/**
+ * 해당 교시에만 적용되는 정원을 반영한 고사실 목록을 돌려줍니다.
+ * 배치 로직 전체가 `room.capacity`를 읽으므로, 교시 단위 호출 앞에서 이 함수로
+ * 한 번 감싸 주면 정원 예외가 자동으로 반영됩니다.
+ */
+export const roomsForSlot = (
+  rooms: ExamRoom[],
+  slotIndex: number,
+  slotRoomCapacity?: SlotRoomCapacity
+): ExamRoom[] => {
+  const row = slotRoomCapacity?.[slotIndex];
+  if (!row) return rooms;
+  return rooms.map(r => {
+    const override = row[r.id];
+    return override && override > 0 ? { ...r, capacity: override } : r;
+  });
+};
+
+/** 해당 교시에 실제로 적용되는 고사실 정원. */
+export const capacityForSlot = (
+  room: ExamRoom,
+  slotIndex: number,
+  slotRoomCapacity?: SlotRoomCapacity
+): number => {
+  const override = slotRoomCapacity?.[slotIndex]?.[room.id];
+  if (override && override > 0) return override;
+  return room.capacity && room.capacity > 0 ? room.capacity : 28;
+};
+
 export interface SubjectSummary { subject: string; banCount: number; stuCount: number; }
 export interface SubjectBan     { subject: string; room: string; stuCount: number; subjectSeq: number; }
 export type SubjectBanKey = string;
@@ -167,6 +203,7 @@ export interface GradeData {
   placement: PlacementGrid;
   studentPlacements?: Record<number, Record<string, string>>;
   lockedCells?: Record<number, Record<string, boolean>>;
+  slotRoomCapacity?: SlotRoomCapacity;
   attendance: AttendanceRow[];
   subjectCodes: Record<string, string>;
   ui: {
@@ -190,6 +227,7 @@ export interface AppState {
   placement: PlacementGrid;
   studentPlacements?: Record<number, Record<string, string>>;
   lockedCells?: Record<number, Record<string, boolean>>;
+  slotRoomCapacity?: SlotRoomCapacity;
   attendance: AttendanceRow[];
   subjectCodes: Record<string, string>;
   ui: {

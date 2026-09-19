@@ -6,7 +6,7 @@ import { AlertModal } from '../components/AlertModal';
 import { CloudModal } from '../components/CloudModal';
 import { saveCloudImmediately } from '../domain/firebase';
 import { MSG } from '../domain/messages';
-import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, isExtraRoom } from '../domain/types';
+import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot } from '../domain/types';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
@@ -35,6 +35,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     placement,
     studentPlacements,
     lockedCells = {},
+    slotRoomCapacity = {},
     rooms,
     students,
     neis,
@@ -58,10 +59,34 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     deleteRoom,
     setRooms,
     updateRoom,
+    setSlotRoomCapacity,
   } = useAppStore();
 
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
+
+  /**
+   * 해당 교시의 정원 예외를 반영한 고사실 목록.
+   * 배치 로직은 모두 room.capacity를 읽으므로, 교시 단위 호출은 이 함수를 거쳐야
+   * "이 교시만 정원 N명" 설정이 실제 배치에 반영됩니다.
+   */
+  const roomsAt = React.useCallback(
+    (slotIndex: number) => roomsForSlot(rooms, slotIndex, slotRoomCapacity),
+    [rooms, slotRoomCapacity]
+  );
+
+  /** 7. 고사장 배치 목록표의 한 줄 = 한 교시의 한 고사실. */
+  interface RoomPlacementRow {
+    ps: PlacementSlot;
+    room: ExamRoom;
+    kind: 'exam' | 'wait' | 'forbidden' | 'empty';
+    subjectName: string;
+    cellVal: string;
+    count: number;
+    capacity: number;
+    hasCapacityOverride: boolean;
+    isLocked: boolean;
+  }
 
   const selectedCell = ui.selectedPlacementCell;
   const movementStats = calculateStudentMovement(placement, placementSlots, rooms, students);
@@ -94,6 +119,11 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
   const [rowTargetRoomIds, setRowTargetRoomIds] = useState<Record<string, string>>({});
   const [isPanelOpen, setIsPanelOpen] = useState<boolean>(false);
   const [isCompactFit, setIsCompactFit] = useState<boolean>(true);
+
+  // 7. 고사장 배치 목록표 필터
+  const [listFilterSlot, setListFilterSlot] = useState<string>('');
+  const [listFilterRoomId, setListFilterRoomId] = useState<string>('');
+  const [listFilterKind, setListFilterKind] = useState<'' | 'exam' | 'wait' | 'forbidden' | 'empty'>('');
 
   // Undo / Redo History States (No keyboard shortcuts; toolbar icon buttons only)
   const [past, setPast] = useState<HistorySnapshot[]>([]);
@@ -220,7 +250,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
         targetRoomId,
         placement,
         placementSlots,
-        rooms,
+        roomsAt(slotIndex),
         entries,
         students,
         studentPlacements || {},
@@ -382,7 +412,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
             targetRoomId,
             placement,
             placementSlots,
-            rooms,
+            roomsAt(slotIndex),
             entries,
             students,
             studentPlacements || {},
@@ -479,7 +509,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           const slotRow = { ...(newPlacement[slot] || {}) };
           const slotPlacements = newStudentPlacements[slot]
             ? { ...newStudentPlacements[slot] }
-            : initSlotStudentPlacements(slot, slotRow, placementSlots, rooms, entries, students, neis);
+            : initSlotStudentPlacements(slot, slotRow, placementSlots, roomsAt(slot), entries, students, neis);
 
           const waitStudents = students.filter(st => {
             const rId = slotPlacements[`${st.ban}-${st.num}`];
@@ -493,7 +523,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
 
           if (waitStudents.length === 0) return;
 
-          const emptyRooms = rooms.filter(r => {
+          const emptyRooms = roomsAt(slot).filter(r => {
             if (lockedCells[slot]?.[r.id]) return false;
             const val = slotRow[r.id];
             if (isForbiddenCell(val)) return false;
@@ -551,7 +581,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
   const handleCellDoubleClick = (slot: number, roomId: string) => {
     let slotPlacements = studentPlacements?.[slot];
     if (!slotPlacements || Object.keys(slotPlacements).length === 0) {
-      slotPlacements = initSlotStudentPlacements(slot, placement[slot] ?? {}, placementSlots, rooms, entries, students, neis);
+      slotPlacements = initSlotStudentPlacements(slot, placement[slot] ?? {}, placementSlots, roomsAt(slot), entries, students, neis);
       setSlotStudentPlacements(slot, slotPlacements);
     }
 
@@ -560,7 +590,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
       roomId,
       placement,
       placementSlots,
-      rooms,
+      roomsAt(slot),
       entries,
       students,
       slotPlacements
@@ -588,7 +618,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     const slotRow = placement[slotIndex] || {};
     let slotPlacements = studentPlacements?.[slotIndex];
     if (!slotPlacements || Object.keys(slotPlacements).length === 0) {
-      slotPlacements = initSlotStudentPlacements(slotIndex, placement[slotIndex] ?? {}, placementSlots, rooms, entries, students, neis);
+      slotPlacements = initSlotStudentPlacements(slotIndex, placement[slotIndex] ?? {}, placementSlots, roomsAt(slotIndex), entries, students, neis);
       setSlotStudentPlacements(slotIndex, slotPlacements);
     }
 
@@ -745,7 +775,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
       // 3. Full slot integrity validation (총원 불변, 과목별 총원 초과 금지, 비수강생 배정 차단)
       // 강제 배정(room_capacity_exceeded)은 허용하고 치명적 무결성 오류만 차단
       const simulatedPlacements = { ...currentPlacements, ...transfers };
-      const report = verifySlotIntegrity(slot, placement, placementSlots, rooms, students, simulatedPlacements);
+      const report = verifySlotIntegrity(slot, placement, placementSlots, roomsAt(slot), students, simulatedPlacements);
       const fatalViolations = report.violations.filter(v => v.type !== 'room_capacity_exceeded');
       if (fatalViolations.length > 0) {
         setAlertModal({
@@ -793,7 +823,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           firstRoomId,
           placement,
           placementSlots,
-          rooms,
+          roomsAt(slot),
           entries,
           students,
           neis,
@@ -822,8 +852,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
       pushHistory(`[${ps.title}] 자동배치`);
       const slotLocked = lockedCells[slot];
       const existingPlacements = studentPlacements?.[slot];
-      const next = autoPlaceSlot(slot, rooms[0]?.id ?? '', placement, placementSlots, rooms, entries, students, isExtra, slotLocked);
-      const nextStudentPlacements = initSlotStudentPlacements(slot, next[slot] ?? {}, placementSlots, rooms, entries, students, neis, existingPlacements, slotLocked);
+      const next = autoPlaceSlot(slot, rooms[0]?.id ?? '', placement, placementSlots, roomsAt(slot), entries, students, isExtra, slotLocked);
+      const nextStudentPlacements = initSlotStudentPlacements(slot, next[slot] ?? {}, placementSlots, roomsAt(slot), entries, students, neis, existingPlacements, slotLocked);
       setPlacementGrid(next);
       setSlotStudentPlacements(slot, nextStudentPlacements);
     };
@@ -849,13 +879,13 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
       message: MSG.S7_AUTO_ALL,
       onConfirm: () => {
         pushHistory('전체 자동배치');
-        const next = autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells);
+        const next = autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity);
         setPlacementGrid(next);
         const allPlacements: Record<number, Record<string, string>> = {};
         for (const ps of placementSlots) {
           const slotLocked = lockedCells[ps.index];
           const existingPlacements = studentPlacements?.[ps.index];
-          allPlacements[ps.index] = initSlotStudentPlacements(ps.index, next[ps.index] ?? {}, placementSlots, rooms, entries, students, neis, existingPlacements, slotLocked);
+          allPlacements[ps.index] = initSlotStudentPlacements(ps.index, next[ps.index] ?? {}, placementSlots, roomsAt(ps.index), entries, students, neis, existingPlacements, slotLocked);
         }
         setAllStudentPlacements(allPlacements);
         setConfirmModal(null);
@@ -873,7 +903,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     const newStudentPlacements = { ...studentPlacements };
 
     const slotRow = { ...(newPlacement[slotIndex] || {}) };
-    const slotPlacements = newStudentPlacements[slotIndex] ? { ...newStudentPlacements[slotIndex] } : initSlotStudentPlacements(slotIndex, slotRow, placementSlots, rooms, entries, students, neis);
+    const slotPlacements = newStudentPlacements[slotIndex] ? { ...newStudentPlacements[slotIndex] } : initSlotStudentPlacements(slotIndex, slotRow, placementSlots, roomsAt(slotIndex), entries, students, neis);
 
     // Identify all students who should be in "wait" (either currently placed in wait, or entirely unplaced)
     const waitStudents = students.filter(st => {
@@ -891,7 +921,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
 
     if (waitStudents.length === 0) return;
 
-    const emptyRooms = rooms.filter(r => {
+    const emptyRooms = roomsAt(slotIndex).filter(r => {
       if (lockedCells[slotIndex]?.[r.id]) return false;
       const val = slotRow[r.id];
       if (isForbiddenCell(val)) return false;
@@ -934,7 +964,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     const slotRow = { ...(newPlacement[slotIndex] || {}) };
     const slotPlacements = newStudentPlacements[slotIndex]
       ? { ...newStudentPlacements[slotIndex] }
-      : initSlotStudentPlacements(slotIndex, slotRow, placementSlots, rooms, entries, students, neis);
+      : initSlotStudentPlacements(slotIndex, slotRow, placementSlots, roomsAt(slotIndex), entries, students, neis);
 
     const waitStudents = students.filter(st => {
       const rId = slotPlacements[`${st.ban}-${st.num}`];
@@ -953,14 +983,14 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     }
 
     // 일반 학급 빈 고사실 우선 사용 (별도실은 미포함하여 정원 초과 인원은 미배치로 유지)
-    const regularEmptyRooms = rooms.filter(r => {
+    const regularEmptyRooms = roomsAt(slotIndex).filter(r => {
       if (lockedCells[slotIndex]?.[r.id]) return false;
       if (isExtraRoom(r) || r.roomName.startsWith('별도')) return false;
       const val = slotRow[r.id];
       if (isForbiddenCell(val)) return false;
       return !val || isWaitCell(val);
     });
-    const targetRooms = regularEmptyRooms.length > 0 ? regularEmptyRooms : rooms.filter(r => {
+    const targetRooms = regularEmptyRooms.length > 0 ? regularEmptyRooms : roomsAt(slotIndex).filter(r => {
       if (lockedCells[slotIndex]?.[r.id]) return false;
       const val = slotRow[r.id];
       if (isForbiddenCell(val)) return false;
@@ -1024,7 +1054,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           const slotRow = { ...(newPlacement[slot] || {}) };
           const slotPlacements = newStudentPlacements[slot]
             ? { ...newStudentPlacements[slot] }
-            : initSlotStudentPlacements(slot, slotRow, placementSlots, rooms, entries, students, neis);
+            : initSlotStudentPlacements(slot, slotRow, placementSlots, roomsAt(slot), entries, students, neis);
 
           const waitStudents = students.filter(st => {
             const rId = slotPlacements[`${st.ban}-${st.num}`];
@@ -1039,14 +1069,14 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
 
           if (waitStudents.length === 0) return;
 
-          const regularEmptyRooms = rooms.filter(r => {
+          const regularEmptyRooms = roomsAt(slot).filter(r => {
             if (lockedCells[slot]?.[r.id]) return false;
             if (isExtraRoom(r) || r.roomName.startsWith('별도')) return false;
             const val = slotRow[r.id];
             if (isForbiddenCell(val)) return false;
             return !val || isWaitCell(val);
           });
-          const targetRooms = regularEmptyRooms.length > 0 ? regularEmptyRooms : rooms.filter(r => {
+          const targetRooms = regularEmptyRooms.length > 0 ? regularEmptyRooms : roomsAt(slot).filter(r => {
             if (lockedCells[slot]?.[r.id]) return false;
             const val = slotRow[r.id];
             if (isForbiddenCell(val)) return false;
@@ -1202,7 +1232,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
 
   const curSlot = selectedCell ? placementSlots.find(s => s.index === selectedCell.slot) : null;
   const curRoom = selectedCell ? rooms.find(r => r.id === selectedCell.roomId) : null;
-  const pItems = selectedCell ? panelItems(selectedCell.slot, selectedCell.roomId, placement, placementSlots, rooms, entries, students) : [];
+  const pItems = selectedCell ? panelItems(selectedCell.slot, selectedCell.roomId, placement, placementSlots, roomsAt(selectedCell.slot), entries, students) : [];
 
   const curSlotRow = selectedCell ? (placement[selectedCell.slot] || {}) : {};
   const curSlotPlacements = selectedCell ? (studentPlacements?.[selectedCell.slot] || {}) : {};
@@ -1276,7 +1306,84 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     }
   });
 
-  const activeSlotIntegrity = verifySlotIntegrity(activeSlotIdx, placement, placementSlots, rooms, students, activeSlotPlacements);
+  const activeSlotIntegrity = verifySlotIntegrity(activeSlotIdx, placement, placementSlots, roomsAt(activeSlotIdx), students, activeSlotPlacements);
+
+  /** 목록표에 쓸 고사실 (이름이 비어있는 미사용 행은 제외) */
+  const usableRooms = React.useMemo(
+    () => rooms.filter(r => r.roomName !== '' && r.roomName !== '0'),
+    [rooms]
+  );
+
+  /** 교시 × 고사실을 한 줄씩 펼친 목록. 7. 고사장 배치 화면의 본문입니다. */
+  const roomPlacementRows = React.useMemo<RoomPlacementRow[]>(() => {
+    const out: RoomPlacementRow[] = [];
+
+    for (const ps of placementSlots) {
+      const slotPlacements = studentPlacements?.[ps.index];
+
+      for (const room of usableRooms) {
+        const cellVal = placement[ps.index]?.[room.id] ?? '';
+        const kind: RoomPlacementRow['kind'] = isForbiddenCell(cellVal)
+          ? 'forbidden'
+          : isWaitCell(cellVal)
+          ? 'wait'
+          : cellVal
+          ? 'exam'
+          : 'empty';
+
+        // 학생 배정이 이미 있으면 실제 배정 인원을, 없으면 분반 정원을 씁니다.
+        const derivedCount = cellDerived(cellVal, entries).stuCount;
+        const count = slotPlacements
+          ? students.filter(st => slotPlacements[`${st.ban}-${st.num}`] === room.id).length
+          : (typeof derivedCount === 'number' ? derivedCount : 0);
+
+        out.push({
+          ps,
+          room,
+          kind,
+          subjectName: kind === 'exam' ? cellVal.split('-')[0] || '' : '',
+          cellVal,
+          count,
+          capacity: capacityForSlot(room, ps.index, slotRoomCapacity),
+          hasCapacityOverride: Boolean(slotRoomCapacity?.[ps.index]?.[room.id]),
+          isLocked: lockedCells[ps.index]?.[room.id] ?? false,
+        });
+      }
+    }
+
+    return out;
+  }, [placementSlots, usableRooms, placement, studentPlacements, students, entries, slotRoomCapacity, lockedCells]);
+
+  const filteredRoomRows = React.useMemo(
+    () =>
+      roomPlacementRows.filter(row => {
+        if (listFilterSlot && String(row.ps.index) !== listFilterSlot) return false;
+        if (listFilterRoomId && row.room.id !== listFilterRoomId) return false;
+        if (listFilterKind && row.kind !== listFilterKind) return false;
+        return true;
+      }),
+    [roomPlacementRows, listFilterSlot, listFilterRoomId, listFilterKind]
+  );
+
+  const roomRowCounts = React.useMemo(() => {
+    const tally = { exam: 0, wait: 0, forbidden: 0, empty: 0 };
+    filteredRoomRows.forEach(row => { tally[row.kind]++; });
+    return tally;
+  }, [filteredRoomRows]);
+
+  const ROOM_ROW_KIND_LABEL: Record<RoomPlacementRow['kind'], string> = {
+    exam: '고사장',
+    wait: '대기실',
+    forbidden: '배치금지',
+    empty: '미사용',
+  };
+
+  const ROOM_ROW_KIND_STYLE: Record<RoomPlacementRow['kind'], string> = {
+    exam: 'bg-blue-50 text-[#005691] border-blue-200',
+    wait: 'bg-amber-50 text-amber-900 border-amber-300',
+    forbidden: 'bg-rose-50 text-rose-700 border-rose-200',
+    empty: 'bg-gray-50 text-gray-500 border-gray-200',
+  };
 
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
@@ -1551,7 +1658,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
 
       {/* Control bar: 한눈에 보기 & 배치 패널 토글 */}
       <div className="px-5 pt-2 pb-1 flex items-center justify-between text-xs">
-        <div className="flex items-center gap-2">
+        {/* '한눈에 보기'는 가로로 넓은 매트릭스 표에만 필요합니다 (8. 학생 배치). */}
+        <div className={`items-center gap-2 ${stepMode === 7 ? 'hidden' : 'flex'}`}>
           <button
             onClick={() => setIsCompactFit(!isCompactFit)}
             className={`px-3 py-1.5 rounded-lg font-bold border transition flex items-center gap-1.5 ${
@@ -1583,6 +1691,237 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
       </div>
 
       <div className="p-4 flex-1 flex gap-4 overflow-hidden">
+        {/* 7. 고사장 배치: 교시 × 고사실 목록표 */}
+        {stepMode === 7 ? (
+          <div className="flex-1 flex flex-col min-h-0 gap-2.5">
+            <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+              <select
+                value={listFilterSlot}
+                onChange={e => setListFilterSlot(e.target.value)}
+                className="px-3 py-1.5 text-[14px] bg-white border border-gray-200 rounded-xl focus:outline-none font-bold text-[#0f172a] shadow-2xs"
+              >
+                <option value="">모든 교시</option>
+                {placementSlots.map(ps => (
+                  <option key={ps.index} value={ps.index}>{ps.title}</option>
+                ))}
+              </select>
+
+              <select
+                value={listFilterRoomId}
+                onChange={e => setListFilterRoomId(e.target.value)}
+                className="px-3 py-1.5 text-[14px] bg-white border border-gray-200 rounded-xl focus:outline-none font-bold text-[#0f172a] shadow-2xs"
+              >
+                <option value="">모든 고사실</option>
+                {usableRooms.map(r => (
+                  <option key={r.id} value={r.id}>{r.roomName}{r.banName ? ' (' + r.banName + ')' : ''}</option>
+                ))}
+              </select>
+
+              <select
+                value={listFilterKind}
+                onChange={e => setListFilterKind(e.target.value as typeof listFilterKind)}
+                className="px-3 py-1.5 text-[14px] bg-white border border-gray-200 rounded-xl focus:outline-none font-bold text-[#0f172a] shadow-2xs"
+              >
+                <option value="">모든 구분</option>
+                <option value="exam">고사장</option>
+                <option value="wait">대기실</option>
+                <option value="forbidden">배치금지</option>
+                <option value="empty">미사용</option>
+              </select>
+
+              <span className="text-[14px] text-[#0f172a] font-bold bg-white px-3 py-1.5 rounded-xl border border-gray-200 shadow-2xs">
+                총 <strong className="text-[#005691] font-black">{filteredRoomRows.length}행</strong>
+                <span className="text-slate-400 mx-1.5">|</span>
+                고사장 <strong className="text-[#005691]">{roomRowCounts.exam}</strong>
+                <span className="text-slate-300 mx-1">·</span>
+                대기실 <strong className="text-amber-800">{roomRowCounts.wait}</strong>
+                <span className="text-slate-300 mx-1">·</span>
+                배치금지 <strong className="text-rose-700">{roomRowCounts.forbidden}</strong>
+              </span>
+
+              <span className="ml-auto text-[13px] text-slate-500 font-medium">
+                💡 정원 칸의 숫자를 고치면 <strong className="text-slate-700">그 교시에만</strong> 적용됩니다.
+              </span>
+            </div>
+
+            <div className="flex-1 min-h-0 border border-gray-200 rounded-2xl overflow-auto bg-white shadow-sm">
+              <table className="w-full text-[14px] text-left border-collapse">
+                <thead className="bg-gray-50 text-gray-900 sticky top-0 z-10 font-black border-b border-gray-200 shadow-xs">
+                  <tr className="divide-x divide-gray-200">
+                    <th className="py-2.5 px-3 w-28">교시</th>
+                    <th className="py-2.5 px-3 w-44">고사실</th>
+                    <th className="py-2.5 px-3 w-24 text-center">구분</th>
+                    <th className="py-2.5 px-3">배정 과목 (분반)</th>
+                    <th className="py-2.5 px-3 w-20 text-center">인원</th>
+                    <th className="py-2.5 px-3 w-32 text-center">정원</th>
+                    <th className="py-2.5 px-3 w-52 text-center">고사장 / 대기실 전환</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200 font-normal">
+                  {filteredRoomRows.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="py-12 text-center text-[#0f172a] font-normal">
+                        {placementSlots.length === 0
+                          ? '6. 시간표작성에서 과목을 배치하면 고사장 배치표가 생성됩니다.'
+                          : '조건에 맞는 행이 없습니다. 필터를 바꿔보세요.'}
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRoomRows.map((row, idx) => {
+                      const prev = filteredRoomRows[idx - 1];
+                      const isFirstRowOfSlot = !prev || prev.ps.index !== row.ps.index;
+                      const isOverCapacity = row.count > row.capacity;
+                      const canEdit = !stages.stage4 && !row.isLocked;
+
+                      return (
+                        <React.Fragment key={row.ps.index + '-' + row.room.id}>
+                          {isFirstRowOfSlot && (
+                            <tr className="bg-slate-100/80 border-y border-slate-200">
+                              <td colSpan={7} className="py-1.5 px-3">
+                                <div className="flex flex-wrap items-center gap-2.5">
+                                  <span className="font-black text-[15px] text-[#005691]">{row.ps.title}</span>
+                                  <span className="font-bold text-[13.5px] text-slate-700">{row.ps.subjects.join(', ')}</span>
+                                  <span className="text-[13px] text-slate-500 font-medium">
+                                    응시 {row.ps.takers}명 · 미응시 {row.ps.nonTakers}명
+                                  </span>
+                                  {!stages.stage4 && (
+                                    <div className="ml-auto flex items-center gap-1.5">
+                                      <button
+                                        onClick={() => handleAutoPlaceSlot(row.ps.index)}
+                                        className="px-2.5 py-1 bg-[#005691] hover:bg-blue-800 text-white rounded-lg text-[12.5px] font-bold shadow-2xs transition active:scale-95"
+                                        title="이 교시를 자동으로 배치합니다"
+                                      >
+                                        자동배치
+                                      </button>
+                                      <button
+                                        onClick={() => handleResetAndAutoPlaceSlot(row.ps.index)}
+                                        className="px-2.5 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-lg text-[12.5px] font-bold shadow-2xs transition active:scale-95"
+                                        title="이 교시를 비우고 처음부터 다시 배치합니다"
+                                      >
+                                        재배치
+                                      </button>
+                                    </div>
+                                  )}
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+
+                          <tr
+                            onClick={() => handleCellClick(row.ps.index, row.room.id)}
+                            className={'divide-x divide-gray-200 cursor-pointer transition ' + (
+                              selectedCell?.slot === row.ps.index && selectedCell?.roomId === row.room.id
+                                ? 'bg-blue-50'
+                                : 'hover:bg-gray-50'
+                            )}
+                          >
+                            <td className="py-2 px-3 text-slate-600 font-medium">{row.ps.title}</td>
+                            <td className="py-2 px-3 font-bold text-gray-900">
+                              {row.room.roomName}
+                              {row.room.banName && <span className="ml-1 text-slate-500 font-normal">({row.room.banName})</span>}
+                              {row.isLocked && <Lock className="inline-block w-3.5 h-3.5 ml-1.5 text-slate-500" />}
+                            </td>
+                            <td className="py-2 px-3 text-center">
+                              <span className={'inline-block px-2 py-0.5 rounded-md border text-[12.5px] font-black ' + ROOM_ROW_KIND_STYLE[row.kind]}>
+                                {ROOM_ROW_KIND_LABEL[row.kind]}
+                              </span>
+                            </td>
+                            <td className="py-2 px-3 font-bold text-gray-900">
+                              {row.kind === 'exam' ? row.cellVal : row.kind === 'wait' ? '대기' : <span className="text-gray-400 font-normal">-</span>}
+                            </td>
+                            <td className={'py-2 px-3 text-center font-black ' + (isOverCapacity ? 'text-rose-700' : 'text-[#0f172a]')}>
+                              {row.count}명
+                              {isOverCapacity && <AlertTriangle className="inline-block w-3.5 h-3.5 ml-1 text-rose-600" />}
+                            </td>
+                            <td className="py-1.5 px-2 text-center" onClick={e => e.stopPropagation()}>
+                              <div className="inline-flex items-center gap-1">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={99}
+                                  disabled={stages.stage4}
+                                  value={row.capacity}
+                                  onChange={e => {
+                                    const v = Number(e.target.value);
+                                    setSlotRoomCapacity(row.ps.index, row.room.id, v > 0 ? v : null);
+                                  }}
+                                  className={'w-16 px-2 py-1 border rounded-lg text-center font-black text-[14px] disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#005691] ' + (
+                                    row.hasCapacityOverride
+                                      ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
+                                      : 'border-gray-200 text-[#005691]'
+                                  )}
+                                  title={row.hasCapacityOverride ? '이 교시에만 적용되는 정원입니다' : '고사실 기본 정원'}
+                                />
+                                {row.hasCapacityOverride && !stages.stage4 && (
+                                  <button
+                                    onClick={() => setSlotRoomCapacity(row.ps.index, row.room.id, null)}
+                                    className="p-1 text-slate-500 hover:text-rose-700 transition"
+                                    title={'기본 정원(' + row.room.capacity + '명)으로 되돌리기'}
+                                  >
+                                    <RotateCcw className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </td>
+                            <td className="py-1.5 px-2 text-center" onClick={e => e.stopPropagation()}>
+                              {!canEdit ? (
+                                <span className="text-[12.5px] text-gray-400 font-medium">
+                                  {row.isLocked ? '잠김' : '확정됨'}
+                                </span>
+                              ) : row.kind === 'exam' ? (
+                                <button
+                                  onClick={() => handleShrinkExamRoomToWait(row.ps.index, row.subjectName, row.room.id)}
+                                  className="px-2.5 py-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg text-[12.5px] font-bold shadow-2xs transition active:scale-95"
+                                  title="이 고사장을 대기실로 바꿉니다"
+                                >
+                                  대기실로 전환
+                                </button>
+                              ) : row.kind === 'wait' ? (
+                                <button
+                                  onClick={() => handleAddExamRoomFromWait(row.ps.index, undefined, row.room.id)}
+                                  className="px-2.5 py-1 bg-rose-900 hover:bg-rose-950 text-white rounded-lg text-[12.5px] font-bold shadow-2xs transition active:scale-95"
+                                  title="이 대기실을 시험 고사장으로 바꿉니다"
+                                >
+                                  고사장으로 전환
+                                </button>
+                              ) : row.kind === 'forbidden' ? (
+                                <button
+                                  onClick={() => handleToggleForbiddenCell(row.ps.index, row.room.id)}
+                                  className="px-2.5 py-1 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-lg text-[12.5px] font-bold shadow-2xs transition active:scale-95"
+                                  title="배치금지를 풀어 다시 쓸 수 있게 합니다"
+                                >
+                                  배치금지 해제
+                                </button>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1.5">
+                                  <button
+                                    onClick={() => handleAddExamRoomFromWait(row.ps.index, undefined, row.room.id)}
+                                    className="px-2 py-1 bg-gray-100 hover:bg-blue-50 text-gray-600 hover:text-blue-700 border border-gray-200 hover:border-blue-300 rounded-lg text-[12.5px] font-bold shadow-2xs transition active:scale-95"
+                                    title="이 빈 고사실을 시험 고사장으로 바꿉니다"
+                                  >
+                                    고사장으로 전환
+                                  </button>
+                                  <button
+                                    onClick={() => handleToggleForbiddenCell(row.ps.index, row.room.id)}
+                                    className="px-2 py-1 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-lg text-[12.5px] font-bold shadow-2xs transition active:scale-95"
+                                    title="이 교시에 이 고사실을 쓰지 않도록 막습니다"
+                                  >
+                                    배치금지
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Placement Table Grid */}
         <div className="flex-1 flex flex-col border border-gray-200 rounded-2xl overflow-auto bg-white shadow-sm">
           <table className={`w-full text-left border-collapse ${isCompactFit ? 'text-[13.5px]' : 'text-[16px] min-w-[950px]'}`}>
@@ -2031,6 +2370,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
             </tbody>
           </table>
         </div>
+        </>
+        )}
 
         {/* Sidebar Placement Panel - Collapsible */}
         {isPanelOpen && (

@@ -55,6 +55,7 @@ export const createInitialGradeData = (grade: GradeId, defaults?: any): GradeDat
     students: [],
     timetable: createInitialTimetable(),
     placement: {},
+    slotRoomCapacity: {},
     attendance: [],
     subjectCodes: {},
     ui: {
@@ -92,6 +93,7 @@ export const extractGradeData = (state: AppState): GradeData => {
     placement: state.placement,
     studentPlacements: state.studentPlacements,
     lockedCells: state.lockedCells,
+    slotRoomCapacity: state.slotRoomCapacity,
     attendance: state.attendance,
     subjectCodes: state.subjectCodes,
     ui: state.ui,
@@ -178,6 +180,8 @@ interface AppStoreActions {
   setPlacementCell: (slotIndex: number, roomId: string, value: CellValue) => void;
   swapPlacementCells: (slotIndex: number, roomId1: string, roomId2: string) => void;
   setLockedCell: (slotIndex: number, roomId: string, locked: boolean) => void;
+  /** 해당 교시에만 적용되는 고사실 정원을 지정합니다. capacity가 null이면 기본 정원으로 되돌립니다. */
+  setSlotRoomCapacity: (slotIndex: number, roomId: string, capacity: number | null) => void;
   setPlacementGrid: (placement: AppState['placement']) => void;
   transferStudentsAndUpdatePlacement: (slotIndex: number, transfers: Record<string, string>) => void;
   setSlotStudentPlacements: (slotIndex: number, placements: Record<string, string>) => void;
@@ -1336,6 +1340,30 @@ export const useAppStore = create<AppStore>((set, get) => ({
       row[roomId] = locked;
       lockedCells[slotIndex] = row;
       const next = { ...state, lockedCells };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  setSlotRoomCapacity: (slotIndex, roomId, capacity) => {
+    set(state => {
+      const slotRoomCapacity = { ...(state.slotRoomCapacity || {}) };
+      const row = { ...(slotRoomCapacity[slotIndex] || {}) };
+
+      if (capacity === null || !Number.isFinite(capacity) || capacity <= 0) {
+        delete row[roomId];
+      } else {
+        row[roomId] = Math.floor(capacity);
+      }
+
+      // 예외가 하나도 남지 않은 교시는 아예 비워 두어 저장 파일이 불필요하게 커지지 않게 합니다.
+      if (Object.keys(row).length === 0) {
+        delete slotRoomCapacity[slotIndex];
+      } else {
+        slotRoomCapacity[slotIndex] = row;
+      }
+
+      const next = { ...state, slotRoomCapacity };
       saveStateToIdb(next);
       return next;
     });

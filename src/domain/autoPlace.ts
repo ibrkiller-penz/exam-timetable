@@ -1,4 +1,4 @@
-import { PlacementGrid, PlacementSlot, ExamRoom, SubjectBanKey, SubjectBanEntry, Student, CellValue, isExtraRoom, isWaitCell, parseWaitCount, NeisRow } from './types';
+import { PlacementGrid, PlacementSlot, ExamRoom, SubjectBanKey, SubjectBanEntry, Student, CellValue, isExtraRoom, isWaitCell, parseWaitCount, NeisRow, SlotRoomCapacity, roomsForSlot } from './types';
 import { panelItems, cellInfo, waitByBan, cellDerived } from './placement';
 import { assertSlotIntegrity } from './integrity';
 
@@ -421,7 +421,8 @@ export function autoPlaceAll(
   entries: Map<SubjectBanKey, SubjectBanEntry>,
   students: Student[],
   extraAnswers?: Record<number, boolean>,
-  lockedCells?: Record<number, Record<string, boolean>>
+  lockedCells?: Record<number, Record<string, boolean>>,
+  slotRoomCapacity?: SlotRoomCapacity
 ): PlacementGrid {
   let currentPlacement = JSON.parse(JSON.stringify(placement));
   const firstUsableRoom = rooms.find(r => r.roomName !== '' && r.roomName !== '0');
@@ -434,7 +435,8 @@ export function autoPlaceAll(
       firstRoomId,
       currentPlacement,
       placementSlots,
-      rooms,
+      // 교시마다 정원 예외가 다를 수 있으므로 해당 교시 기준으로 환산한 고사실을 넘깁니다.
+      roomsForSlot(rooms, ps.index, slotRoomCapacity),
       entries,
       students,
       isExtra,
