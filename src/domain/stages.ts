@@ -250,7 +250,8 @@ export function confirmStage4(state: AppState): { state: AppState; notices: stri
     placementSlots,
     state.placement,
     entries,
-    state.studentPlacements
+    state.studentPlacements,
+    state.separateExaminers
   );
 
   return {

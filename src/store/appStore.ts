@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis } from '../domain/types';
+import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis, SeparateExaminer } from '../domain/types';
 import { createInitialDays, createInitialTimes, createInitialTimetable, APP_VERSION } from '../domain/constants';
 import { MSG } from '../domain/messages';
 import { confirmStage1, cancelStage1, confirmStage2, cancelStage2, confirmStage3, cancelStage3, confirmStage4, cancelStage4, confirmStage5, cancelStage5 } from '../domain/stages';
@@ -29,6 +29,7 @@ export const createInitialGradeData = (grade: GradeId, defaults?: any): GradeDat
       ...(defaults?.settings || {
         maxSubjectsPerSlot: 4,
         seatColumns: 5,
+        separateRoomCount: 2,
         seatsPerColumn: 8,
         labelsPerPage: 2,
         showSeatOnStudentTable: true,
@@ -60,6 +61,7 @@ export const createInitialGradeData = (grade: GradeId, defaults?: any): GradeDat
     slotBanLabelStyle: {},
     slotCapacityBasis: {},
     attendance: [],
+    separateExaminers: {},
     subjectCodes: {},
     ui: {
       selectedTimetableSlot: null,
@@ -101,6 +103,7 @@ export const extractGradeData = (state: AppState): GradeData => {
     slotBanLabelStyle: state.slotBanLabelStyle,
     slotCapacityBasis: state.slotCapacityBasis,
     attendance: state.attendance,
+    separateExaminers: state.separateExaminers,
     subjectCodes: state.subjectCodes,
     ui: state.ui,
   };
@@ -200,6 +203,8 @@ interface AppStoreActions {
   setAllStudentPlacements: (placements: Record<number, Record<string, string>>) => void;
   clearPlacementSlot: (slotIndex: number) => void;
   clearAllPlacement: () => void;
+  /** 별도 고사장 응시자를 지정하거나 해제합니다. entry가 null이면 해제입니다. */
+  setSeparateExaminer: (studentKey: string, entry: SeparateExaminer | null) => void;
   /** 모든 칸의 잠금 상태를 한꺼번에 바꿉니다. */
   setAllLockedCells: (locked: Record<number, Record<string, boolean>>) => void;
   confirmStage4: () => string[]; // returns notices
@@ -732,6 +737,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       const settings = state.settings || defaults?.settings || {
         maxSubjectsPerSlot: 4,
         seatColumns: 5,
+        separateRoomCount: 2,
         seatsPerColumn: 8,
         labelsPerPage: 2,
         showSeatOnStudentTable: true,
@@ -1552,6 +1558,17 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
       const nextPlacement = { ...state.placement, [slotIndex]: {} };
       const next = { ...state, placement: nextPlacement };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  setSeparateExaminer: (studentKey, entry) => {
+    set(state => {
+      const next_ = { ...(state.separateExaminers ?? {}) };
+      if (entry) next_[studentKey] = entry;
+      else delete next_[studentKey];
+      const next = { ...state, separateExaminers: next_ };
       saveStateToIdb(next);
       return next;
     });

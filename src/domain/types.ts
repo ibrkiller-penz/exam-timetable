@@ -204,6 +204,44 @@ export interface SlotSummary {
   errorKey: PlacementErrorKey;
 }
 
+/**
+ * 별도 고사장에서 따로 시험을 보는 학생 한 명.
+ *
+ * 틱이나 장애가 있어 따로 응시하고, 끝나면 답안지를 가져옵니다.
+ * 소속 고사실 명단에는 그대로 남되 좌석은 받지 않습니다.
+ * 명단에서 빼 버리면 담당 교사가 그 학생의 존재를 알 수 없습니다.
+ */
+export interface SeparateExaminer {
+  /** 몇 번 별도실인지. 보통 2실을 운영하고 학교마다 다릅니다. */
+  room: number;
+  /**
+   * 어느 시험에 적용할지.
+   *  - 'all'  모든 시험을 별도실에서 봅니다.
+   *  - 교시 번호 목록  그 교시만 별도실에서 봅니다 (한 과목만 따로 보는 경우).
+   */
+  slots: 'all' | number[];
+  /** 왜 따로 보는지 (선택). 명단에 적어 두면 담당자끼리 인수인계가 쉽습니다. */
+  note?: string;
+}
+
+/** 별도 응시자 모음. 키는 `반-번호`. */
+export type SeparateExaminers = Record<string, SeparateExaminer>;
+
+/**
+ * 그 교시에 이 학생이 몇 번 별도실에서 보는지. 별도가 아니면 undefined.
+ * 전체 별도와 '이 교시만' 별도를 한 곳에서 풀어 줍니다.
+ */
+export const separateRoomFor = (
+  studentKey: string,
+  slotIndex: number,
+  map?: SeparateExaminers
+): number | undefined => {
+  const e = map?.[studentKey];
+  if (!e) return undefined;
+  if (e.slots === 'all') return e.room;
+  return e.slots.includes(slotIndex) ? e.room : undefined;
+};
+
 export interface AttendanceRow {
   key1: string; key2: string; key3: string;
   day: DayLabel; period: PeriodLabel; examRoom: string;
@@ -212,6 +250,8 @@ export interface AttendanceRow {
   classRoom: string;
   seq: number;
   seat: number | null;
+  /** 몇 번 별도실에서 따로 보는지. 없으면 제 고사실에서 봅니다. */
+  separateRoom?: number;
 }
 
 export interface LabelRow {
@@ -240,6 +280,8 @@ export interface Settings {
   studentTicketNotice?: string;
   /** 분반 이름 기본 표기 — 가나다(ko)가 기본입니다. */
   banLabelStyle?: BanLabelStyle;
+  /** 별도 고사장을 몇 실 운영하는지. 보통 2실이고 학교마다 다릅니다. */
+  separateRoomCount?: number;
 }
 export interface Stages {
   stage1: boolean;
@@ -283,6 +325,7 @@ export interface GradeData {
   slotBanLabelStyle?: SlotBanLabelStyle;
   slotCapacityBasis?: SlotCapacityBasis;
   attendance: AttendanceRow[];
+  separateExaminers?: SeparateExaminers;
   subjectCodes: Record<string, string>;
   ui: {
     selectedTimetableSlot: SlotKey | null;
@@ -310,6 +353,7 @@ export interface AppState {
   slotBanLabelStyle?: SlotBanLabelStyle;
   slotCapacityBasis?: SlotCapacityBasis;
   attendance: AttendanceRow[];
+  separateExaminers?: SeparateExaminers;
   subjectCodes: Record<string, string>;
   ui: {
     selectedTimetableSlot: SlotKey | null;

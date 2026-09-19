@@ -7,7 +7,7 @@ import { CloudModal } from '../components/CloudModal';
 import { TimetablePreviewModal } from '../components/TimetablePreviewModal';
 import { saveCloudImmediately } from '../domain/firebase';
 import { MSG } from '../domain/messages';
-import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle, CapacityBasis } from '../domain/types';
+import { separateRoomFor, SeparateExaminer, isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle, CapacityBasis } from '../domain/types';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
 import { displayName } from '../domain/privacy';
@@ -49,6 +49,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     swapPlacementCells,
     setLockedCell,
     setAllLockedCells,
+    setSeparateExaminer,
+    separateExaminers = {},
     clearPlacementSlot,
     clearAllPlacement,
     setPlacementGrid,
@@ -1641,6 +1643,64 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
   };
 
   /**
+   * 별도 고사실에서 따로 보는 학생 지정.
+   *
+   * 틱이나 장애가 있어 따로 응시하고, 끝나면 답안지를 가져옵니다.
+   * 원래 고사실 명단에는 그대로 두고 비고에 '별도고사실 응시중'으로 적습니다.
+   * 명단에서 빼 버리면 감독 선생님이 그 학생의 존재를 알 수 없습니다.
+   *
+   * 늘 따로 보는 학생이 있고, 한 과목만 따로 보는 학생(추가 시간이 필요한 경우 등)이
+   * 있어서, 체크할 때 어느 쪽인지 물어봅니다.
+   */
+  const [separateAsk, setSeparateAsk] = useState<{
+    studentKey: string;
+    label: string;
+    slotIndex: number;
+    slotTitle: string;
+    room: number;
+  } | null>(null);
+
+  const separateRoomCount = Math.max(1, settings.separateRoomCount ?? 2);
+
+  const handleToggleSeparate = (st: Pick<Student, 'ban' | 'num' | 'name'>, stKey: string) => {
+    if (isStageLocked || !studentListModal) return;
+    const cur = separateExaminers[stKey];
+    const slotIndex = studentListModal.slotIndex;
+
+    // 이미 이 교시에 별도면 해제합니다.
+    if (separateRoomFor(stKey, slotIndex, separateExaminers)) {
+      if (cur?.slots === 'all') {
+        setSeparateExaminer(stKey, null); // 전체 별도를 풉니다.
+      } else {
+        const rest = (cur?.slots as number[] ?? []).filter(i => i !== slotIndex);
+        setSeparateExaminer(stKey, rest.length > 0 ? { ...cur!, slots: rest } : null);
+      }
+      return;
+    }
+
+    const ps = placementSlots.find(s => s.index === slotIndex);
+    setSeparateAsk({
+      studentKey: stKey,
+      label: `${st.ban} ${st.num}번 ${displayName(st.name)}`,
+      slotIndex,
+      slotTitle: ps?.title ?? '이 교시',
+      room: cur?.room ?? 1,
+    });
+  };
+
+  const applySeparate = (scope: 'all' | 'slot') => {
+    if (!separateAsk) return;
+    const { studentKey, slotIndex, room } = separateAsk;
+    const cur = separateExaminers[studentKey];
+    const entry: SeparateExaminer =
+      scope === 'all'
+        ? { room, slots: 'all' }
+        : { room, slots: [...new Set([...(Array.isArray(cur?.slots) ? cur!.slots : []), slotIndex])] };
+    setSeparateExaminer(studentKey, entry);
+    setSeparateAsk(null);
+  };
+
+  /**
    * 모든 교시·모든 고사실 칸을 한꺼번에 잠그거나 풉니다.
    * 잠긴 칸은 자동배치가 건드리지 않습니다. 손으로 맞춘 자리를 지키는 용도입니다.
    */
@@ -3055,6 +3115,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                           className="w-4 h-4 rounded text-red-500 focus:ring-[#00A651] cursor-pointer"
                         />
                       </th>
+                      <th className="py-2.5 px-2 text-center w-12 font-bold" title="틱·장애 등으로 별도 고사실에서 따로 보는 학생">별도</th>
                       <th className="py-2.5 px-2 text-center w-10 font-bold">#</th>
                       <th className="py-2.5 px-2 text-center font-bold w-14">반</th>
                       <th className="py-2.5 px-2 text-center font-bold w-14">번호</th>
@@ -3087,6 +3148,20 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                               onChange={() => handleSelectStudentToggle(stKey)}
                               className="w-4 h-4 rounded text-red-500 focus:ring-[#00A651] cursor-pointer"
                             />
+                          </td>
+                          <td className="py-2 px-2 text-center">
+                            {taking.length > 0 ? (
+                              <input
+                                type="checkbox"
+                                disabled={isStageLocked}
+                                checked={Boolean(separateRoomFor(stKey, studentListModal.slotIndex, separateExaminers))}
+                                onChange={() => handleToggleSeparate(st, stKey)}
+                                className="w-4 h-4 rounded cursor-pointer accent-[#005691]"
+                                title="별도 고사실에서 따로 보는 학생으로 표시합니다"
+                              />
+                            ) : (
+                              <span className="text-slate-300 text-[12px]">—</span>
+                            )}
                           </td>
                           <td className="py-2 px-2 text-center text-[#0f172a] font-normal text-[13px]">{idx + 1}</td>
                           <td className="py-2 px-2 text-center font-bold text-[#005691]">
@@ -3307,6 +3382,71 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       )}
 
       {/* 분반 이름 지정 */}
+      {/* 늘 따로 보는 학생인지, 이 시험만 따로 보는 학생인지 물어봅니다. */}
+      {separateAsk && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setSeparateAsk(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#005691] text-white px-5 py-4 flex items-center justify-between">
+              <div>
+                <div className="font-black text-[17px]">별도 고사실 응시</div>
+                <div className="text-[13px] text-blue-100 font-medium mt-0.5">{separateAsk.label}</div>
+              </div>
+              <button onClick={() => setSeparateAsk(null)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-4">
+              {separateRoomCount > 1 && (
+                <div>
+                  <label className="block font-bold text-slate-700 text-[14px] mb-2">어느 별도 고사실인가요?</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Array.from({ length: separateRoomCount }, (_, i) => i + 1).map(n => (
+                      <button
+                        key={n}
+                        onClick={() => setSeparateAsk({ ...separateAsk, room: n })}
+                        className={`px-3 py-1.5 rounded-lg font-bold text-[14px] border transition ${
+                          separateAsk.room === n
+                            ? 'bg-[#005691] text-white border-[#005691]'
+                            : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
+                        }`}
+                      >
+                        {n}실
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <p className="font-bold text-slate-700 text-[14px] mb-2">어느 시험에 적용할까요?</p>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => applySeparate('all')}
+                    className="w-full text-left px-4 py-3 rounded-xl border-2 border-gray-200 hover:border-[#005691] hover:bg-blue-50/50 transition"
+                  >
+                    <div className="font-black text-[15px] text-slate-800">모든 시험</div>
+                    <div className="text-[13px] text-slate-500 mt-0.5">늘 별도 고사실에서 봅니다.</div>
+                  </button>
+                  <button
+                    onClick={() => applySeparate('slot')}
+                    className="w-full text-left px-4 py-3 rounded-xl border-2 border-gray-200 hover:border-[#005691] hover:bg-blue-50/50 transition"
+                  >
+                    <div className="font-black text-[15px] text-slate-800">{separateAsk.slotTitle}만</div>
+                    <div className="text-[13px] text-slate-500 mt-0.5">이 시험만 따로 봅니다 (추가 시간이 필요한 경우 등).</div>
+                  </button>
+                </div>
+              </div>
+
+              <p className="text-[13px] text-slate-500 leading-relaxed border-t border-gray-100 pt-3">
+                별도 응시자는 <strong>원래 고사실 명단에 그대로 남고</strong>, 비고에 '별도고사실 응시중'으로 적힙니다.
+                좌석배치도에서는 빠집니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 고사장·대기실로 바꾸기 전에 정원부터 묻습니다. */}
       {capacityPrompt && (() => {
         const ps = placementSlots.find(s2 => s2.index === capacityPrompt.slotIndex);

@@ -1,4 +1,4 @@
-import { NeisRow, Student, ExamRoom, PlacementSlot, PlacementGrid, SubjectBanKey, SubjectBanEntry, AttendanceRow, DayLabel, PeriodLabel, isWaitCell } from './types';
+import { NeisRow, Student, ExamRoom, PlacementSlot, PlacementGrid, SubjectBanKey, SubjectBanEntry, AttendanceRow, DayLabel, PeriodLabel, isWaitCell, SeparateExaminers, separateRoomFor } from './types';
 import { initSlotStudentPlacements } from './autoPlace';
 import { MSG } from './messages';
 
@@ -9,7 +9,9 @@ export function buildAttendance(
   placementSlots: PlacementSlot[],
   placement: PlacementGrid,
   entries: Map<SubjectBanKey, SubjectBanEntry>,
-  studentPlacements: Record<number, Record<string, string>> = {}
+  studentPlacements: Record<number, Record<string, string>> = {},
+  /** 별도 고사장에서 따로 보는 학생들 (`반-번호` → 별도실 번호). */
+  separateExaminers: SeparateExaminers = {}
 ): { rows: AttendanceRow[]; notices: string[] } {
   const rows: AttendanceRow[] = [];
   const notices: string[] = [];
@@ -33,11 +35,15 @@ export function buildAttendance(
         return a.num - b.num;
       });
 
+      // 연번은 모두에게 붙이고, 좌석은 실제로 그 교실에 앉는 학생에게만 줍니다.
+      // 별도 응시자는 명단에 남아 있어야 담당 교사가 존재를 압니다.
       let seq = 1;
+      let seatNo = 1;
       for (const st of assignedStudents) {
         const DD = `${ps.day}일차` as DayLabel;
         const TT = `${ps.period}교시` as PeriodLabel;
         const key1 = `${DD}${TT}${r.roomName}_${seq}`;
+        const separateRoom = separateRoomFor(`${st.ban}-${st.num}`, ps.index, separateExaminers);
         const key3 = `${st.ban}${st.num}번${DD}${TT}`;
 
         const stSlotSubjects = st.subjects.filter(sub => ps.subjects.includes(sub));
@@ -63,9 +69,11 @@ export function buildAttendance(
           name: st.name,
           classRoom: classRoom,
           seq,
-          seat: seq,
+          seat: separateRoom ? null : seatNo,
+          separateRoom,
         });
         seq++;
+        if (!separateRoom) seatNo++;
       }
     }
   }
@@ -74,11 +82,14 @@ export function buildAttendance(
 }
 
 export function seatBySeq(rows: AttendanceRow[]): AttendanceRow[] {
-  return rows.map(r => ({
-    ...r,
-    seat: r.seq,
-    key2: `${r.day}${r.period}${r.examRoom}_${r.seq}`,
-  }));
+  // 별도 응시자는 그 교실에 없으므로 좌석을 건너뜁니다.
+  // 그래야 남은 학생들의 좌석 번호가 빈 자리 없이 이어집니다.
+  let seat = 0;
+  return rows.map(r => {
+    if (r.separateRoom) return { ...r, seat: null, key2: `${r.day}${r.period}${r.examRoom}_` };
+    seat++;
+    return { ...r, seat, key2: `${r.day}${r.period}${r.examRoom}_${seat}` };
+  });
 }
 
 export function seatRandom(rows: AttendanceRow[], rng: () => number = Math.random): AttendanceRow[] {
@@ -95,16 +106,21 @@ export function seatRandom(rows: AttendanceRow[], rng: () => number = Math.rando
 
   for (const [k, g] of groups.entries()) {
     if (k.endsWith('_미응시')) continue;
-    const perm = g.map(r => r.seq);
+    const sittable = g.filter(r => !r.separateRoom); // 별도 응시자는 섞지 않습니다.
+    const perm = sittable.map((_, i) => i + 1);
     for (let i = perm.length - 1; i > 0; i--) {
       const j = Math.floor(rng() * (i + 1));
       const temp = perm[i];
       perm[i] = perm[j];
       perm[j] = temp;
     }
-    g.forEach((r, idx) => {
+    sittable.forEach((r, idx) => {
       r.seat = perm[idx];
       r.key2 = `${r.day}${r.period}${r.examRoom}_${r.seat}`;
+    });
+    g.filter(r => r.separateRoom).forEach(r => {
+      r.seat = null;
+      r.key2 = `${r.day}${r.period}${r.examRoom}_`;
     });
   }
 
@@ -152,7 +168,8 @@ export function hasErrorSeat(
       if (!roomNameSet.has(row.examRoom)) {
         throw new Error(MSG.S8_ERR_WRONG_ROOM(k, row.examRoom));
       }
-      if (typeof row.seat !== 'number' || isNaN(row.seat) || row.seat <= 0) {
+      // 별도 응시자는 그 교실에 앞지 않으므로 좌석이 없는 것이 맞습니다.
+      if (!row.separateRoom && (typeof row.seat !== 'number' || isNaN(row.seat) || row.seat <= 0)) {
         throw new Error(MSG.S8_ERR_WRONG_SEAT(k, row.seat));
       }
     }
@@ -166,7 +183,7 @@ export function hasErrorSeat(
     }
   }
 
-  const noSeatCount = attendance.filter(r => r.seat === null || r.seat <= 0).length;
+  const noSeatCount = attendance.filter(r => !r.separateRoom && (r.seat === null || r.seat <= 0)).length;
   if (noSeatCount > 0) {
     throw new Error(MSG.S8_NO_SEAT(noSeatCount));
   }

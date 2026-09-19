@@ -117,7 +117,7 @@ export const Report2ExamRoom: React.FC = () => {
                       <td className="font-medium">{s?.hakbun || ''}</td>
                       <td className="font-bold">{s?.name ? displayName(s.name) : ''}</td>
                       <td className="font-extrabold text-red-800">{s?.seat || ''}</td>
-                      <td></td>
+                      <td className="text-[10px] font-bold text-slate-700 whitespace-nowrap">{s?.note || ''}</td>
                     </tr>
                   );
                 })}

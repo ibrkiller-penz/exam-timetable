@@ -152,6 +152,26 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </p>
           </div>
 
+          {/* 틱·장애 등으로 따로 보는 학생들이 쓰는 교실입니다. 보통 2실이고 학교마다 다릅니다. */}
+          <div className="pt-2">
+            <span className="block font-normal text-gray-700 mb-1.5">별도 고사실 운영 수</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={1}
+                max={9}
+                value={settings.separateRoomCount ?? 2}
+                onChange={e => updateSettings({ separateRoomCount: Math.max(1, Number(e.target.value) || 1) })}
+                className="w-24 px-3 py-1.5 border border-gray-300 rounded-lg"
+              />
+              <span className="text-gray-500 text-sm">실</span>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              8. 학생 배치에서 학생을 별도 응시자로 지정할 때, 여기서 정한 수만큼 고를 수 있습니다.
+              별도 응시자는 원래 고사실 명단에 남고 비고에 '별도고사실 응시중'으로 표시되며, 좌석배치도에서는 빠집니다.
+            </p>
+          </div>
+
           <div className="flex items-center justify-between pt-2">
             <span className="font-normal text-gray-700">학생별 시간표에 좌석번호 표시</span>
             <input

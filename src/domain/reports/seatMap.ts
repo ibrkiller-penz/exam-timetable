@@ -53,7 +53,9 @@ export function buildSeatMapReport(
   direction: 'col' | 'row' = 'col',
   rows?: number
 ): SeatMapReportData | null {
-  const filtered = attendance.filter(
+  // 별도 응시자는 그 교실에 없으므로 좌석을 차지하지 않습니다.
+  // (명단에는 남아 있어 담당 교사가 존재를 압니다.)
+  const filtered = attendance.filter(r => !r.separateRoom).filter(
     r => r.day === day && r.period === period && r.examRoom === examRoom
   );
   if (filtered.length === 0) return null;
