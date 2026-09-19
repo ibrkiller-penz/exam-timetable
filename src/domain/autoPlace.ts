@@ -807,20 +807,14 @@ export function initSlotStudentPlacements(
           matched = subjectStudents.slice(offset, offset + entry.stuCount);
         }
 
-        const roomCapacity = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
-        let currentRoomAssigned = Object.values(result).filter(id => id === r.id).length;
-
+        // 분반은 통째로 그 고사실에 앉힙니다. 좌석보다 많아도 쪼개지 않습니다.
+        // 쪼개면 남은 인원이 다음 방으로 밀리면서 모든 분반이 어긋납니다.
+        // 좌석을 넘으면 화면에 '강제배정'으로 드러나므로 정원을 올리거나 학생을 옮기면 됩니다.
         for (const st of matched) {
           const k = `${st.ban}-${st.num}`;
           if (assignedStudentKeys.has(k)) continue;
-
-          if (currentRoomAssigned < roomCapacity) {
-            result[k] = r.id;
-            assignedStudentKeys.add(k);
-            currentRoomAssigned++;
-          } else {
-            overflowExamStudents.push({ student: st, originalRoomId: r.id, subject: entry.subject });
-          }
+          result[k] = r.id;
+          assignedStudentKeys.add(k);
         }
       }
     }

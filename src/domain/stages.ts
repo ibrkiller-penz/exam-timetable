@@ -1,4 +1,4 @@
-import { AppState, isWaitCell, isForbiddenCell } from './types';
+import { AppState, isWaitCell, isForbiddenCell, capacityForSlot } from './types';
 import { MSG } from './messages';
 import { createInitialTimetable } from './constants';
 import { buildSubjectTables, buildRooms } from './baseData';
@@ -173,6 +173,38 @@ export function confirmStage4(state: AppState): { state: AppState; notices: stri
   const placementSlots = buildPlacementInfo(state.timetable, state.students, state.evalSubjects);
   const entries = subjectBanEntries(state.subjectBans);
   hasErrorBaechi(state.placement, placementSlots, state.rooms, entries, state.studentPlacements, state.students);
+
+  // 정원을 넘긴 고사실이 있으면 확정하지 않습니다.
+  // 분반을 통째로 유지하느라 좌석을 넘길 수 있으므로, 확정 전에 손으로 정리해야 합니다.
+  const overflows: string[] = [];
+  for (const ps of placementSlots) {
+    const row = state.placement?.[ps.index] ?? {};
+    const sp = state.studentPlacements?.[ps.index];
+    if (!sp) continue;
+
+    for (const r of state.rooms) {
+      const cellValue = row[r.id];
+      if (!cellValue || cellValue === '배치금지') continue;
+
+      const assigned = state.students.filter(st => sp[`${st.ban}-${st.num}`] === r.id).length;
+      const cap = capacityForSlot(
+        r, ps.index, state.slotRoomCapacity, ps, cellValue, state.slotCapacityBasis?.[ps.index]
+      );
+      if (assigned > cap) {
+        overflows.push(`${ps.title} ${r.roomName}: 정원 ${cap}석에 ${assigned}명 (${assigned - cap}명 초과)`);
+      }
+    }
+  }
+
+  if (overflows.length > 0) {
+    const shown = overflows.slice(0, 8).join('\n');
+    const more = overflows.length > 8 ? `\n… 외 ${overflows.length - 8}곳` : '';
+    throw new Error(
+      `정원을 넘긴 고사실이 ${overflows.length}곳 있어 확정할 수 없습니다.\n\n` +
+      shown + more +
+      '\n\n정원을 올리거나, 칸을 더블클릭해 학생을 다른 고사실로 옮겨 주세요.'
+    );
+  }
 
   const { rows: attendance, notices } = buildAttendance(
     state.neis,

@@ -2473,18 +2473,54 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                 return !rId || rId === 'unplaced' || !curSlotRow[rId] || curSlotRow[rId] === '배치금지';
               }).sort((a, b) => (a.ban !== b.ban ? a.ban.localeCompare(b.ban, 'ko') : a.num - b.num));
 
+              // 분반을 통째로 유지하다 보면 좌석을 넘길 수 있습니다. 확정 전에 여기서 정리합니다.
+              const overCapacity = roomsAt(curSlot.index)
+                .map(r => {
+                  const cellValue = curSlotRow[r.id];
+                  if (!cellValue || cellValue === '배치금지') return null;
+                  const used = students.filter(st => curSlotPlacements[`${st.ban}-${st.num}`] === r.id).length;
+                  const cap = capacityForSlot(r, curSlot.index, slotRoomCapacity, curSlot, cellValue, slotCapacityBasis[curSlot.index]);
+                  return used > cap ? { room: r, used, cap } : null;
+                })
+                .filter((x): x is { room: ExamRoom; used: number; cap: number } => x !== null);
+
+              const overBlock = overCapacity.length > 0 && (
+                <div className="mb-3 border border-rose-200 rounded-xl overflow-hidden shrink-0">
+                  <div className="px-3 py-1.5 bg-rose-50 text-[13.5px] font-black text-rose-800">
+                    정원 초과 {overCapacity.length}곳 — 확정하려면 먼저 정리해야 합니다
+                  </div>
+                  <div className="divide-y divide-rose-100">
+                    {overCapacity.map(({ room, used, cap }) => (
+                      <button
+                        key={room.id}
+                        onClick={() => handleCellDoubleClick(curSlot.index, room.id)}
+                        className="w-full px-3 py-1.5 text-[13.5px] flex items-center justify-between hover:bg-rose-50 transition text-left"
+                        title="학생 명단을 열어 다른 고사실로 옮깁니다"
+                      >
+                        <span className="font-bold text-gray-900">{room.roomName}</span>
+                        <span className="font-black text-rose-700">{used} / {cap}석 (+{used - cap})</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+
               if (unplaced.length === 0) {
                 return (
-                  <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
-                    <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-                    <p className="text-[15px] font-bold text-slate-700">미배치 학생이 없습니다.</p>
-                    <p className="text-[13.5px] text-slate-500">{curSlot.title} 학생이 모두 자리를 받았습니다.</p>
-                  </div>
+                  <>
+                    {overBlock}
+                    <div className="flex-1 flex flex-col items-center justify-center gap-2 p-6 text-center">
+                      <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+                      <p className="text-[15px] font-bold text-slate-700">미배치 학생이 없습니다.</p>
+                      <p className="text-[13.5px] text-slate-500">{curSlot.title} 학생이 모두 자리를 받았습니다.</p>
+                    </div>
+                  </>
                 );
               }
 
               return (
                 <>
+                  {overBlock}
                   <div className="flex items-center justify-between mb-2.5">
                     <span className="text-[14.5px] font-black text-rose-700">
                       {curSlot.title} 미배치 {unplaced.length}명
@@ -2498,13 +2534,39 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                     </button>
                   </div>
                   <div className="flex-1 overflow-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
-                    {unplaced.map(st => (
-                      <div key={`${st.ban}-${st.num}`} className="px-3 py-1.5 text-[14px] flex items-center gap-2">
-                        <span className="font-bold text-slate-700 w-16 shrink-0">{st.ban}</span>
-                        <span className="text-slate-500 w-10 shrink-0">{st.num}번</span>
-                        <span className="font-bold text-gray-900 truncate">{st.name}</span>
-                      </div>
-                    ))}
+                    {unplaced.map(st => {
+                      const stKey = `${st.ban}-${st.num}`;
+                      return (
+                        <div key={stKey} className="px-2.5 py-1.5 text-[13.5px] flex items-center gap-1.5">
+                          <span className="font-bold text-slate-700 w-12 shrink-0">{st.ban}</span>
+                          <span className="text-slate-500 w-9 shrink-0">{st.num}번</span>
+                          <span className="font-bold text-gray-900 truncate flex-1">{st.name}</span>
+                          <select
+                            value=""
+                            onChange={e => {
+                              if (!e.target.value) return;
+                              pushHistory(`[${curSlot.title}] ${st.name} 배정`);
+                              transferStudentsAndUpdatePlacement(curSlot.index, { [stKey]: e.target.value });
+                            }}
+                            className="px-1.5 py-1 border border-gray-300 rounded-lg text-[12.5px] font-bold text-[#005691] focus:outline-none focus:ring-2 focus:ring-[#005691]"
+                            title="이 학생을 넣을 고사실을 고릅니다"
+                          >
+                            <option value="">배치…</option>
+                            {roomsAt(curSlot.index)
+                              .filter(r => r.roomName !== '' && r.roomName !== '0' && curSlotRow[r.id] !== '배치금지')
+                              .map(r => {
+                                const used = students.filter(x => curSlotPlacements[`${x.ban}-${x.num}`] === r.id).length;
+                                const cap = capacityForSlot(r, curSlot.index, slotRoomCapacity, curSlot, curSlotRow[r.id], slotCapacityBasis[curSlot.index]);
+                                return (
+                                  <option key={r.id} value={r.id}>
+                                    {r.roomName} ({used}/{cap}){used >= cap ? ' 초과' : ''}
+                                  </option>
+                                );
+                              })}
+                          </select>
+                        </div>
+                      );
+                    })}
                   </div>
                 </>
               );

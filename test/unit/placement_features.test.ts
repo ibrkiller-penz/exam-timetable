@@ -32,7 +32,10 @@ describe('Step 7 Placement Enhancements (7대 핵심 개선 기능 검증)', () 
     ['수학-1반', { key: '수학-1반', subject: '수학', ban: '1반', stuCount: 31, index: 1, room: '1반' }],
   ]);
 
-  it('1. 수용정원(30명) 초과 금지: 31명 응시 시 30명만 배치되고 초과 1명은 정원을 초과하지 않음', () => {
+  it('1. 분반은 통째로 유지: 31명 분반은 정원 30인 고사실에도 쪼개지 않고 함께 앉힌다', () => {
+    // 예전에는 정원을 넘지 않도록 30명만 넣고 1명을 다른 방으로 보냈습니다.
+    // 그러면 남은 1명이 다음 방으로 밀리면서 뒤따르는 분반이 모두 어긋납니다.
+    // 분반을 통째로 유지하고, 좌석을 넘는 것은 화면에 '강제배정'으로 드러냅니다.
     const slotRow = {
       room_1: '국어-1반',
     };
@@ -47,13 +50,10 @@ describe('Step 7 Placement Enhancements (7대 핵심 개선 기능 검증)', () 
     );
 
     const room1Assigned = Object.values(studentPlacements).filter(id => id === 'room_1').length;
-    // Room 1 has capacity 30, so MUST NOT exceed 30!
-    expect(room1Assigned).toBeLessThanOrEqual(30);
-    expect(room1Assigned).toBe(30);
+    expect(room1Assigned).toBe(31);
 
-    // 1 student is placed in another available room or wait, NOT overflowing room 1
-    const otherAssigned = Object.values(studentPlacements).filter(id => id !== 'room_1');
-    expect(otherAssigned.length).toBe(1);
+    const otherAssigned = Object.values(studentPlacements).filter(id => id && id !== 'room_1');
+    expect(otherAssigned.length).toBe(0);
   });
 
   it('2. 교시별 재배치(resetAndAutoPlaceSlot): 1교시 재배치 시 2교시 배치는 전혀 변경되지 않음', () => {
