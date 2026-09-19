@@ -42,7 +42,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               분반 이름 표기
             </label>
             <div className="flex items-center gap-2">
-              {([['ko', '가 나 다'], ['en', 'A B C']] as const).map(([value, label]) => (
+              {([['ko', '가 나 다'], ['en', 'A B C'], ['none', '표시 안 함']] as const).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"

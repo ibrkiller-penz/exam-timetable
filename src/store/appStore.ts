@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom } from '../domain/types';
+import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle } from '../domain/types';
 import { createInitialDays, createInitialTimes, createInitialTimetable, APP_VERSION } from '../domain/constants';
 import { MSG } from '../domain/messages';
 import { confirmStage1, cancelStage1, confirmStage2, cancelStage2, confirmStage3, cancelStage3, confirmStage4, cancelStage4, confirmStage5, cancelStage5 } from '../domain/stages';
@@ -189,7 +189,7 @@ interface AppStoreActions {
   /** 교시별 분반 이름을 직접 지정합니다. label이 비면 자동 표기로 되돌립니다. */
   setSlotBanLabel: (slotIndex: number, roomId: string, label: string | null) => void;
   /** 교시별 분반 표기 방식(가나다/ABC). null이면 설정의 기본 방식을 따릅니다. */
-  setSlotBanLabelStyle: (slotIndex: number, style: 'ko' | 'en' | null) => void;
+  setSlotBanLabelStyle: (slotIndex: number, style: BanLabelStyle | null) => void;
   setPlacementGrid: (placement: AppState['placement']) => void;
   transferStudentsAndUpdatePlacement: (slotIndex: number, transfers: Record<string, string>) => void;
   setSlotStudentPlacements: (slotIndex: number, placements: Record<string, string>) => void;

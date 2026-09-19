@@ -84,6 +84,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
       }
     }
     const style = slotIndex !== undefined ? banStyleOf(slotIndex) : (settings.banLabelStyle ?? 'ko');
+    // '표시 안 함'이면 분반 꼬리표를 통째로 떼고 과목 이름만 남깁니다.
+    if (style === 'none') return val.replace(/-\d+반\s*$/, '');
     return val.replace(/-(\d+)반/g, (whole, n) => {
       const letter = banLetter(Number(n), style);
       return letter ? `-${letter}반` : whole;
@@ -3089,7 +3091,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
               <div className="px-6 py-4 border-b border-gray-200 shrink-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-bold text-slate-700 text-[14px]">표기 방식</span>
-                  {(['ko', 'en'] as BanLabelStyle[]).map(opt => (
+                  {(['ko', 'en', 'none'] as BanLabelStyle[]).map(opt => (
                     <button
                       key={opt}
                       onClick={() => setSlotBanLabelStyle(banLabelModal, opt)}
@@ -3100,7 +3102,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                           : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
                       }`}
                     >
-                      {opt === 'ko' ? '가 나 다' : 'A B C'}
+                      {opt === 'ko' ? '가 나 다' : opt === 'en' ? 'A B C' : '표시 안 함'}
                     </button>
                   ))}
                   <button
