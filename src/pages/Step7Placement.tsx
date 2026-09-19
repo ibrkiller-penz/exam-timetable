@@ -1851,7 +1851,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                             </>
                             )}
 
-                            {sum.remaining.takers + sum.remaining.nonTakers > 0 && (
+                            {/* 미배치는 학생을 실제로 넣어본 결과라 8. 학생 배치에서만 다룹니다. */}
+                            {stepMode !== 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
                               <button
                                 onClick={() => handleOpenUnplacedModal(ps.index)}
                                 className={`w-full font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-xs transition flex items-center justify-center gap-1 animate-pulse active:scale-95 ${
