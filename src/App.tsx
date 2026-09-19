@@ -36,8 +36,8 @@ export const App: React.FC = () => {
       case 'step4': return <Step4EvalSubjects />;
       case 'step5': return <Step5StudentSubjects />;
       case 'step6': return <Step6Timetable />;
-      case 'step7': return <Step7Placement stepMode={7} onNextStep={() => setCurrentTab('step8')} onSelectSubTab={(t) => setCurrentTab(t === '7' ? 'step7' : 'step8')} />;
-      case 'step8': return <Step7Placement stepMode={8} onPrevStep={() => setCurrentTab('step7')} onSelectSubTab={(t) => setCurrentTab(t === '7' ? 'step7' : 'step8')} />;
+      case 'step7': return <Step7Placement stepMode={7} />;
+      case 'step8': return <Step7Placement stepMode={8} />;
       case 'step9': return <Step8Attendance />;
       case 'r1': return <Report1GradeTable />;
       case 'r2': return <Report2ExamRoom />;

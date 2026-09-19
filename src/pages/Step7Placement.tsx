@@ -24,13 +24,9 @@ interface HistorySnapshot {
 
 interface Step7PlacementProps {
   stepMode?: 7 | 8;
-  onNextStep?: () => void;
-  onPrevStep?: () => void;
-  onSelectSubTab?: (tab: '7' | '8') => void;
 }
 
-export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, onNextStep, onPrevStep, onSelectSubTab }) => {
-  const [batchCapacity, setBatchCapacity] = useState<number>(28);
+export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) => {
   const { settings, updateSettings, 
     placement,
     studentPlacements,
@@ -55,8 +51,6 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     setSelectedPlacementCell,
     confirmStage4,
     cancelStage4,
-    addRoom,
-    addExtraRoom,
     deleteRoom,
     setRooms,
     updateRoom,
@@ -1595,54 +1589,18 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
         }
       />
 
-      {/* 7·8 단계 이동은 왼쪽 작성 단계 목록으로 합니다. 여기에는 단계별 도구만 둡니다. */}
+      {/* 7. 고사장 배치는 이 줄이 통째로 비었습니다.
+          정원 일괄 설정은 2. 기초정보에, 단계 이동은 왼쪽 목록에 있습니다. */}
+      {stepMode !== 7 && (
       <div className="bg-slate-100 border-b border-gray-200 px-6 py-2 flex items-center justify-end">
-        {stepMode === 7 ? (
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 bg-white px-3 py-1 rounded-xl border border-slate-200 text-xs font-bold shadow-2xs">
-              <span>고사실 1실당 정원:</span>
-              <input
-                type="number"
-                min={1}
-                max={60}
-                value={batchCapacity}
-                onChange={e => setBatchCapacity(Number(e.target.value))}
-                className="w-14 px-1 py-0.5 border border-slate-300 rounded-md text-center font-black text-slate-900 focus:outline-none"
-              />
-              <span>명</span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (batchCapacity <= 0) return;
-                  const updated = rooms.map(r => ({ ...r, capacity: batchCapacity }));
-                  setRooms(updated);
-                  setAlertModal({ isOpen: true, message: `✅ 모든 고사실 정원이 ${batchCapacity}명으로 설정되었습니다.` });
-                }}
-                className="px-2.5 py-1 bg-[#005691] text-white font-bold rounded-lg text-xs hover:bg-blue-800 transition"
-              >
-                전체 일괄 적용
-              </button>
-            </div>
-
-            {onNextStep && (
-              <button
-                onClick={onNextStep}
-                className="px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-2xs transition flex items-center gap-1.5 text-xs"
-              >
-                <span>다음 단계: 8. 학생 배치</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
-            <span>💡 자동배정 규칙:</span>
-            <span className="text-blue-700">분반수 = 시험실수 ➔ 분반위주</span>
-            <span className="text-slate-400">|</span>
-            <span className="text-indigo-700">분반수 ≠ 시험실수 ➔ 학번순</span>
-          </div>
-        )}
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
+          <span>💡 자동배정 규칙:</span>
+          <span className="text-blue-700">분반수 = 시험실수 ➔ 분반위주</span>
+          <span className="text-slate-400">|</span>
+          <span className="text-indigo-700">분반수 ≠ 시험실수 ➔ 학번순</span>
+        </div>
       </div>
+      )}
 
       {/* 이동 최소화 현황: 학생 배치 결과 지표이므로 8. 학생 배치에서만 보여줍니다. */}
       <div className={`bg-[#fee2e2] text-[#005691] border-b border-emerald-800 px-6 py-2 items-center justify-between shrink-0 no-print shadow-xs ${
