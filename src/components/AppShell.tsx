@@ -180,6 +180,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
     { id: 'r5', label: '10-5 학급 시간표' },
     { id: 'r6', label: '10-6 개별 수험표 출력' },
     { id: 'r7', label: '10-7 봉투 라벨' },
+    { id: 'r8', label: '10-8 별도 고사실' },
   ];
 
   const p = tc.primary;

@@ -1,0 +1,325 @@
+import React, { useMemo, useState } from 'react';
+import { Printer, Search, UserCheck, X } from 'lucide-react';
+import { useAppStore } from '../../store/appStore';
+import { selPlacementSlots } from '../../store/selectors';
+import { displayName } from '../../domain/privacy';
+import { separateRoomFor, SeparateExaminer } from '../../domain/types';
+import { ReportGate } from './ReportGate';
+
+/**
+ * 10-8. 별도 고사실 — 명단 체크와 명렬 출력.
+ *
+ * 틱이나 장애가 있어 따로 응시하는 학생들입니다. 담당 선생님이 하시던 방식대로,
+ * 그 학생들은 원래 고사실 명단에 그대로 두고 감독 선생님께 이 명렬을 따로 드립니다.
+ * 시험이 끝나면 답안지를 원고사실 것과 합칩니다.
+ */
+export const Report8SeparateRoom: React.FC = () => {
+  const { students, settings, separateExaminers = {}, setSeparateExaminer, attendance, stages } = useAppStore();
+  const placementSlots = useAppStore(selPlacementSlots);
+
+  const [tab, setTab] = useState<'manage' | 'print'>('manage');
+  const [query, setQuery] = useState('');
+  const [onlyChecked, setOnlyChecked] = useState(false);
+
+  const roomCount = Math.max(1, settings.separateRoomCount ?? 2);
+  const examSlots = placementSlots.filter(ps => ps.subjects.length > 0);
+
+  const filtered = useMemo(() => {
+    const q = query.trim();
+    return students.filter(st => {
+      const key = `${st.ban}-${st.num}`;
+      if (onlyChecked && !separateExaminers[key]) return false;
+      if (!q) return true;
+      return (
+        st.name.includes(q) ||
+        String(st.num) === q ||
+        st.ban.includes(q) ||
+        `${st.ban}${st.num}`.includes(q.replace(/\s/g, ''))
+      );
+    });
+  }, [students, query, onlyChecked, separateExaminers]);
+
+  const checkedCount = Object.keys(separateExaminers).length;
+
+  const setScope = (key: string, scope: 'none' | 'all' | 'slots') => {
+    const cur = separateExaminers[key];
+    if (scope === 'none') return setSeparateExaminer(key, null);
+    if (scope === 'all') return setSeparateExaminer(key, { room: cur?.room ?? 1, slots: 'all' });
+    // 교시 지정으로 바꿀 때는 비워 두고 아래 칩에서 고르게 합니다.
+    setSeparateExaminer(key, { room: cur?.room ?? 1, slots: Array.isArray(cur?.slots) ? cur!.slots : [] });
+  };
+
+  const toggleSlot = (key: string, slotIndex: number) => {
+    const cur = separateExaminers[key];
+    if (!cur || cur.slots === 'all') return;
+    const has = cur.slots.includes(slotIndex);
+    const next = has ? cur.slots.filter(i => i !== slotIndex) : [...cur.slots, slotIndex].sort((a, b) => a - b);
+    setSeparateExaminer(key, { ...cur, slots: next });
+  };
+
+  const setRoom = (key: string, room: number) => {
+    const cur = separateExaminers[key];
+    if (!cur) return;
+    setSeparateExaminer(key, { ...cur, room });
+  };
+
+  const setNote = (key: string, note: string) => {
+    const cur = separateExaminers[key];
+    if (!cur) return;
+    setSeparateExaminer(key, { ...cur, note: note.trim() || undefined });
+  };
+
+  /** 명렬에 실을 줄: 교시 → 별도실 → 학생. 응시현황(attendance)에서 원고사실과 과목을 가져옵니다. */
+  const rosters = useMemo(() => {
+    const out: Array<{
+      slotTitle: string; day: string; period: string; room: number;
+      rows: Array<{ hakbun: string; name: string; subject: string; homeRoom: string; note?: string }>;
+    }> = [];
+
+    for (const ps of examSlots) {
+      const day = `${ps.day}일차`;
+      const period = `${ps.period}교시`;
+      for (let room = 1; room <= roomCount; room++) {
+        const rows = attendance
+          .filter(r => r.day === day && r.period === period && r.separateRoom === room)
+          .sort((a, b) => (a.ban === b.ban ? a.num - b.num : a.ban.localeCompare(b.ban, 'ko')))
+          .map(r => ({
+            hakbun: `${r.grade}${String(r.ban).replace('반', '').padStart(2, '0')}${String(r.num).padStart(2, '0')}`,
+            name: r.name,
+            subject: r.subject,
+            homeRoom: r.examRoom,
+            note: separateExaminers[`${r.ban}-${r.num}`]?.note,
+          }));
+        if (rows.length > 0) out.push({ slotTitle: ps.title, day, period, room, rows });
+      }
+    }
+    return out;
+  }, [attendance, examSlots, roomCount, separateExaminers]);
+
+  return (
+    <div className="flex flex-col h-full bg-white overflow-auto p-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-[#005691]">10-8. 별도 고사실</h2>
+          <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+            {([['manage', '명단 체크'], ['print', '명렬 출력']] as const).map(([id, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`px-3 py-1.5 text-[13px] font-bold transition ${
+                  tab === id ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-gray-50'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </span>
+          <span className="text-[13px] text-slate-500">
+            지정된 학생 <strong className="text-[#005691]">{checkedCount}명</strong> · 별도실 {roomCount}실
+          </span>
+        </div>
+
+        {tab === 'print' && (
+          <button
+            onClick={() => window.print()}
+            disabled={rosters.length === 0}
+            className="px-3.5 py-2 bg-[#005691] hover:bg-[#00426e] text-white rounded-xl text-[14px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-200 disabled:text-gray-400"
+          >
+            <Printer className="w-4 h-4" />
+            인쇄
+          </button>
+        )}
+      </div>
+
+      {tab === 'manage' ? (
+        <div className="no-print">
+          <div className="flex flex-wrap items-center gap-2 mb-3">
+            <div className="relative">
+              <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+              <input
+                value={query}
+                onChange={e => setQuery(e.target.value)}
+                placeholder="반, 번호, 이름으로 찾기"
+                className="pl-9 pr-8 py-2 w-64 border border-gray-300 rounded-lg text-[14px] focus:border-[#005691] outline-hidden"
+              />
+              {query && (
+                <button onClick={() => setQuery('')} className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 text-slate-400 hover:text-slate-700">
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
+            <label className="flex items-center gap-1.5 text-[13.5px] font-bold text-slate-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={onlyChecked}
+                onChange={e => setOnlyChecked(e.target.checked)}
+                className="w-4 h-4 rounded accent-[#005691]"
+              />
+              지정된 학생만
+            </label>
+          </div>
+
+          <p className="text-[13px] text-slate-500 mb-3 leading-relaxed">
+            별도 응시자는 <strong>원래 고사실 명단에 그대로 남고</strong> 비고에 '별도고사실 응시중'으로 적힙니다.
+            좌석배치도에서는 빠집니다. 한 과목만 따로 보는 학생은 <strong>교시 지정</strong>으로 그 교시만 고르세요.
+          </p>
+
+          <div className="border border-gray-200 rounded-xl overflow-hidden">
+            <table className="w-full text-[14px] border-collapse">
+              <thead className="bg-gray-50 text-slate-700">
+                <tr className="border-b border-gray-200">
+                  <th className="py-2.5 px-3 text-left font-bold w-40">학생</th>
+                  <th className="py-2.5 px-3 text-center font-bold w-64">별도 응시</th>
+                  <th className="py-2.5 px-3 text-center font-bold w-24">별도실</th>
+                  <th className="py-2.5 px-3 text-left font-bold">교시 지정 / 사유</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={4} className="py-10 text-center text-slate-400">찾는 학생이 없습니다.</td></tr>
+                ) : filtered.map((st, idx) => {
+                  const key = `${st.ban}-${st.num}`;
+                  const cur = separateExaminers[key];
+                  const scope: 'none' | 'all' | 'slots' = !cur ? 'none' : cur.slots === 'all' ? 'all' : 'slots';
+
+                  return (
+                    <tr key={key} className={`border-b border-gray-100 ${cur ? 'bg-blue-50/40' : idx % 2 ? 'bg-gray-50/40' : 'bg-white'}`}>
+                      <td className="py-2 px-3 font-bold text-slate-800 whitespace-nowrap">
+                        <span className="text-[#005691]">{st.ban}</span> {st.num}번 {displayName(st.name)}
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                          {([['none', '해당없음'], ['all', '모든 시험'], ['slots', '교시 지정']] as const).map(([id, label]) => (
+                            <button
+                              key={id}
+                              onClick={() => setScope(key, id)}
+                              className={`px-2.5 py-1 text-[12.5px] font-bold transition ${
+                                scope === id ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-gray-50'
+                              }`}
+                            >
+                              {label}
+                            </button>
+                          ))}
+                        </span>
+                      </td>
+                      <td className="py-2 px-3 text-center">
+                        {cur && roomCount > 1 ? (
+                          <select
+                            value={cur.room}
+                            onChange={e => setRoom(key, Number(e.target.value))}
+                            className="px-2 py-1 border border-gray-300 rounded-lg text-[13px] font-bold"
+                          >
+                            {Array.from({ length: roomCount }, (_, i) => i + 1).map(n => (
+                              <option key={n} value={n}>{n}실</option>
+                            ))}
+                          </select>
+                        ) : cur ? (
+                          <span className="text-[13px] font-bold text-slate-600">1실</span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
+                      </td>
+                      <td className="py-2 px-3">
+                        {scope === 'slots' && (
+                          <div className="flex flex-wrap gap-1 mb-1.5">
+                            {examSlots.map(ps => {
+                              const on = Boolean(separateRoomFor(key, ps.index, separateExaminers));
+                              return (
+                                <button
+                                  key={ps.index}
+                                  onClick={() => toggleSlot(key, ps.index)}
+                                  title={ps.subjects.join(', ')}
+                                  className={`px-2 py-0.5 rounded-md text-[12px] font-bold border transition ${
+                                    on ? 'bg-[#005691] text-white border-[#005691]' : 'bg-white text-slate-500 border-gray-300 hover:bg-gray-50'
+                                  }`}
+                                >
+                                  {ps.title.replace('일차 ', '-')}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
+                        {cur && (
+                          <input
+                            defaultValue={cur.note ?? ''}
+                            onBlur={e => setNote(key, e.target.value)}
+                            placeholder="사유 (예: 틱 장애, 추가 시간 필요)"
+                            className="w-full max-w-sm px-2 py-1 border border-gray-200 rounded-lg text-[13px]"
+                          />
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      ) : rosters.length === 0 ? (
+        !stages.stage4 ? (
+          <ReportGate what="별도 고사실 명렬" />
+        ) : (
+          <div className="p-10 border border-slate-200 rounded-2xl bg-white max-w-xl mx-auto text-center">
+            <div className="w-12 h-12 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
+              <UserCheck className="w-6 h-6 text-slate-400" />
+            </div>
+            <p className="font-black text-[17px] text-slate-800">별도 응시자로 지정된 학생이 없습니다.</p>
+            <p className="text-[14px] text-slate-500 mt-1.5">
+              위 <strong>명단 체크</strong>에서 학생을 지정하면 여기에 명렬이 만들어집니다.
+            </p>
+          </div>
+        )
+      ) : (
+        <div className="flex flex-col gap-8">
+          {rosters.map(r => (
+            <div
+              key={`${r.slotTitle}-${r.room}`}
+              className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
+            >
+              <h1 className="text-center font-extrabold text-2xl mb-1 text-[#005691]">별도 고사실 명렬</h1>
+              <p className="text-center text-[13px] text-slate-500 mb-6">
+                아래 학생들은 소속 고사실 명단에도 올라 있습니다. 시험이 끝나면 답안지를 원고사실 것과 합쳐 주세요.
+              </p>
+
+              <div className="border border-gray-800 grid grid-cols-4 text-center text-xs mb-5">
+                {[['시행', `${r.day} ${r.period}`], ['별도 고사실', `${r.room}실`], ['인원', `${r.rows.length}명`], ['감독', '']].map(([k, v]) => (
+                  <React.Fragment key={k}>
+                    <div className="border-r border-gray-800 bg-gray-100 py-2 font-bold">{k}</div>
+                    <div className="py-2 font-bold border-r border-gray-800 last:border-r-0">{v}</div>
+                  </React.Fragment>
+                ))}
+              </div>
+
+              <table className="w-full text-sm text-center border-collapse border border-gray-800">
+                <thead className="bg-gray-100 border-b border-gray-800">
+                  <tr className="divide-x divide-gray-800">
+                    <th className="py-2 px-2 w-12">연번</th>
+                    <th className="py-2 px-2 w-24">학번</th>
+                    <th className="py-2 px-2 w-24">성명</th>
+                    <th className="py-2 px-2">과목</th>
+                    <th className="py-2 px-2 w-24">원고사실</th>
+                    <th className="py-2 px-2 w-32">사유</th>
+                    <th className="py-2 px-2 w-20">답안지</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-800">
+                  {r.rows.map((s, i) => (
+                    <tr key={s.hakbun} className="divide-x divide-gray-800 h-9">
+                      <td>{i + 1}</td>
+                      <td className="font-medium">{s.hakbun}</td>
+                      <td className="font-bold">{displayName(s.name)}</td>
+                      <td>{s.subject}</td>
+                      <td className="font-bold text-[#005691]">{s.homeRoom}</td>
+                      <td className="text-[11.5px]">{s.note ?? ''}</td>
+                      <td></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

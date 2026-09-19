@@ -19,6 +19,7 @@ import { Report4SeatMap } from './pages/reports/Report4SeatMap';
 import { Report5ClassTable } from './pages/reports/Report5ClassTable';
 import { Report6StudentTable } from './pages/reports/Report6StudentTable';
 import { Report7Labels } from './pages/reports/Report7Labels';
+import { Report8SeparateRoom } from './pages/reports/Report8SeparateRoom';
 
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('step1');
@@ -46,6 +47,7 @@ export const App: React.FC = () => {
       case 'r5': return <Report5ClassTable />;
       case 'r6': return <Report6StudentTable />;
       case 'r7': return <Report7Labels />;
+      case 'r8': return <Report8SeparateRoom />;
       default: return <Step1Neis />;
     }
   };
