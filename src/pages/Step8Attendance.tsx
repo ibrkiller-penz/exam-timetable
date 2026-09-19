@@ -6,7 +6,7 @@ import { ConfirmModal } from '../components/ConfirmModal';
 import { AlertModal } from '../components/AlertModal';
 import { MSG } from '../domain/messages';
 import { displayName } from '../domain/privacy';
-import { exportAttendanceToExcel } from '../utils/excelExport';
+import { downloadWorkbook } from '../utils/excelStyled';
 import { Shuffle, ArrowDown10, Download, Search } from 'lucide-react';
 
 export const Step8Attendance: React.FC = () => {
@@ -132,7 +132,20 @@ export const Step8Attendance: React.FC = () => {
               <Shuffle className="w-4.5 h-4.5 text-[#005691]" /> 좌석 랜덤 (대기실 제외)
             </button>
             <button
-              onClick={() => exportAttendanceToExcel(attendance)}
+              onClick={() => downloadWorkbook([{
+                name: '응시현황',
+                title: '응시현황 및 좌석번호',
+                subtitle: '모든 교시·모든 학생의 배치 결과입니다. 별도 고사실 응시자는 좌석이 비어 있습니다.',
+                headers: [['일차', '교시', '고사실', '과목', '학년', '반', '번호', '성명', '강의실', '연번', '좌석번호', '비고']],
+                rows: attendance.map(r => [
+                  r.day, r.period, r.examRoom, r.subject, r.grade, r.ban, r.num,
+                  displayName(r.name), r.classRoom, r.seq, r.seat ?? '',
+                  r.separateRoom ? (r.separateRoom > 1 ? `별도 ${r.separateRoom}실` : '별도') : '',
+                ]),
+                widths: [8, 8, 10, 20, 7, 7, 7, 12, 12, 8, 10, 11],
+                numericCols: [6, 9, 10],
+                landscape: true,
+              }], '응시현황.xlsx')}
               disabled={attendance.length === 0}
               className="px-3.5 py-2 bg-white hover:bg-gray-50 text-[#0f172a] border border-gray-200 rounded-xl text-[15.5px] font-black flex items-center gap-1.5 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed transition shadow-2xs"
             >

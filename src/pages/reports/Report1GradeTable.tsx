@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/appStore';
 import { selPlacementSlots, selSubjectBanEntries } from '../../store/selectors';
 import { buildGradeTable } from '../../domain/reports/gradeTable';
 import { Printer, Download} from 'lucide-react';
-import { exportMultipleDOMTablesToExcel } from '../../utils/excelExport';
+import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report1GradeTable: React.FC = () => {
   const { meta, rooms, days, times, placement, stages, settings, slotBanLabels, slotBanLabelStyle } = useAppStore();
@@ -46,7 +46,26 @@ export const Report1GradeTable: React.FC = () => {
           <Printer className="w-4 h-4" /> 인쇄하기
         </button>
         <button
-          onClick={() => exportMultipleDOMTablesToExcel('table', 'Report1GradeTable.xlsx')}
+          onClick={() => {
+            // 화면의 표를 긁지 않고 자료에서 바로 만듭니다.
+            // 한 교시가 두 줄(과목 / 인원)이라 엑셀에서도 그대로 두 줄로 씁니다.
+            const headers = [['날짜', '구분', ...columns.map(c => c.roomName), '인원계']];
+            const body: (string | number)[][] = [];
+            for (const r of rows) {
+              body.push([r.isFirstOfDate ? r.dateText.replace(/\s+/g, ' ') : '', r.periodLabel, ...r.cells.map(c => c.subject), '']);
+              body.push(['', r.timeRange, ...r.cells.map(c => (c.stuCount === '·' ? '' : c.stuCount)), r.totalStuCount > 0 ? r.totalStuCount : '']);
+            }
+            downloadWorkbook([{
+              name: '전체 시험시간표',
+              title: meta.title,
+              subtitle: '고사실별 시험시간표 — 윗줄은 과목, 아랫줄은 응시 인원입니다.',
+              headers,
+              rows: body,
+              widths: [12, 13, ...columns.map(() => 15), 9],
+              landscape: true,
+              numericCols: columns.map((_, i) => i + 2).concat([columns.length + 2]),
+            }], `${meta.title || '고사'} 전체 시험시간표.xlsx`);
+          }}
           disabled={!hasPlacement}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >

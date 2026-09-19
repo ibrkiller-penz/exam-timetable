@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../../store/appStore';
 import { selPlacementSlots, selSubjectBanEntries } from '../../store/selectors';
 import { buildLabels } from '../../domain/reports/labels';
-import { exportLabelsToExcel } from '../../utils/excelExport';
+import { downloadWorkbook } from '../../utils/excelStyled';
 import { onlySubject } from '../../domain/util/text';
 import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
@@ -333,7 +333,15 @@ export const Report7Labels: React.FC = () => {
 
         <div className="flex items-center gap-2.5 flex-wrap">
           <button
-            onClick={() => exportLabelsToExcel(labels)}
+            onClick={() => downloadWorkbook([{
+              name: '봉투 라벨',
+              title: `${meta?.title || '고사'} 문제지 봉투 라벨`,
+              subtitle: '봉투에 붙일 순서대로입니다.',
+              headers: [['연번', '일차', '교시', '날짜', '시간', '과목', '과목코드', '고사실', '응시분반', '응시인원']],
+              rows: labels.map(l => [l.seq, l.day, l.period, l.date, l.time, onlySubject(l.subject), getSubjectCode(l.subject), l.examRoom, l.classRoom || '전체', l.stuCount]),
+              widths: [7, 8, 8, 13, 15, 22, 11, 11, 12, 10],
+              numericCols: [0, 9],
+            }], `${meta?.title || '고사'} 봉투 라벨.xlsx`)}
             disabled={labels.length === 0}
             className="px-3.5 py-2 bg-[#e5f6ec] hover:bg-emerald-100 text-emerald-800 border border-[#00A651]/30 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
           >

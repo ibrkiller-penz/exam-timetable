@@ -1,5 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { Printer, Search, UserCheck, X } from 'lucide-react';
+import { Printer, Search, UserCheck, X, Download } from 'lucide-react';
+import { downloadWorkbook } from '../../utils/excelStyled';
 import { useAppStore } from '../../store/appStore';
 import { selPlacementSlots } from '../../store/selectors';
 import { displayName } from '../../domain/privacy';
@@ -141,6 +142,26 @@ export const Report8SeparateRoom: React.FC = () => {
         </div>
 
         {tab === 'print' && (
+          <div className="flex items-center gap-2">
+          <button
+            onClick={() => downloadWorkbook(
+              rosters.map(r => ({
+                name: `${r.day.replace('일차', '일')}${r.period.replace('교시', '교')} ${r.room}실`,
+                title: '별도 고사실 명렬',
+                subtitle: `${r.day} ${r.period} · 별도 ${r.room}실 · ${r.rows.length}명 — 시험이 끝나면 답안지를 원고사실 것과 합칩니다.`,
+                headers: [['연번', '학번', '성명', '과목', '원고사실', '답안지']],
+                rows: r.rows.map((x, i) => [i + 1, x.hakbun, displayName(x.name), x.subject, x.homeRoom, '']),
+                widths: [7, 11, 12, 22, 11, 10],
+                numericCols: [0],
+              })),
+              '별도 고사실 명렬.xlsx'
+            )}
+            disabled={rosters.length === 0}
+            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-200 disabled:text-gray-400"
+          >
+            <Download className="w-4 h-4" />
+            엑셀
+          </button>
           <button
             onClick={() => window.print()}
             disabled={rosters.length === 0}
@@ -149,6 +170,7 @@ export const Report8SeparateRoom: React.FC = () => {
             <Printer className="w-4 h-4" />
             인쇄
           </button>
+          </div>
         )}
       </div>
 

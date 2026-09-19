@@ -5,7 +5,7 @@ import { ReportGate } from './ReportGate';
 import { buildExamRoomReport } from '../../domain/reports/examRoom';
 import { DayLabel, PeriodLabel } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
-import { exportMultipleDOMTablesToExcel } from '../../utils/excelExport';
+import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report2ExamRoom: React.FC = () => {
   const { attendance, stages, days, rooms } = useAppStore();
@@ -71,7 +71,24 @@ export const Report2ExamRoom: React.FC = () => {
           <Printer className="w-4 h-4" /> 인쇄하기
         </button>
         <button
-          onClick={() => exportMultipleDOMTablesToExcel('table', 'Report2ExamRoom.xlsx')}
+          onClick={() => {
+            // 한 실만 뽑으면 쓸 때마다 날짜·교시를 바꿔 가며 몇 번씩 눌러야 합니다.
+            // 그 교시의 고사실을 전부 한 파일에, 실마다 시트 하나로 내보냅니다.
+            const specs = uniqueRooms
+              .map(rn => buildExamRoomReport(attendance, selectedDay, selectedPeriod, rn, rooms))
+              .filter((x): x is NonNullable<typeof x> => Boolean(x))
+              .map(rep => ({
+                name: rep.examRoom,
+                title: rep.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표',
+                subtitle: `${dayDate || ''} ${rep.period} · ${rep.examRoom} · ${rep.subject} · ${rep.totalStudents}명`,
+                headers: [['연번', '학번', '성명', '좌석', '비고']],
+                rows: rep.students.map(s => [s.seq, s.hakbun, displayName(s.name), s.seat ?? '', s.note]),
+                widths: [7, 11, 12, 7, 14],
+                numericCols: [0, 3],
+              }));
+            if (specs.length === 0) return;
+            downloadWorkbook(specs, `고사실 명단 ${selectedDay} ${selectedPeriod}.xlsx`);
+          }}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >

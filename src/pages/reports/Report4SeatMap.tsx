@@ -5,7 +5,7 @@ import { ReportGate } from './ReportGate';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
-import { exportMultipleDOMTablesToExcel } from '../../utils/excelExport';
+import { downloadWorkbook } from '../../utils/excelStyled';
 import { saveCloudImmediately } from '../../domain/firebase';
 
 export const Report4SeatMap: React.FC = () => {
@@ -135,7 +135,34 @@ export const Report4SeatMap: React.FC = () => {
           <Printer className="w-4 h-4" /> 인쇄하기
         </button>
         <button
-          onClick={() => exportMultipleDOMTablesToExcel('table', 'Report4SeatMap.xlsx')}
+          onClick={() => {
+            // 자리 모양 그대로 옮깁니다. 한 칸이 세 줄(좌석번호 / 학번 / 성명)입니다.
+            const specs = uniqueRooms.map(rn => {
+              const ro = rooms.find(x => x.roomName === rn);
+              const c = ro?.cols ?? settings.seatColumns;
+              const rws = ro?.rows ?? settings.seatsPerColumn;
+              const rep = buildSeatMapReport(attendance, selectedDay, selectedPeriod, rn, c, ro?.layoutDirection ?? 'col', rws);
+              if (!rep) return null;
+              const rowCount = Math.max(...rep.grid.map(col => col.length), 0);
+              const body: (string | number)[][] = [];
+              for (let i = 0; i < rowCount; i++) {
+                body.push(rep.grid.map(col => col[i]?.physicalSeatNum ?? ''));
+                body.push(rep.grid.map(col => col[i]?.hakbun ?? ''));
+                body.push(rep.grid.map(col => (col[i]?.name ? displayName(col[i].name) : '')));
+              }
+              return {
+                name: rn,
+                title: rep.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도',
+                subtitle: `${dayDate || ''} ${rep.period} · ${rep.examRoom} · ${rep.subject} · ${rep.totalStudents}명 — 위쪽이 교탁입니다.`,
+                headers: [rep.grid.map((_, i) => `${i + 1}열`)],
+                rows: body,
+                widths: rep.grid.map(() => 13),
+                landscape: rep.columns >= 6,
+              };
+            }).filter((x): x is NonNullable<typeof x> => Boolean(x));
+            if (specs.length === 0) return;
+            downloadWorkbook(specs, `좌석배치도 ${selectedDay} ${selectedPeriod}.xlsx`);
+          }}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >

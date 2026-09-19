@@ -3,7 +3,7 @@ import { useAppStore } from '../../store/appStore';
 import { ReportGate } from './ReportGate';
 import { buildRoomTimetableReport } from '../../domain/reports/roomTimetable';
 import { Printer, Download} from 'lucide-react';
-import { exportMultipleDOMTablesToExcel } from '../../utils/excelExport';
+import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report3RoomTimetable: React.FC = () => {
   const { attendance, rooms, days, times, stages } = useAppStore();
@@ -38,7 +38,35 @@ export const Report3RoomTimetable: React.FC = () => {
           <Printer className="w-4 h-4" /> 인쇄하기
         </button>
         <button
-          onClick={() => exportMultipleDOMTablesToExcel('table', 'Report3RoomTimetable.xlsx')}
+          onClick={() => {
+            const specs = rooms
+              .filter(r => r.roomName && r.roomName !== '0')
+              .map(r => ({ r, rep: buildRoomTimetableReport(r, attendance, days, times) }))
+              .filter(x => Boolean(x.rep))
+              .map(({ r, rep }) => {
+                const body: (string | number)[][] = [];
+                for (const p of rep!.activePeriods) {
+                  body.push([`${p}교시`, '과목', ...rep!.activeDays.map(d => rep!.grid[p][d.day]?.subject || '-')]);
+                  body.push(['', '응시자수', ...rep!.activeDays.map(d => rep!.grid[p][d.day]?.stuCount ?? '')]);
+                  // 별도 고사실로 간 학생이 있으면 그 줄도 남깁니다. 인원이 맞지 않아 보이니까요.
+                  if (rep!.activeDays.some(d => rep!.grid[p][d.day]?.separateCount > 0)) {
+                    body.push(['', '별도 응시', ...rep!.activeDays.map(d => rep!.grid[p][d.day]?.separateCount || '')]);
+                  }
+                  body.push(['', '시험시간', ...rep!.activeDays.map(d => rep!.grid[p][d.day]?.timeStr || '-')]);
+                }
+                return {
+                  name: r.roomName,
+                  title: '고사실 시험시간표',
+                  subtitle: `고사실 ${r.roomName}${r.banName && r.banName !== r.roomName ? ` (${r.banName})` : ''}`,
+                  headers: [['교시', '구분', ...rep!.activeDays.map(d => `${d.label}\n${d.dateText}`)]],
+                  rows: body,
+                  widths: [9, 11, ...rep!.activeDays.map(() => 17)],
+                  landscape: true,
+                };
+              });
+            if (specs.length === 0) return;
+            downloadWorkbook(specs, '고사실 시험시간표.xlsx');
+          }}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >

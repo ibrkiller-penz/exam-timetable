@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppStore } from '../store/appStore';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { buildGradeTable } from '../domain/reports/gradeTable';
-import { exportMultipleDOMTablesToExcel } from '../utils/excelExport';
+import { downloadWorkbook } from '../utils/excelStyled';
 import { Printer, Download, X } from 'lucide-react';
 
 /**
@@ -34,7 +34,24 @@ export const TimetablePreviewModal: React.FC<{ onClose: () => void }> = ({ onClo
               <Printer className="w-4 h-4" /> 인쇄
             </button>
             <button
-              onClick={() => exportMultipleDOMTablesToExcel('#timetable-preview table', '고사시간표.xlsx')}
+              onClick={() => {
+                // 10-1 전체 시간표와 같은 모양으로 내보냅니다.
+                const body: (string | number)[][] = [];
+                for (const r of rows) {
+                  body.push([r.isFirstOfDate ? r.dateText.replace(/\s+/g, ' ') : '', r.periodLabel, ...r.cells.map(c => c.subject), '']);
+                  body.push(['', r.timeRange, ...r.cells.map(c => (c.stuCount === '·' ? '' : c.stuCount)), r.totalStuCount > 0 ? r.totalStuCount : '']);
+                }
+                downloadWorkbook([{
+                  name: '고사 시간표',
+                  title: meta.title,
+                  subtitle: '고사실별 시험시간표 — 윗줄은 과목, 아랫줄은 응시 인원입니다.',
+                  headers: [['날짜', '구분', ...columns.map(c => c.roomName), '인원계']],
+                  rows: body,
+                  widths: [12, 13, ...columns.map(() => 15), 9],
+                  landscape: true,
+                  numericCols: columns.map((_, i) => i + 2).concat([columns.length + 2]),
+                }], `${meta.title || '고사'} 시간표.xlsx`);
+              }}
               className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 rounded-lg text-[14px] font-bold flex items-center gap-1.5 transition"
             >
               <Download className="w-4 h-4" /> 엑셀 다운로드
