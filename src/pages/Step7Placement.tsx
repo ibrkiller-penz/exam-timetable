@@ -11,7 +11,7 @@ import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
-import { getSubjectColor } from '../domain/constants';
+import { SUBJECT_COLOR_PALETTES } from '../domain/constants';
 import { Sparkles, Trash2, Users, CheckCircle2, Lock, Unlock, Layers, AlertTriangle, RotateCcw, RotateCw, Plus, Clock, UserX, X, RefreshCw, ArrowRightLeft, UserCheck, Minus, BookOpen, Ban, ArrowRight, HelpCircle } from 'lucide-react';
 
 interface HistorySnapshot {
@@ -113,6 +113,25 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
    * 배치 로직은 모두 room.capacity를 읽으므로, 교시 단위 호출은 이 함수를 거쳐야
    * "이 교시만 정원 N명" 설정이 실제 배치에 반영됩니다.
    */
+  /**
+   * 과목마다 파스텔 색을 하나씩 배정합니다.
+   * 표에 나온 순서대로 팔레트를 돌려 써서, 이웃한 칸의 다른 과목이 같은 색이 되지 않게 합니다.
+   * (과목이 팔레트 수보다 많으면 멀리 떨어진 과목끼리만 색이 겹칩니다.)
+   */
+  const subjectColorIndex = React.useMemo(() => {
+    const map = new Map<string, number>();
+    let next = 0;
+    for (const ps of placementSlots) {
+      for (const sub of ps.subjects) {
+        if (!map.has(sub)) map.set(sub, next++);
+      }
+    }
+    return map;
+  }, [placementSlots]);
+
+  const colorForSubject = (subject: string) =>
+    SUBJECT_COLOR_PALETTES[(subjectColorIndex.get(subject) ?? 0) % SUBJECT_COLOR_PALETTES.length];
+
   const roomsAt = React.useCallback(
     (slotIndex: number) =>
       roomsForSlot(rooms, slotIndex, slotRoomCapacity, placementSlots.find(s => s.index === slotIndex)),
@@ -1919,7 +1938,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         const isForbidden = isForbiddenCell(cellVal);
                         const isUsable = r.roomName !== '' && r.roomName !== '0';
                         const subjectName = isWait || isForbidden ? '' : cellVal.split('-')[0] || '';
-                        const color = getSubjectColor(subjectName);
+                        const color = colorForSubject(subjectName);
                         const isLocked = lockedCells[ps.index]?.[r.id] ?? false;
 
                         // Calculate actual count from studentPlacements if available
@@ -1977,9 +1996,9 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                               isLocked ? 'bg-gray-50 border-b border-gray-200' :
                               // 대기실은 무채색 + 왼쪽 회색 띠. 과목 팔레트가 모두 옅은 유채색이라
                               // 색을 '종류'부터 갈라야 시험 보는 반과 한눈에 구분됩니다.
-                              isWait ? 'bg-slate-100 hover:bg-slate-200/80 border-b border-slate-200' :
-                              cellVal ? `${color.bg}/50 ${color.hoverBg} border-b border-gray-200` :
-                              'hover:bg-white'
+                              isWait ? 'bg-white hover:bg-slate-50 border-b border-gray-200' :
+                              cellVal ? `${color.bg} ${color.hoverBg} border-b border-gray-200` :
+                              'bg-slate-50/70 hover:bg-slate-100'
                             }`}
                             data-accent={isWait ? 'wait' : cellVal && !isForbidden ? 'exam' : 'none'}
                             title={
@@ -2043,17 +2062,9 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                   if (stepMode !== 7) handleCellDoubleClick(ps.index, r.id);
                                 }}
                               >
-                                {/* 시험 보는 반과 대기 반을 색으로 가르는 띠. 표의 divide-x가 border-left를
-                                    덮어쓰기 때문에 테두리 대신 별도 요소로 그립니다. */}
-                                <span
-                                  className={`absolute -left-1 top-0 bottom-0 w-1.5 rounded-full ${
-                                    isWait ? 'bg-slate-400' : color.badgeBg
-                                  }`}
-                                  aria-hidden="true"
-                                />
                                 <div className="flex flex-col items-center justify-center gap-0.5">
                                   <div
-                                    className={`font-black leading-tight whitespace-nowrap overflow-hidden ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-600' : `${color.text} hover:underline`}`}
+                                    className={`font-black leading-tight whitespace-nowrap overflow-hidden ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-500' : `${color.text} hover:underline`}`}
                                     style={{ fontSize: `${cellLabelFontSize(stepMode === 7 && isWait ? '대기' : banLabel(cellVal, ps.index, r.id), isCompactFit)}px` }}
                                   >
                                     {stepMode === 7 && isWait
@@ -2398,7 +2409,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                     <div className="space-y-1 max-h-32 overflow-y-auto">
                       {examBanItems.map((it, idx) => {
                         const subjectName = it.key.split('-')[0] || '';
-                        const color = getSubjectColor(subjectName);
+                        const color = colorForSubject(subjectName);
                         const isLockedCell = lockedCells[selectedCell.slot]?.[selectedCell.roomId];
                         return (
                           <button
@@ -3222,7 +3233,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
               <div className="space-y-2">
                 {subjectSelectModal.subjects.map((sub) => {
-                  const color = getSubjectColor(sub);
+                  const color = colorForSubject(sub);
                   return (
                     <button
                       key={sub}
@@ -3312,7 +3323,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                   <div className="grid grid-cols-2 gap-2 pt-1">
                     {waitPlacementModal.subjects.map(sub => {
                       const isSelected = waitPlacementModal.selectedSubject === sub;
-                      const subColor = getSubjectColor(sub);
+                      const subColor = colorForSubject(sub);
                       return (
                         <button
                           type="button"
