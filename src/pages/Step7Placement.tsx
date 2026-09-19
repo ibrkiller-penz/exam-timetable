@@ -73,6 +73,19 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
       return num >= 1 && num <= 26 ? `-${String.fromCharCode(64 + num)}반` : whole;
     });
 
+  /**
+   * 과목-분반 이름은 한 줄로 보여 줍니다.
+   * 칸을 넘치면 줄을 바꾸는 대신 글자를 줄여 표의 높이를 일정하게 유지합니다.
+   */
+  const cellLabelFontSize = (label: string, compact: boolean): number => {
+    const len = label.length;
+    const steps = compact ? [15, 13.5, 12, 10.5] : [18, 16, 14, 12.5];
+    if (len <= 9) return steps[0];
+    if (len <= 12) return steps[1];
+    if (len <= 15) return steps[2];
+    return steps[3];
+  };
+
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
@@ -2096,15 +2109,13 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                   aria-hidden="true"
                                 />
                                 <div className="flex flex-col items-center justify-center gap-0.5">
-                                  <div className={`font-black break-keep leading-tight ${isCompactFit ? 'text-[13.5px]' : 'text-[16.5px]'} ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-600' : `${color.text} hover:underline`}`}>
+                                  <div
+                                    className={`font-black leading-tight whitespace-nowrap overflow-hidden ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-600' : `${color.text} hover:underline`}`}
+                                    style={{ fontSize: `${cellLabelFontSize(stepMode === 7 && isWait ? '대기' : banLabel(cellVal), isCompactFit)}px` }}
+                                  >
                                     {stepMode === 7 && isWait
                                       ? '대기' /* 인원은 바로 아래 정원/배치 줄에 나오므로 라벨에서는 뺍니다 */
-                                      : banLabel(cellVal).split('-').map((part, i) => (
-                                          <React.Fragment key={i}>
-                                            {i > 0 && <br />}
-                                            {i > 0 ? '-' : ''}{part}
-                                          </React.Fragment>
-                                        ))}
+                                      : banLabel(cellVal)}
                                   </div>
                                   {isOverCapacity && stepMode !== 7 && (
                                     <span className="px-1.5 py-0.2 bg-orange-600 text-white text-[9.5px] rounded-sm font-black shadow-2xs tracking-tighter">
@@ -2129,7 +2140,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                         setSlotRoomCapacity(ps.index, r.id, v > 0 ? v : null);
                                       }}
                                       className={`px-1 py-0.5 border rounded-md text-center font-black disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#005691] ${
-                                        isCompactFit ? 'w-12 text-[12.5px]' : 'w-16 text-[15px]'
+                                        isCompactFit ? 'w-14 text-[14px]' : 'w-[4.5rem] text-[16.5px]'
                                       } ${
                                         hasCapOverride
                                           ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
@@ -2143,8 +2154,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                           : '고사실 기본 정원 — 고치면 이 교시에만 적용됩니다'
                                       }
                                     />
-                                    <span className={`text-slate-500 font-bold ${isCompactFit ? 'text-[11.5px]' : 'text-[13.5px]'}`}>석</span>
-                                    <span className={`text-slate-300 ${isCompactFit ? 'text-[11.5px]' : 'text-[13.5px]'}`}>|</span>
+                                    <span className={`text-slate-500 font-bold ${isCompactFit ? 'text-[13px]' : 'text-[15px]'}`}>석</span>
+                                    <span className={`text-slate-300 ${isCompactFit ? 'text-[13px]' : 'text-[15px]'}`}>|</span>
                                     <span
                                       className={`font-black whitespace-nowrap ${isCompactFit ? 'text-[12.5px]' : 'text-[14.5px]'} ${
                                         isOverCapacity ? 'text-rose-700' : 'text-slate-800'
