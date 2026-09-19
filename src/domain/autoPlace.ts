@@ -436,7 +436,7 @@ export function autoPlaceAll(
       currentPlacement,
       placementSlots,
       // 교시마다 정원 예외가 다를 수 있으므로 해당 교시 기준으로 환산한 고사실을 넘깁니다.
-      roomsForSlot(rooms, ps.index, slotRoomCapacity),
+      roomsForSlot(rooms, ps.index, slotRoomCapacity, ps),
       entries,
       students,
       isExtra,

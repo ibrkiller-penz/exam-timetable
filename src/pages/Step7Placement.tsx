@@ -71,8 +71,9 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
    * "이 교시만 정원 N명" 설정이 실제 배치에 반영됩니다.
    */
   const roomsAt = React.useCallback(
-    (slotIndex: number) => roomsForSlot(rooms, slotIndex, slotRoomCapacity),
-    [rooms, slotRoomCapacity]
+    (slotIndex: number) =>
+      roomsForSlot(rooms, slotIndex, slotRoomCapacity, placementSlots.find(s => s.index === slotIndex)),
+    [rooms, slotRoomCapacity, placementSlots]
   );
 
   const selectedCell = ui.selectedPlacementCell;
@@ -272,25 +273,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     if (mode === 'manual_empty') {
       chosenWaitRoomIds = 'manual_empty';
     } else if (mode === 'all_regular') {
-      const regularRooms = candidateRooms.filter(r => !isExtraRoom(r) && !r.roomName.startsWith('별도'));
-      const regularCap = regularRooms.reduce((sum, r) => sum + (r.capacity && r.capacity > 0 ? r.capacity : 28), 0);
-      const targetRoomIds = regularRooms.map(r => r.id);
-
-      // 인원이 넘치면 자동으로 별도실 1칸(필요한 별도실)을 추가하고 대기 인원 재배치
-      if (waitPlacementModal.waitStudentsCount > regularCap) {
-        let overflow = waitPlacementModal.waitStudentsCount - regularCap;
-        const availableExtraRooms = candidateRooms
-          .filter(r => isExtraRoom(r) || r.roomName.startsWith('별도'))
-          .sort((a, b) => a.roomName.localeCompare(b.roomName, 'ko', { numeric: true }));
-
-        for (const er of availableExtraRooms) {
-          if (overflow <= 0) break;
-          targetRoomIds.push(er.id);
-          const cap = er.capacity && er.capacity > 0 ? er.capacity : 28;
-          overflow -= cap;
-        }
-      }
-      chosenWaitRoomIds = targetRoomIds;
+      chosenWaitRoomIds = pickWaitRoomIds(candidateRooms, waitPlacementModal.waitStudentsCount);
     } else if (mode === 'custom_rooms') {
       if (selectedRoomIds.length === 0) {
         setAlertModal({ isOpen: true, message: '대기 학생을 배치할 반을 1개 이상 선택해주세요.', isError: true });
@@ -305,6 +288,30 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
   };
 
   // Add exam room from a wait room for a subject in a slot
+  /**
+   * 대기 인원을 받을 실을 고릅니다.
+   * 일반 학급 교실로 먼저 채우고, 그것만으로 모자랄 때에 한해 모자란 만큼만 별도실을 덧붙입니다.
+   */
+  const pickWaitRoomIds = (candidateRooms: ExamRoom[], waitStudentCount: number): string[] => {
+    const regularRooms = candidateRooms.filter(r => !isExtraRoom(r) && !r.roomName.startsWith('별도'));
+    const regularCap = regularRooms.reduce((sum, r) => sum + (r.capacity && r.capacity > 0 ? r.capacity : 28), 0);
+    const chosen = regularRooms.map(r => r.id);
+
+    let overflow = waitStudentCount - regularCap;
+    if (overflow > 0) {
+      const extras = candidateRooms
+        .filter(r => isExtraRoom(r) || r.roomName.startsWith('별도'))
+        .sort((a, b) => a.roomName.localeCompare(b.roomName, 'ko', { numeric: true }));
+      for (const er of extras) {
+        if (overflow <= 0) break;
+        chosen.push(er.id);
+        overflow -= er.capacity && er.capacity > 0 ? er.capacity : 28;
+      }
+    }
+
+    return chosen;
+  };
+
   const handleAddExamRoomFromWait = (slotIndex: number, subject?: string, targetRoomId?: string) => {
     if (stages.stage4) return;
     const ps = placementSlots.find(s => s.index === slotIndex);
@@ -346,6 +353,25 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     const defaultRegularRoomIds = candidateWaitRooms
       .filter(r => !isExtraRoom(r) && !r.roomName.startsWith('별도'))
       .map(r => r.id);
+
+    // 7. 고사장 배치는 정해진 룰대로 바로 처리합니다.
+    //  - 남은 실만으로 대기 인원이 수용되면 별도실을 늘리지 않습니다.
+    //  - 수용이 안 될 때만 모자란 만큼 별도실을 붙이고 정원에 맞춰 균등 분배합니다.
+    if (stepMode === 7) {
+      // 교시에 과목이 둘 이상이면 어느 과목의 고사장을 늘릴지는 물어봐야 합니다.
+      if (!subject && slotSubjects.length > 1) {
+        setSubjectSelectModal({ isOpen: true, slotIndex, subjects: slotSubjects, action: 'add', targetRoomId });
+        return;
+      }
+      executeAddExamRoom(
+        slotIndex,
+        initialSubject,
+        targetRoomId,
+        pickWaitRoomIds(candidateWaitRooms, waitStudents.length),
+        'even'
+      );
+      return;
+    }
 
     setWaitPlacementModal({
       isOpen: true,
@@ -1514,8 +1540,10 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
         )}
       </div>
 
-      {/* Movement & Home Waiting Summary Banner with Live Student Counts */}
-      <div className="bg-[#fee2e2] text-[#005691] border-b border-emerald-800 px-6 py-2 flex items-center justify-between shrink-0 no-print shadow-xs">
+      {/* 이동 최소화 현황: 학생 배치 결과 지표이므로 8. 학생 배치에서만 보여줍니다. */}
+      <div className={`bg-[#fee2e2] text-[#005691] border-b border-emerald-800 px-6 py-2 items-center justify-between shrink-0 no-print shadow-xs ${
+        stepMode === 7 ? 'hidden' : 'flex'
+      }`}>
         <div className="flex items-center gap-3 text-[15px]">
           <span className="font-bold text-[#005691] flex items-center gap-1.5 text-[17px]">
             <CheckCircle2 className="w-4.5 h-4.5 text-[#005691]" />
@@ -1581,6 +1609,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
 
         <button
           onClick={() => setIsPanelOpen(!isPanelOpen)}
+          hidden={stepMode === 7}
           className={`px-3 py-1.5 rounded-lg font-bold border transition flex items-center gap-1.5 ${
             isPanelOpen
               ? 'bg-blue-50 text-[#005691] border-blue-200 shadow-xs'
@@ -1689,7 +1718,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                 return (
                   <React.Fragment key={ps.index}>
                     <tr className="divide-x divide-gray-200 bg-white">
-                      <td rowSpan={3} className={`py-2 px-2 font-bold text-center bg-white ${isCompactFit ? 'w-24' : 'w-32'}`}>
+                      <td rowSpan={stepMode === 7 ? 1 : 3} className={`py-2 px-2 font-bold text-center bg-white ${isCompactFit ? 'w-24' : 'w-32'}`}>
                         <div className={`text-gray-900 font-bold ${isCompactFit ? 'text-[13.5px]' : 'text-[16px]'}`}>{ps.title}</div>
                         <div className={`text-[#005691] font-bold mt-0.5 ${isCompactFit ? 'text-[12.5px]' : 'text-[14.5px]'}`}>{ps.subjects.join(', ')}</div>
                         {!stages.stage4 && (
@@ -1762,16 +1791,18 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                           : (typeof derivedCount === 'number' ? derivedCount : 0);
 
                         // 이 교시에만 지정된 정원이 있으면 그 값을, 없으면 고사실 기본 정원을 씁니다.
-                        const roomCap = capacityForSlot(r, ps.index, slotRoomCapacity);
+                        const roomCap = capacityForSlot(r, ps.index, slotRoomCapacity, ps);
                         const hasCapOverride = Boolean(slotRoomCapacity?.[ps.index]?.[r.id]);
+                        // 전교생이 같은 시험을 보는 교시는 반 인원이 곧 정원입니다.
+                        const isAllTakeSlot = ps.nonTakers === 0 && !isExtraRoom(r) && !!r.maxClassSize;
                         const isOverCapacity = isUsable && !isForbidden && actualCount > roomCap;
 
                         return (
                           <td
                             key={r.id}
-                            rowSpan={3}
+                            rowSpan={stepMode === 7 ? 1 : 3}
                             onClick={() => isUsable && handleCellClick(ps.index, r.id)}
-                            onDoubleClick={() => isUsable && !isForbidden && handleCellDoubleClick(ps.index, r.id)}
+                            onDoubleClick={() => stepMode !== 7 && isUsable && !isForbidden && handleCellDoubleClick(ps.index, r.id)}
                             draggable={isUsable && !stages.stage4 && !isLocked && !isForbidden}
                             onDragStart={(e) => {
                               if (stages.stage4 || !isUsable || isLocked || isForbidden) { e.preventDefault(); return; }
@@ -1909,11 +1940,18 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                       }`}
                                       title={
                                         hasCapOverride
-                                          ? `이 교시에만 적용되는 정원입니다 (고사실 기본 ${r.capacity}명)`
+                                          ? `이 교시에만 지정한 정원입니다 (고사실 기본 ${r.capacity}명)`
+                                          : isAllTakeSlot
+                                          ? `전교생이 같은 시험을 보는 교시라 ${r.banName} 학생 수(${r.maxClassSize}명)가 정원입니다 — 고치면 이 교시에만 적용됩니다`
                                           : '고사실 기본 정원 — 고치면 이 교시에만 적용됩니다'
                                       }
                                     />
                                     <span className={isCompactFit ? 'text-[10px] text-slate-500' : 'text-[12px] text-slate-500'}>석</span>
+                                    <span className={`font-black ${isCompactFit ? 'text-[10.5px]' : 'text-[12.5px]'} ${
+                                      isOverCapacity ? 'text-rose-700' : 'text-slate-700'
+                                    }`}>
+                                      / {actualCount}명
+                                    </span>
                                     {hasCapOverride && !stages.stage4 && !isLocked && (
                                       <button
                                         onClick={() => setSlotRoomCapacity(ps.index, r.id, null)}
@@ -2011,6 +2049,9 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                       })}
                     </tr>
 
+                    {/* 배치 / 미배치 줄은 학생을 실제로 넣어본 결과라 8. 학생 배치에서만 보여줍니다. */}
+                    {stepMode !== 7 && (
+                    <>
                     <tr className="divide-x divide-gray-200 bg-white">
                       <td className={`py-1 px-1 text-center bg-white text-slate-700 font-medium ${isCompactFit ? 'text-[12.5px]' : 'text-[15px]'}`}>배치</td>
                       <td className={`py-1 px-0.5 text-center font-medium text-slate-800 ${isCompactFit ? 'text-[12.5px]' : 'text-[16px]'}`}>{sum.placed.ban}</td>
@@ -2078,6 +2119,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                         )}
                       </td>
                     </tr>
+                    </>
+                    )}
                   </React.Fragment>
                 );
               })}
@@ -2085,8 +2128,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           </table>
         </div>
 
-        {/* Sidebar Placement Panel - Collapsible */}
-        {isPanelOpen && (
+        {/* 배치 패널(미배치 학생·대기 균등분배·학생 이동)은 학생 단위 작업이라 8. 학생 배치 전용입니다. */}
+        {isPanelOpen && stepMode !== 7 && (
           <div className="w-80 flex flex-col border border-gray-200 rounded-2xl bg-white shadow-lg overflow-hidden shrink-0 transition-all">
             <div className="bg-white p-3.5 border-b border-gray-200">
               <div className="flex items-center justify-between">

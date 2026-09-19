@@ -45,33 +45,45 @@ export const isUsableRoom = (r: ExamRoom): boolean =>
 export type SlotRoomCapacity = Record<number, Record<string, number>>;
 
 /**
- * 해당 교시에만 적용되는 정원을 반영한 고사실 목록을 돌려줍니다.
+ * 해당 교시에 실제로 적용되는 고사실 정원.
+ *
+ * 우선순위
+ *  1. 그 교시에만 지정한 정원 예외
+ *  2. 전교생이 같은 시험을 보는 교시(미응시 0명)면 그 반의 학생 수
+ *     — 학생이 자기 반 교실에 그대로 앉으므로 정원도 반 인원이 기준입니다.
+ *  3. 고사실 기본 정원
+ */
+export const capacityForSlot = (
+  room: ExamRoom,
+  slotIndex: number,
+  slotRoomCapacity?: SlotRoomCapacity,
+  slot?: Pick<PlacementSlot, 'nonTakers'>
+): number => {
+  const override = slotRoomCapacity?.[slotIndex]?.[room.id];
+  if (override && override > 0) return override;
+
+  if (slot && slot.nonTakers === 0 && !isExtraRoom(room) && room.maxClassSize && room.maxClassSize > 0) {
+    return room.maxClassSize;
+  }
+
+  return room.capacity && room.capacity > 0 ? room.capacity : 28;
+};
+
+/**
+ * 위 규칙으로 계산한 정원을 반영한 고사실 목록을 돌려줍니다.
  * 배치 로직 전체가 `room.capacity`를 읽으므로, 교시 단위 호출 앞에서 이 함수로
- * 한 번 감싸 주면 정원 예외가 자동으로 반영됩니다.
+ * 한 번 감싸 주면 정원 규칙이 자동으로 반영됩니다.
  */
 export const roomsForSlot = (
   rooms: ExamRoom[],
   slotIndex: number,
-  slotRoomCapacity?: SlotRoomCapacity
-): ExamRoom[] => {
-  const row = slotRoomCapacity?.[slotIndex];
-  if (!row) return rooms;
-  return rooms.map(r => {
-    const override = row[r.id];
-    return override && override > 0 ? { ...r, capacity: override } : r;
+  slotRoomCapacity?: SlotRoomCapacity,
+  slot?: Pick<PlacementSlot, 'nonTakers'>
+): ExamRoom[] =>
+  rooms.map(r => {
+    const cap = capacityForSlot(r, slotIndex, slotRoomCapacity, slot);
+    return cap === r.capacity ? r : { ...r, capacity: cap };
   });
-};
-
-/** 해당 교시에 실제로 적용되는 고사실 정원. */
-export const capacityForSlot = (
-  room: ExamRoom,
-  slotIndex: number,
-  slotRoomCapacity?: SlotRoomCapacity
-): number => {
-  const override = slotRoomCapacity?.[slotIndex]?.[room.id];
-  if (override && override > 0) return override;
-  return room.capacity && room.capacity > 0 ? room.capacity : 28;
-};
 
 export interface SubjectSummary { subject: string; banCount: number; stuCount: number; }
 export interface SubjectBan     { subject: string; room: string; stuCount: number; subjectSeq: number; }
