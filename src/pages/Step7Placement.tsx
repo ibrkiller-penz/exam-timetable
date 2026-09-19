@@ -2418,10 +2418,12 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                       isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-500' : `${color.text} hover:underline`
                                     } ${stepMode === 7 && !isWait && cellVal ? 'cursor-text' : ''}`}
                                     title={stepMode === 7 && !isWait && cellVal ? '눌러서 분반 이름을 고칩니다' : undefined}
-                                    style={{ fontSize: `${cellLabelFontSize(stepMode === 7 && isWait ? '대기' : banLabel(cellVal, ps.index, r.id), isCompactFit)}px` }}
+                                    style={{ fontSize: `${cellLabelFontSize(isWait ? '대기' : banLabel(cellVal, ps.index, r.id), isCompactFit)}px` }}
                                   >
-                                    {stepMode === 7 && isWait
-                                      ? '대기' /* 인원은 바로 아래 정원/배치 줄에 나오므로 라벨에서는 뺍니다 */
+                                    {/* 대기실은 '대기'라고만 씁니다. 칸에 적힌 숫자는 지난번에 나눈 결과라
+                                        지금 앉은 인원과 어긋납니다. 인원은 바로 아래 줄에 제대로 나옵니다. */}
+                                    {isWait
+                                      ? '대기'
                                       : banLabel(cellVal, ps.index, r.id)}
                                   </div>
                                   {isOverCapacity && stepMode !== 7 && (
