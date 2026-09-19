@@ -2063,6 +2063,32 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                           </div>
                         )}
 
+                        {/* 8. 학생 배치: 좌석을 넘긴 고사실을 교시 칸에서 바로 알아봅니다.
+                            분반을 쪼개지 않으므로 초과가 생길 수 있고, 담당자가 손으로 옮깁니다. */}
+                        {stepMode !== 7 && (() => {
+                          const row = placement[ps.index] ?? {};
+                          const sp = studentPlacements?.[ps.index];
+                          if (!sp) return null;
+                          const over = rooms.filter(r => {
+                            const v = row[r.id];
+                            if (!v || isWaitCell(v) || isForbiddenCell(v)) return false;
+                            const used = students.filter(st => sp[`${st.ban}-${st.num}`] === r.id).length;
+                            return used > capacityForSlot(r, ps.index, slotRoomCapacity, ps, v, slotCapacityBasis[ps.index]);
+                          });
+                          if (over.length === 0) return null;
+                          return (
+                            <div
+                              className={`w-full font-black bg-orange-100 text-orange-900 border border-orange-300 rounded-lg flex items-center justify-center gap-1 ${
+                                isCompactFit ? 'text-[11px] px-1.5 py-0.5 mt-1' : 'text-[12.5px] px-2 py-1 mt-1.5'
+                              }`}
+                              title={`좌석을 넘긴 고사실: ${over.map(r => r.roomName).join(', ')} — 칸을 더블클릭해 학생을 옮겨 주세요.`}
+                            >
+                              <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                              <span>정원 초과 {over.length}실</span>
+                            </div>
+                          );
+                        })()}
+
                         {stepMode === 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
                               <div
                                 className={`w-full font-black bg-rose-100 text-rose-800 border border-rose-300 rounded-lg flex items-center justify-center gap-1 ${

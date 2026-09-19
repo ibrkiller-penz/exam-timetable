@@ -451,40 +451,10 @@ export function autoPlaceSlot(
     queue.shift();
   }
 
-  // 1B. 응시자가 고사장 정원 총합보다 많으면 빈 방(또는 대기실)을 고사장으로 더 씁니다.
-  // 이 단계를 건너뛰면 자리를 못 얻은 응시자가 그대로 미배치로 남습니다.
-  for (const sub of ps.subjects) {
-    const takersForSub = students.filter(st => st.subjects.includes(sub)).length;
-    const capOf = (r: ExamRoom) => (r.capacity && r.capacity > 0 ? r.capacity : 28);
-    const isRoomForSub = (r: ExamRoom) => {
-      const v = newPlacement[i][r.id];
-      return Boolean(v) && !isWaitCell(v) && v !== '배치금지' && v.startsWith(sub);
-    };
-
-    let seats = rooms.filter(isRoomForSub).reduce((sum, r) => sum + capOf(r), 0);
-    if (seats >= takersForSub) continue;
-
-    let maxBanNum = 0;
-    for (const v of Object.values(newPlacement[i])) {
-      if (typeof v === 'string' && v.startsWith(sub)) {
-        const m = v.match(/-(\d+)반/);
-        if (m) maxBanNum = Math.max(maxBanNum, Number(m[1]));
-      }
-    }
-
-    const spareRooms = rooms.filter(r => {
-      if (lockedCellsRow?.[r.id]) return false;
-      const v = newPlacement[i][r.id];
-      return !v || isWaitCell(v);
-    });
-
-    for (const r of spareRooms) {
-      if (seats >= takersForSub) break;
-      maxBanNum += 1;
-      newPlacement[i][r.id] = `${sub}-${maxBanNum}반`;
-      seats += capOf(r);
-    }
-  }
+  // 정원이 모자라도 고사장을 임의로 늘리지 않습니다.
+  // 늘리면 편성현황에 없는 가짜 분반이 생겨 이름과 명단이 어긋납니다.
+  // 분반은 통째로 제 방에 앉히고, 좌석을 넘으면 '강제배정'으로 드러냅니다.
+  // 담당자가 빈 고사실로 직접 옮기면 됩니다.
 
   // 2. Do "자반 대기" if isExtra is true
   if (isExtra) {
@@ -843,33 +813,9 @@ export function initSlotStudentPlacements(
         }
       }
 
-      // 남은 인원(분반을 못 찾았거나 추가된 방 몫)만 나머지 방에 고르게 나눕니다.
-      const activeRooms = subRooms.filter(r => !lockedCellsRow?.[r.id] && !realBanRooms.includes(r));
-      const studentsToPlace = subjectStudents.filter(st => !assignedStudentKeys.has(`${st.ban}-${st.num}`));
-      const numRooms = activeRooms.length;
-
-      if (numRooms > 0 && studentsToPlace.length > 0) {
-        const q = Math.floor(studentsToPlace.length / numRooms);
-        const rem = studentsToPlace.length % numRooms;
-
-        let studentIdx = 0;
-        activeRooms.forEach((r, idx) => {
-          const quota = q + (idx < rem ? 1 : 0);
-          const cap = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
-          const toTake = Math.min(quota, cap);
-          for (let i = 0; i < toTake && studentIdx < studentsToPlace.length; i++) {
-            const st = studentsToPlace[studentIdx++];
-            const k = `${st.ban}-${st.num}`;
-            result[k] = r.id;
-            assignedStudentKeys.add(k);
-          }
-        });
-
-        // Any excess beyond room capacities goes to overflow
-        for (let i = studentIdx; i < studentsToPlace.length; i++) {
-          overflowExamStudents.push({ student: studentsToPlace[i], originalRoomId: activeRooms[0]?.id || '', subject: sub });
-        }
-      }
+      // 추가한 방은 비워 둡니다.
+      // 분반을 흩어 놓으면 편성현황과 달라지므로, 담당자가 보고 직접 옮기도록 남깁니다.
+      // 분반을 못 찾은 학생만 미배치로 남아 배치 패널에 뜹니다.
     } else {
       // Standard 1:1 NEIS / offset match
       for (const r of subRooms) {

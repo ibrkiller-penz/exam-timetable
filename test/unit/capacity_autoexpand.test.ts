@@ -6,7 +6,7 @@ import { ExamRoom, PlacementSlot, Student, SubjectBanEntry } from '../../src/dom
  * 응시자가 고사장 정원 총합보다 많을 때 자동배치가 고사장을 더 쓰는지 확인합니다.
  * 실제로 겪은 문제: 91명 / 3실 × 24석 = 72석이라 22명이 미배치로 남았습니다.
  */
-describe('정원이 모자라면 고사장을 자동으로 더 쓴다', () => {
+describe('정원이 모자라도 분반을 쪼개지 않는다', () => {
   const sub = '심화 영어 독해Ⅰ(4)';
 
   const students: Student[] = [
@@ -56,7 +56,10 @@ describe('정원이 모자라면 고사장을 자동으로 더 쓴다', () => {
     nonTakers: 72,
   }];
 
-  it('91명을 3실(72석)에 넣지 않고 고사장을 늘려 전원 배치한다', () => {
+  it('91명을 3실(72석)에 넣어도 분반은 통째로 유지되고 전원 배치된다', () => {
+    // 예전에는 자리가 모자라면 빈 방을 고사장으로 바꿔 인원을 나눴습니다.
+    // 그러면 편성현황에 없는 가짜 분반이 생겨 이름과 명단이 어긋납니다.
+    // 이제 분반을 그대로 두고, 좌석을 넘는 것은 화면에 드러내 담당자가 옮깁니다.
     const placed = autoPlaceSlot(1, 'r1', {}, slots, rooms, entries, students, false);
     const row = placed[1] ?? {};
 
@@ -64,16 +67,12 @@ describe('정원이 모자라면 고사장을 자동으로 더 쓴다', () => {
       const v = row[r.id];
       return v && v.startsWith(sub);
     });
-    const seats = examRooms.reduce((sum, r) => sum + r.capacity, 0);
-
-    expect(examRooms.length).toBeGreaterThan(3);
-    expect(seats).toBeGreaterThanOrEqual(91);
+    expect(examRooms.length).toBe(3); // 방을 임의로 늘리지 않습니다.
 
     const sp = initSlotStudentPlacements(1, row, slots, rooms, entries, students);
     const placedTakers = students.filter(
       st => st.subjects.includes(sub) && examRooms.some(r => r.id === sp[`${st.ban}-${st.num}`])
     ).length;
-
-    expect(placedTakers).toBe(91);
+    expect(placedTakers).toBe(91); // 쪼개지 않았으므로 전원 자리를 받습니다.
   });
 });
