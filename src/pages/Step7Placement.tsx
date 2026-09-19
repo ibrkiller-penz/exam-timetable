@@ -1528,9 +1528,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
         cancelLabel="확정 취소"
         onConfirm={handleConfirm}
         onCancel={handleCancel}
-        guideMessage={stepMode === 7
-          ? undefined
-          : "분반 수와 시험실 수가 일치하면 [분반 위주], 다르면 [학번순]으로 학생이 자동 배정됩니다."}
+        guideMessage={undefined}
         actions={
           // 버튼이 많아 좁아지면 글자가 세로로 쪼개져 읽기 어려워집니다. 줄바꿈을 막고 줄어들지 않게 합니다.
           <div className="flex items-center gap-2 [&_button]:whitespace-nowrap [&_button]:shrink-0 [&_span]:whitespace-nowrap">
