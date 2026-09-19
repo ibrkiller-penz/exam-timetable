@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { displayName } from '../../domain/privacy';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/appStore';
@@ -266,7 +267,7 @@ export const Report6StudentTable: React.FC = () => {
                 >
                   {banStudents.map(s => (
                     <option key={s.num} value={s.num}>
-                      {s.num}번 {s.name}
+                      {s.num}번 {displayName(s.name)}
                     </option>
                   ))}
                 </select>
@@ -414,7 +415,7 @@ export const Report6StudentTable: React.FC = () => {
                     제 {chunkIdx + 1} 페이지 / 총 {chunkedReports.length} 페이지
                   </span>
                   <span className="text-xs font-bold text-[#8C867A]">
-                    {chunk[0]?.hakbun} {chunk[0]?.student.name} ~ {chunk[chunk.length - 1]?.hakbun} {chunk[chunk.length - 1]?.student.name} ({chunk.length}명)
+                    {chunk[0]?.hakbun} {displayName(chunk[0]?.student.name ?? '')} ~ {chunk[chunk.length - 1]?.hakbun} {displayName(chunk[chunk.length - 1]?.student.name ?? '')} ({chunk.length}명)
                   </span>
                 </div>
 
@@ -480,7 +481,7 @@ export const Report6StudentTable: React.FC = () => {
                               <span className={`text-[#8C867A] font-bold ${isSingle ? 'text-[13px]' : 'text-[10.5px]'}`}>성명</span>
                               <strong className={`text-slate-900 tracking-widest font-black ${
                                 isSingle ? 'text-[24px]' : isDense ? 'text-[16px]' : 'text-[17px]'
-                              }`}>{report.student.name}</strong>
+                              }`}>{displayName(report.student.name)}</strong>
                             </div>
                           </div>
 

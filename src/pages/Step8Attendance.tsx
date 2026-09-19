@@ -5,6 +5,7 @@ import { saveCloudImmediately } from '../domain/firebase';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AlertModal } from '../components/AlertModal';
 import { MSG } from '../domain/messages';
+import { displayName } from '../domain/privacy';
 import { exportAttendanceToExcel } from '../utils/excelExport';
 import { Shuffle, ArrowDown10, Download, Search } from 'lucide-react';
 
@@ -231,7 +232,7 @@ export const Step8Attendance: React.FC = () => {
                       <td className="py-2.5 px-3.5 font-normal">{r.grade}</td>
                       <td className="py-2.5 px-3.5 font-normal text-gray-900">{r.ban}</td>
                       <td className="py-2.5 px-3.5 text-center font-normal">{r.num}</td>
-                      <td className="py-2.5 px-3.5 font-normal text-gray-900">{r.name}</td>
+                      <td className="py-2.5 px-3.5 font-normal text-gray-900">{displayName(r.name)}</td>
                       <td className="py-2.5 px-3.5 text-[#0f172a] font-normal">{r.classRoom || '-'}</td>
                       <td className="py-2.5 px-3.5 text-center text-[#0f172a] font-normal">{r.seq}</td>
                       <td className="py-1.5 px-2.5 text-center">

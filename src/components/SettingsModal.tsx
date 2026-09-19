@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../store/appStore';
+import { isNameVisible, unlockNames, lockNames } from '../domain/privacy';
 import { X } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -9,6 +10,9 @@ interface SettingsModalProps {
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose }) => {
   const { settings, updateSettings } = useAppStore();
+  const [namesVisible, setNamesVisible] = React.useState(isNameVisible());
+  const [codeInput, setCodeInput] = React.useState('');
+  const [codeError, setCodeError] = React.useState('');
 
   if (!isOpen) return null;
 
@@ -35,6 +39,56 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               onChange={e => updateSettings({ maxSubjectsPerSlot: Number(e.target.value) || 4 })}
               className="w-full px-3 py-1.5 border border-gray-300 rounded-lg"
             />
+          </div>
+
+          <div className="border border-gray-200 rounded-xl p-3 bg-slate-50/60">
+            <label className="block font-bold text-gray-800 mb-1">학생 이름</label>
+            {namesVisible ? (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-gray-600">이 기기에서 이름이 보입니다.</span>
+                <button
+                  type="button"
+                  onClick={() => { lockNames(); setNamesVisible(false); setCodeInput(''); setCodeError(''); }}
+                  className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-sm font-bold text-slate-700 hover:bg-gray-50 transition"
+                >
+                  다시 가리기
+                </button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-gray-600 mb-2">
+                  이름이 <strong>홍○○</strong> 처럼 가려져 있습니다. 비밀번호를 넣으면 이 기기에서만 보입니다.
+                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="password"
+                    value={codeInput}
+                    onChange={e => { setCodeInput(e.target.value); setCodeError(''); }}
+                    onKeyDown={e => {
+                      if (e.key !== 'Enter') return;
+                      if (unlockNames(codeInput)) { setNamesVisible(true); setCodeInput(''); setCodeError(''); }
+                      else setCodeError('비밀번호가 맞지 않습니다.');
+                    }}
+                    placeholder="비밀번호"
+                    className="flex-1 px-3 py-1.5 border border-gray-300 rounded-lg"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (unlockNames(codeInput)) { setNamesVisible(true); setCodeInput(''); setCodeError(''); }
+                      else setCodeError('비밀번호가 맞지 않습니다.');
+                    }}
+                    className="px-3 py-1.5 bg-[#005691] hover:bg-blue-800 text-white rounded-lg text-sm font-bold transition"
+                  >
+                    보이기
+                  </button>
+                </div>
+                {codeError && <p className="text-xs text-rose-600 mt-1 font-bold">{codeError}</p>}
+              </>
+            )}
+            <p className="text-xs text-gray-500 mt-2">
+              푼 상태는 이 브라우저에만 저장됩니다. 작업 파일이나 서버에는 올라가지 않습니다.
+            </p>
           </div>
 
           <div>

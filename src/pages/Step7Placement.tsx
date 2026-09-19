@@ -10,6 +10,7 @@ import { MSG } from '../domain/messages';
 import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle, CapacityBasis } from '../domain/types';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
+import { displayName } from '../domain/privacy';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
@@ -440,6 +441,74 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
       message: `✅ [${ps.title}]를 분반 기준으로 다시 배치했습니다.
 
 NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁니다.`,
+    });
+  };
+
+  /**
+   * 각 칸에 적힌 분반과 실제로 들어간 학생의 분반이 맞는지 편성현황과 대조합니다.
+   * 자동으로 완벽히 맞추지 못하는 경우가 있어, 어디를 손봐야 하는지 알려 줍니다.
+   */
+  const handleCheckBanMembership = () => {
+    if (!neis || neis.length === 0) {
+      setAlertModal({ isOpen: true, message: '편성현황 원본이 없어 분반을 대조할 수 없습니다. 1. 학생편성현황에서 파일을 불러와 주세요.', isError: true });
+      return;
+    }
+
+    const norm = (v: string) => v.replace(/\s+/g, '').toLowerCase();
+    const sameBan = (a?: string, b?: string) => {
+      if (!a || !b) return false;
+      const A = norm(a);
+      const B = norm(b);
+      return A === B || A.endsWith(B) || B.endsWith(A);
+    };
+
+    const problems: string[] = [];
+    let checked = 0;
+
+    for (const ps of placementSlots) {
+      const row = placement[ps.index] ?? {};
+      const sp = studentPlacements?.[ps.index];
+      if (!sp) continue;
+
+      for (const r of rooms) {
+        const cellVal = row[r.id];
+        if (!cellVal || isWaitCell(cellVal) || isForbiddenCell(cellVal)) continue;
+
+        const entry = entries.get(cellVal);
+        if (!entry) continue;
+        checked++;
+
+        const here = students.filter(st => sp[`${st.ban}-${st.num}`] === r.id);
+        const wrong = here.filter(st => {
+          const myRow = neis.find(n => n.subject === entry.subject && n.ban === st.ban && n.num === st.num);
+          if (!myRow) return false; // 편성현황에 없으면 판단하지 않습니다.
+          return !sameBan(myRow.room, entry.room) && !sameBan(myRow.room2, entry.room);
+        });
+
+        if (wrong.length > 0) {
+          problems.push(`${ps.title} ${r.roomName} [${banLabel(cellVal, ps.index, r.id).split('-').pop()}] — 다른 분반 학생 ${wrong.length}명 (예: ${wrong.slice(0, 3).map(st => `${st.ban} ${st.num}번 ${displayName(st.name)}`).join(', ')})`);
+        }
+      }
+    }
+
+    if (problems.length === 0) {
+      setAlertModal({
+        isOpen: true,
+        message: `✅ 분반 점검 결과 이상 없습니다.
+
+고사실 ${checked}곳 모두 편성현황의 분반과 학생이 일치합니다.`,
+      });
+      return;
+    }
+
+    setAlertModal({
+      isOpen: true,
+      message:
+        `⚠️ 분반이 어긋난 고사실이 ${problems.length}곳 있습니다.\n` +
+        `칸을 더블클릭해 학생을 옮기거나, '이 고사실 전체 이동'으로 자리를 바꿔 주세요.\n\n` +
+        problems.slice(0, 12).join('\n') +
+        (problems.length > 12 ? `\n… 외 ${problems.length - 12}곳` : ''),
+      isError: true,
     });
   };
 
@@ -1053,7 +1122,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
           if (st && !st.subjects.includes(targetSubject)) {
             setAlertModal({
               isOpen: true,
-              message: `⚠️ 수강생 불일치 오류: [${st.name || stKey}] 학생은 [${targetSubject}] 과목의 수강생이 아닙니다.\n\n해당 과목 고사장에 배치할 수 없습니다. (총원 및 수강자 무결성 보호)`,
+              message: `⚠️ 수강생 불일치 오류: [${st.name ? displayName(st.name) : stKey}] 학생은 [${targetSubject}] 과목의 수강생이 아닙니다.\n\n해당 과목 고사장에 배치할 수 없습니다. (총원 및 수강자 무결성 보호)`,
               isError: true,
             });
             return;
@@ -1689,6 +1758,13 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
               title="미응시자 자기반 대기 보장 및 이동 최소화 최적 배치 실행"
             >
               <Sparkles className="w-4 h-4" /> 전체 자동배치
+            </button>
+            <button
+              onClick={handleCheckBanMembership}
+              className="px-3 py-2 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition active:scale-95"
+              title="칸에 적힌 분반과 실제 학생이 맞는지 편성현황과 대조합니다"
+            >
+              <span>🔍 분반 점검</span>
             </button>
             <button
               onClick={() => setTimetablePreviewOpen(true)}
@@ -2532,12 +2608,12 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                         <div key={stKey} className="px-2.5 py-1.5 text-[13.5px] flex items-center gap-1.5">
                           <span className="font-bold text-slate-700 w-12 shrink-0">{st.ban}</span>
                           <span className="text-slate-500 w-9 shrink-0">{st.num}번</span>
-                          <span className="font-bold text-gray-900 truncate flex-1">{st.name}</span>
+                          <span className="font-bold text-gray-900 truncate flex-1">{displayName(st.name)}</span>
                           <select
                             value=""
                             onChange={e => {
                               if (!e.target.value) return;
-                              pushHistory(`[${curSlot.title}] ${st.name} 배정`);
+                              pushHistory(`[${curSlot.title}] ${displayName(st.name)} 배정`);
                               transferStudentsAndUpdatePlacement(curSlot.index, { [stKey]: e.target.value });
                             }}
                             className="px-1.5 py-1 border border-gray-300 rounded-lg text-[12.5px] font-bold text-[#005691] focus:outline-none focus:ring-2 focus:ring-[#005691]"
@@ -2822,7 +2898,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                             {st.ban.endsWith('반') ? st.ban : `${st.ban}반`}
                           </td>
                           <td className="py-2 px-2 text-center font-normal text-gray-800">{st.num}번</td>
-                          <td className="py-2 px-3 font-bold text-gray-900">{st.name || '-'}</td>
+                          <td className="py-2 px-3 font-bold text-gray-900">{st.name ? displayName(st.name) : '-'}</td>
                           <td className="py-2 px-3 text-center">
                             {taking.length > 0 ? (
                               <span className="px-2 py-0.5 bg-blue-100 text-blue-800 text-[11.5px] font-bold rounded-md whitespace-nowrap">

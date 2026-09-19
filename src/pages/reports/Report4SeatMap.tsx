@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -181,7 +182,7 @@ export const Report4SeatMap: React.FC = () => {
                   >
                     <div className="font-extrabold text-sm text-red-800">좌석 {cell.physicalSeatNum}</div>
                     <div className="text-[11px] text-gray-600 font-medium">{cell.hakbun}</div>
-                    <div className="text-xs font-bold text-gray-900">{cell.name}</div>
+                    <div className="text-xs font-bold text-gray-900">{displayName(cell.name)}</div>
                   </div>
                 ))}
               </div>

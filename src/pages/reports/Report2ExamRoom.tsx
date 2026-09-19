@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
 import { buildExamRoomReport } from '../../domain/reports/examRoom';
 import { DayLabel, PeriodLabel } from '../../domain/types';
@@ -115,7 +116,7 @@ export const Report2ExamRoom: React.FC = () => {
                     <tr key={i} className="divide-x divide-gray-800 h-7">
                       <td>{s ? s.seq : i + 1}</td>
                       <td className="font-medium">{s?.hakbun || ''}</td>
-                      <td className="font-bold">{s?.name || ''}</td>
+                      <td className="font-bold">{s?.name ? displayName(s.name) : ''}</td>
                       <td className="font-extrabold text-red-800">{s?.seat || ''}</td>
                       <td></td>
                     </tr>
@@ -142,7 +143,7 @@ export const Report2ExamRoom: React.FC = () => {
                     <tr key={i} className="divide-x divide-gray-800 h-7">
                       <td>{s ? s.seq : i + 26}</td>
                       <td className="font-medium">{s?.hakbun || ''}</td>
-                      <td className="font-bold">{s?.name || ''}</td>
+                      <td className="font-bold">{s?.name ? displayName(s.name) : ''}</td>
                       <td className="font-extrabold text-red-800">{s?.seat || ''}</td>
                       <td></td>
                     </tr>
