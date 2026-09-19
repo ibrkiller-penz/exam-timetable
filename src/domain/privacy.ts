@@ -1,18 +1,24 @@
+import { isLocal } from '../utils/electronBridge';
+
 /**
  * 학생 이름 가리기.
  *
- * 화면에 학생 이름이 그대로 떠 있으면 지나가는 사람도 보게 됩니다.
- * 기본은 가린 상태이고, 비밀번호로 푼 기기에서만 보입니다.
+ * 웹 주소로 열었을 때만 가립니다. 인터넷에 올라가 있는 화면은 지나가는 사람도
+ * 보게 되므로, 기본은 가린 상태이고 비밀번호로 푼 기기에서만 보입니다.
+ * 푼 상태는 브라우저(localStorage)에만 둡니다. 작업 파일이나 서버에 저장되지
+ * 않으므로, 다른 기기에서 열면 다시 가려집니다.
  *
- * 푼 상태는 브라우저(localStorage)에만 둡니다.
- * 작업 파일이나 서버에 저장되지 않으므로, 다른 기기에서 열면 다시 가려집니다.
+ * 오프라인(USB) 버전에서는 가리지 않습니다. 프로그램이 학교 컴퓨터 안에서만
+ * 돌고 학생 정보가 밖으로 나가지 않으니, 그 자체가 이미 보호막입니다.
+ * 그 안에서 또 가리면 명단을 볼 때마다 비밀번호를 넣어야 해 일만 늘어납니다.
  */
 
 const STORAGE_KEY = 'examtable.showStudentNames';
 const UNLOCK_CODE = '1004';
 
-/** 이 기기에서 이름을 보이도록 풀어 두었는지. */
+/** 이름을 그대로 보여 줄지. 오프라인 버전은 늘 보입니다. */
 export function isNameVisible(): boolean {
+  if (isLocal) return true;
   try {
     return localStorage.getItem(STORAGE_KEY) === '1';
   } catch {

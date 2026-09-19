@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../store/appStore';
 import { isNameVisible, unlockNames, lockNames } from '../domain/privacy';
+import { isLocal } from '../utils/electronBridge';
 import { X } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -41,6 +42,9 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             />
           </div>
 
+          {/* 오프라인(USB) 버전은 학생 정보가 이 컴퓨터를 떠나지 않으므로 가리지 않습니다.
+              가릴 수 없는 설정을 보여 주면 눌러 보고 헷갈리기만 합니다. */}
+          {!isLocal && (
           <div className="border border-gray-200 rounded-xl p-3 bg-slate-50/60">
             <label className="block font-bold text-gray-800 mb-1">학생 이름</label>
             {namesVisible ? (
@@ -90,6 +94,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               푼 상태는 이 브라우저에만 저장됩니다. 작업 파일이나 서버에는 올라가지 않습니다.
             </p>
           </div>
+          )}
 
           <div>
             <label className="block font-normal text-gray-700 mb-1">
