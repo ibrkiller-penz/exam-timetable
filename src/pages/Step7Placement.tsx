@@ -48,6 +48,7 @@ export const Step7Placement: React.FC = () => {
     addRoom,
     deleteRoom,
     setRooms,
+    updateRoom,
   } = useAppStore();
 
   const placementSlots = useAppStore(selPlacementSlots);
@@ -641,6 +642,7 @@ export const Step7Placement: React.FC = () => {
     }
 
     if (targetWaitRoom) {
+      setBatchTargetRoomId(targetWaitRoom.id);
       setRowTargetRoomIds(prev => {
         const next = { ...prev };
         selectedStudentKeys.forEach(k => {
@@ -648,11 +650,6 @@ export const Step7Placement: React.FC = () => {
         });
         return next;
       });
-      setAlertModal({
-        isOpen: true,
-        message: `선택한 ${selectedStudentKeys.length}명의 이동 대상이 [${targetWaitRoom.roomName} (대기)]로 지정되었습니다. 아래 [🚀 수기/일괄 이동 적용]을 누르면 즉시 반영됩니다.`,
-      });
-      setSelectedStudentKeys([]);
     }
   };
 
@@ -2251,14 +2248,73 @@ export const Step7Placement: React.FC = () => {
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setStudentListModal(null)}>
           <div className="bg-white rounded-2xl shadow-2xl w-[720px] max-h-[85vh] flex flex-col border border-gray-200 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
-            <div className="p-4.5 border-b border-gray-200 flex items-center justify-between bg-white rounded-t-2xl">
-              <h3 className="text-base font-bold text-[#005691] flex items-center gap-2.5">
-                <Users className="w-5 h-5 text-red-500" />
-                <span>{studentListModal.title}</span>
-              </h3>
+            <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white rounded-t-2xl gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
+                <h3 className="text-base font-bold text-[#005691] flex items-center gap-2">
+                  <Users className="w-5 h-5 text-red-500 shrink-0" />
+                  <span>{studentListModal.title}</span>
+                </h3>
+
+                {/* 임시 정원 증가/감소 (+ -) 컨트롤 */}
+                {(() => {
+                  const curRoom = rooms.find(r => r.id === studentListModal.roomId);
+                  if (!curRoom || studentListModal.roomId === 'unplaced') return null;
+                  const cap = curRoom.capacity && curRoom.capacity > 0 ? curRoom.capacity : 28;
+                  const count = studentListModal.students.length;
+                  return (
+                    <div className="flex items-center gap-1.5 bg-slate-50 border border-slate-200 px-2.5 py-1 rounded-xl shadow-2xs">
+                      <span className="text-[12px] font-bold text-slate-600">고사실 정원</span>
+                      <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-1 py-0.5 shadow-2xs">
+                        <button
+                          type="button"
+                          disabled={stages.stage4 || cap <= 1}
+                          onClick={() => {
+                            if (cap > 1) {
+                              pushHistory(`[${curRoom.roomName}] 정원 축소`);
+                              updateRoom(curRoom.id, { capacity: cap - 1 });
+                            }
+                          }}
+                          className="w-6 h-6 flex items-center justify-center font-black text-slate-700 hover:bg-slate-100 rounded text-sm transition active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                          title="정원 1석 감소 (-1)"
+                        >
+                          -
+                        </button>
+                        <span className="w-9 text-center font-black text-[#005691] text-[13px] select-none">
+                          {cap}석
+                        </span>
+                        <button
+                          type="button"
+                          disabled={stages.stage4}
+                          onClick={() => {
+                            pushHistory(`[${curRoom.roomName}] 정원 증가`);
+                            updateRoom(curRoom.id, { capacity: cap + 1 });
+                          }}
+                          className="w-6 h-6 flex items-center justify-center font-black text-blue-600 hover:bg-blue-50 rounded text-sm transition active:scale-95 disabled:opacity-30 disabled:cursor-not-allowed cursor-pointer"
+                          title="임시 정원 1석 증가 (+1)"
+                        >
+                          +
+                        </button>
+                      </div>
+                      {count > cap ? (
+                        <span className="px-2 py-0.5 bg-orange-100 text-orange-900 text-[11px] font-extrabold rounded-md flex items-center gap-1 border border-orange-200 animate-pulse">
+                          ⚠️ {count - cap}명 초과
+                        </span>
+                      ) : count === cap ? (
+                        <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 text-[11px] font-bold rounded-md border border-emerald-200">
+                          ✅ {count}/{cap}석
+                        </span>
+                      ) : (
+                        <span className="px-2 py-0.5 bg-blue-50 text-blue-700 text-[11px] font-bold rounded-md border border-blue-200">
+                          여유 {cap - count}석
+                        </span>
+                      )}
+                    </div>
+                  );
+                })()}
+              </div>
               <button
                 onClick={() => handleCommitTransfersAndClose(false)}
-                className="text-[#0f172a] hover:text-gray-800 text-xl font-bold p-1 rounded-lg hover:bg-gray-50 transition"
+                className="text-[#0f172a] hover:text-gray-800 text-xl font-bold p-1 rounded-lg hover:bg-gray-50 transition cursor-pointer"
               >
                 ✕
               </button>
@@ -2266,7 +2322,7 @@ export const Step7Placement: React.FC = () => {
 
             {/* Batch Action Toolbar */}
             {studentListModal.students.length > 0 && (
-              <div className="px-5 py-3 bg-[#e6f1f8]/70 border-b border-gray-200/80 flex items-center justify-between gap-3 text-[15px]">
+              <div className="px-5 py-2.5 bg-[#e6f1f8]/70 border-b border-gray-200/80 flex items-center justify-between gap-3 text-[14.5px]">
                 <label className="flex items-center gap-2 font-bold text-[#005691] cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -2278,10 +2334,22 @@ export const Step7Placement: React.FC = () => {
                 </label>
                 <div className="flex items-center gap-2">
                   <select
-                    disabled={stages.stage4 || selectedStudentKeys.length === 0}
+                    disabled={stages.stage4}
                     value={batchTargetRoomId}
-                    onChange={e => setBatchTargetRoomId(e.target.value)}
-                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[15px] font-bold text-[#0f172a] focus:ring-2 focus:ring-[#00A651] focus:outline-none disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed cursor-pointer"
+                    onChange={e => {
+                      const targetId = e.target.value;
+                      setBatchTargetRoomId(targetId);
+                      if (targetId && selectedStudentKeys.length > 0) {
+                        setRowTargetRoomIds(prev => {
+                          const next = { ...prev };
+                          selectedStudentKeys.forEach(k => {
+                            next[k] = targetId;
+                          });
+                          return next;
+                        });
+                      }
+                    }}
+                    className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[14px] font-bold text-[#0f172a] focus:ring-2 focus:ring-[#00A651] focus:outline-none cursor-pointer"
                   >
                     <option value="">-- 일괄 이동할 고사실 선택 --</option>
                     {rooms.filter(r => r.roomName !== '' && r.roomName !== '0').map(r => {
@@ -2294,17 +2362,10 @@ export const Step7Placement: React.FC = () => {
                     })}
                   </select>
                   <button
-                    disabled={stages.stage4 || selectedStudentKeys.length === 0 || !batchTargetRoomId}
-                    onClick={handleApplyBatchTransfer}
-                    className="px-3.5 py-1.5 bg-[#005691] hover:bg-indigo-700 text-white rounded-lg font-bold text-[15px] shadow-2xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-                  >
-                    선택 학생 일괄 이동
-                  </button>
-                  <button
                     disabled={stages.stage4 || selectedStudentKeys.length === 0}
                     onClick={handleMoveSelectedToWait}
-                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-bold text-[15px] shadow-2xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 flex items-center gap-1"
-                    title="선택된 학생들을 대기 상태로 이동시킵니다"
+                    className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-bold text-[14px] shadow-2xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 flex items-center gap-1 cursor-pointer"
+                    title="선택된 학생들의 이동 대상을 대기실로 지정합니다"
                   >
                     <Clock className="w-4 h-4 text-amber-700" />
                     <span>대기로 이동</span>
@@ -2451,25 +2512,45 @@ export const Step7Placement: React.FC = () => {
 
             {/* Modal Footer Action Bar */}
             <div className="p-4 border-t border-gray-200 flex items-center justify-between bg-white rounded-b-2xl">
-              <div className="text-[15px] text-gray-800 font-bold flex items-center gap-3">
+              <div className="text-[14.5px] text-gray-800 font-bold flex items-center gap-2.5">
                 <span>총 <strong className="text-[#005691]">{studentListModal.students.length}</strong>명</span>
                 {selectedStudentKeys.length > 0 && (
-                  <span className="px-2.5 py-0.5 bg-[#fee2e2] text-[#005691] rounded-full font-extrabold">
+                  <span className="px-2.5 py-0.5 bg-[#fee2e2] text-[#005691] rounded-full font-extrabold text-[12.5px]">
                     {selectedStudentKeys.length}명 선택됨
                   </span>
                 )}
+                {(() => {
+                  const changedCount = Object.entries(rowTargetRoomIds).filter(
+                    ([, targetId]) => targetId && targetId !== studentListModal.roomId
+                  ).length;
+                  if (changedCount > 0) {
+                    return (
+                      <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 rounded-full font-extrabold text-[12.5px] border border-blue-200 animate-pulse">
+                        이동 예정: {changedCount}명
+                      </span>
+                    );
+                  }
+                  return null;
+                })()}
               </div>
               <div className="flex items-center gap-3">
                 <button
                   disabled={stages.stage4}
-                  onClick={() => handleCommitTransfersAndClose(true)}
-                  className="px-5 py-2.5 bg-[#005691] hover:bg-[#005691] text-white rounded-xl text-[15px] font-bold shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => {
+                    if (batchTargetRoomId && selectedStudentKeys.length > 0) {
+                      selectedStudentKeys.forEach(k => {
+                        rowTargetRoomIds[k] = batchTargetRoomId;
+                      });
+                    }
+                    handleCommitTransfersAndClose(true);
+                  }}
+                  className="px-5 py-2.5 bg-[#005691] hover:bg-[#004270] text-white rounded-xl text-[15px] font-bold shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed flex items-center gap-1.5 cursor-pointer active:scale-95"
                 >
-                  🚀 수기/일괄 이동 적용
+                  🚀 이동 적용 및 닫기
                 </button>
                 <button
                   onClick={() => handleCommitTransfersAndClose(false)}
-                  className="px-5 py-2.5 bg-gray-50 hover:bg-slate-300 text-[#0f172a] rounded-xl text-[15px] font-bold transition cursor-pointer"
+                  className="px-5 py-2.5 bg-gray-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[15px] font-bold transition cursor-pointer"
                 >
                   닫기
                 </button>
