@@ -380,6 +380,41 @@ export function autoPlaceSlot(
     queue.shift();
   }
 
+  // 1B. 응시자가 고사장 정원 총합보다 많으면 빈 방(또는 대기실)을 고사장으로 더 씁니다.
+  // 이 단계를 건너뛰면 자리를 못 얻은 응시자가 그대로 미배치로 남습니다.
+  for (const sub of ps.subjects) {
+    const takersForSub = students.filter(st => st.subjects.includes(sub)).length;
+    const capOf = (r: ExamRoom) => (r.capacity && r.capacity > 0 ? r.capacity : 28);
+    const isRoomForSub = (r: ExamRoom) => {
+      const v = newPlacement[i][r.id];
+      return Boolean(v) && !isWaitCell(v) && v !== '배치금지' && v.startsWith(sub);
+    };
+
+    let seats = rooms.filter(isRoomForSub).reduce((sum, r) => sum + capOf(r), 0);
+    if (seats >= takersForSub) continue;
+
+    let maxBanNum = 0;
+    for (const v of Object.values(newPlacement[i])) {
+      if (typeof v === 'string' && v.startsWith(sub)) {
+        const m = v.match(/-(\d+)반/);
+        if (m) maxBanNum = Math.max(maxBanNum, Number(m[1]));
+      }
+    }
+
+    const spareRooms = rooms.filter(r => {
+      if (lockedCellsRow?.[r.id]) return false;
+      const v = newPlacement[i][r.id];
+      return !v || isWaitCell(v);
+    });
+
+    for (const r of spareRooms) {
+      if (seats >= takersForSub) break;
+      maxBanNum += 1;
+      newPlacement[i][r.id] = `${sub}-${maxBanNum}반`;
+      seats += capOf(r);
+    }
+  }
+
   // 2. Do "자반 대기" if isExtra is true
   if (isExtra) {
     for (const r of rooms) {

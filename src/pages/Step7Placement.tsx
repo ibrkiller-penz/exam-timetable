@@ -12,7 +12,7 @@ import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
 import { getSubjectColor } from '../domain/constants';
-import { Sparkles, Trash2, Users, CheckCircle2, Lock, Unlock, Layers, AlertTriangle, RotateCcw, RotateCw, Plus, Clock, UserX, X, RefreshCw, ArrowRightLeft, UserCheck, Minus, BookOpen, Ban, ArrowRight } from 'lucide-react';
+import { Sparkles, Trash2, Users, CheckCircle2, Lock, Unlock, Layers, AlertTriangle, RotateCcw, RotateCw, Plus, Clock, UserX, X, RefreshCw, ArrowRightLeft, UserCheck, Minus, BookOpen, Ban, ArrowRight, HelpCircle } from 'lucide-react';
 
 interface HistorySnapshot {
   placement: PlacementGrid;
@@ -51,6 +51,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     setSelectedPlacementCell,
     confirmStage4,
     cancelStage4,
+    confirmStep7Rooms,
+    cancelStep7Rooms,
     deleteRoom,
     setRooms,
     updateRoom,
@@ -94,12 +96,20 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     [rooms, slotRoomCapacity, placementSlots]
   );
 
+  /**
+   * 이 단계가 확정되어 잠겼는지.
+   * 7. 고사장 배치와 8. 학생 배치는 서로 다른 단계라 확정도 따로 관리합니다.
+   * (예전에는 같은 플래그를 써서 7번을 확정하면 8번의 자동배치까지 잠겼습니다.)
+   */
+  const isStageLocked = stepMode === 7 ? !!stages.step7 : !!stages.stage4;
+
   const selectedCell = ui.selectedPlacementCell;
   const movementStats = calculateStudentMovement(placement, placementSlots, rooms, students);
 
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void } | null>(null);
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string; isError?: boolean } | null>(null);
   const [cloudModalOpen, setCloudModalOpen] = useState<boolean>(false);
+  const [algorithmHelpOpen, setAlgorithmHelpOpen] = useState<boolean>(false);
   const [studentListModal, setStudentListModal] = useState<{
     slotIndex: number;
     roomId: string;
@@ -144,7 +154,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleUndo = () => {
-    if (past.length === 0 || stages.stage4) return;
+    if (past.length === 0 || isStageLocked) return;
     const previous = past[past.length - 1];
     const newPast = past.slice(0, past.length - 1);
 
@@ -171,7 +181,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleRedo = () => {
-    if (future.length === 0 || stages.stage4) return;
+    if (future.length === 0 || isStageLocked) return;
     const nextSnapshot = future[0];
     const newFuture = future.slice(1);
 
@@ -282,7 +292,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
    * 넘치는 인원이 다른 방으로 옮겨가야 합니다. 학생 개개인의 조정은 8. 학생 배치에서 합니다.
    */
   const rebalanceSlotAfterCapacityChange = (ps: PlacementSlot) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
 
     // 방금 바꾼 정원이 확실히 반영되도록 스토어에서 직접 읽습니다.
     // 컴포넌트가 다시 그려지기 전에 호출될 수 있어 클로저 값은 한 박자 늦을 수 있습니다.
@@ -317,7 +327,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleToggleForbiddenCell = (slot?: number, roomId?: string) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const targetSlot = slot ?? selectedCell?.slot;
     const targetRoomId = roomId ?? selectedCell?.roomId;
     if (targetSlot === undefined || !targetRoomId) return;
@@ -463,7 +473,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleAddExamRoomFromWait = (slotIndex: number, subject?: string, targetRoomId?: string) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const ps = placementSlots.find(s => s.index === slotIndex);
     if (!ps) return;
 
@@ -539,7 +549,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   // Shrink exam room for a subject in a slot (고사장을 대기실로 변환)
   const handleShrinkExamRoomToWait = (slotIndex: number, subject?: string, targetRoomId?: string) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const ps = placementSlots.find(s => s.index === slotIndex);
     if (!ps) return;
 
@@ -595,7 +605,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   // Clear All Students in a Room
   const handleClearRoomStudents = (r: ExamRoom) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     setConfirmModal({
       isOpen: true,
       message: `[${r.roomName}] 고사장에 배정된 모든 교시의 학생 및 대기를 비우시겠습니까?\n\n※ 비운 후에는 고사장을 완전히 삭제할 수 있습니다.`,
@@ -635,7 +645,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   // Delete Room
   const handleDeleteRoom = (r: ExamRoom) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     setConfirmModal({
       isOpen: true,
       message: `[${r.roomName}] 고사장을 완전히 삭제하시겠습니까?`,
@@ -650,7 +660,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   // Subsequent Wait (이후 대기) Handler
   const handleFillSubsequentWait = (startSlotIndex?: number) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const startSlot = startSlotIndex ?? (selectedCell ? selectedCell.slot : placementSlots[0]?.index ?? 1);
     const startPs = placementSlots.find(ps => ps.index === startSlot);
 
@@ -993,7 +1003,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   // Reset and Auto-Place a Single Slot (이 교시 재배치)
   const handleResetAndAutoPlaceSlot = (slot: number) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const ps = placementSlots.find(s => s.index === slot);
     if (!ps) return;
 
@@ -1030,7 +1040,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleAutoPlaceSlot = (slot: number) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const ps = placementSlots.find(s => s.index === slot);
     if (!ps) return;
 
@@ -1060,7 +1070,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleAutoPlaceAll = () => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     setConfirmModal({
       isOpen: true,
       message: MSG.S7_AUTO_ALL,
@@ -1082,7 +1092,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   
   const handleFillWaitSlot = (slotIndex: number) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const ps = placementSlots.find(s => s.index === slotIndex);
     if (!ps) return;
     pushHistory(`[${ps.title}] 대기 배정`);
@@ -1140,7 +1150,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   
 
   const handleDistributeWaitSingleSlot = (slotIndex: number) => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     const ps = placementSlots.find(s => s.index === slotIndex);
     if (!ps) return;
 
@@ -1224,7 +1234,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleDistributeWait = () => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     setConfirmModal({
       isOpen: true,
       message: '모든 교시의 대기 인원을 고사실 정원(수용인원) 한도 내에서 빈 고사실에 균등하게 재분배하시겠습니까?\n\n※ 정원을 초과하는 인원은 미배치 상태로 안전하게 유지됩니다.',
@@ -1315,7 +1325,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleConfirmWaitNames = () => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     setConfirmModal({
       isOpen: true,
       message: '현재 각 고사실에 배치된 대기 인원의 명칭을 해당 반(예: 대기1반) 기준으로 확정하시겠습니까?',
@@ -1348,13 +1358,13 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleDeleteCurrentCell = () => {
-    if (!selectedCell || stages.stage4) return;
+    if (!selectedCell || isStageLocked) return;
     pushHistory('현재 셀 삭제');
     setPlacementCell(selectedCell.slot, selectedCell.roomId, '');
   };
 
   const handleDeleteSlot = () => {
-    if (!selectedCell || stages.stage4) return;
+    if (!selectedCell || isStageLocked) return;
     const ps = placementSlots.find(s => s.index === selectedCell.slot);
     setConfirmModal({
       isOpen: true,
@@ -1368,7 +1378,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   };
 
   const handleResetStep7 = () => {
-    if (stages.stage4) return;
+    if (isStageLocked) return;
     setConfirmModal({
       isOpen: true,
       message: '⚠️ 학생 및 고사실 배치를 모두 초기화하시겠습니까?\n\n• 모든 교시의 고사실 및 대기 배치가 깨끗하게 비워집니다.\n• 초기화 후 [전체 자동배치]를 다시 실행할 수 있습니다.\n• 작업 후에도 실행 취소(Undo)로 언제든 되돌릴 수 있습니다.',
@@ -1391,9 +1401,20 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
   const handleConfirm = async () => {
     try {
+      // 7. 고사장 배치는 고사실 구성만 잠급니다. 응시현황 생성은 8번 확정에서 합니다.
+      if (stepMode === 7) {
+        confirmStep7Rooms();
+        await saveCloudImmediately(useAppStore.getState(), '[확정] 7단계. 고사장 배치 확정');
+        setAlertModal({
+          isOpen: true,
+          message: '✅ 고사장 배치를 확정했습니다.\n\n고사실 구성과 정원이 잠겼습니다. 이어서 8. 학생 배치에서 학생을 배정하세요.',
+        });
+        return;
+      }
+
       const notices = confirmStage4();
-      await saveCloudImmediately(useAppStore.getState(), '[확정] 7단계. 학생배치 확정');
-      
+      await saveCloudImmediately(useAppStore.getState(), '[확정] 8단계. 학생 배치 확정');
+
       let finalMessage = '✅ 서버에 배치가 확정 및 안전하게 저장되었습니다.\n\n';
       if (notices.length > 0) {
         finalMessage += notices.join('\n');
@@ -1409,9 +1430,12 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   const handleCancel = () => {
     setConfirmModal({
       isOpen: true,
-      message: stages.stage5 ? MSG.S7_CANCEL_SEAT : MSG.S7_CANCEL_SIMPLE,
+      message: stepMode === 7
+        ? '고사장 배치 확정을 취소하고 고사실 구성과 정원을 다시 고칠 수 있게 할까요?'
+        : (stages.stage5 ? MSG.S7_CANCEL_SEAT : MSG.S7_CANCEL_SIMPLE),
       onConfirm: () => {
-        cancelStage4();
+        if (stepMode === 7) cancelStep7Rooms();
+        else cancelStage4();
         setConfirmModal(null);
       },
     });
@@ -1450,7 +1474,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
 
   const handleUnplaceCurrentRoomStudents = () => {
-    if (!selectedCell || curRoomStudents.length === 0 || stages.stage4) return;
+    if (!selectedCell || curRoomStudents.length === 0 || isStageLocked) return;
     const targetRoom = rooms.find(r => r.id === selectedCell.roomId);
     setConfirmModal({
       isOpen: true,
@@ -1498,12 +1522,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <StageHeader
         stageNumber={stepMode === 7 ? 7 : 8}
-        stageTitle={stepMode === 7
-          ? "7. 고사장 배치 (고사실 / 대기실 & 정원 설정)"
-          : "8. 학생 배치 (자동배정: 분반수=시험실수➔분반위주 / 다름➔학번순)"}
-        isConfirmed={stepMode === 7
-          ? !!(stages.step7 ?? stages['step7-1'] ?? stages.stage4)
-          : !!(stages.step8 ?? stages['step7-2'] ?? stages.stage4)}
+        stageTitle={stepMode === 7 ? "7. 고사장 배치" : "8. 학생 배치"}
+        isConfirmed={isStageLocked}
         confirmLabel={stepMode === 7 ? "7. 고사장 배치 확정" : "8. 학생 배치 확정"}
         cancelLabel="확정 취소"
         onConfirm={handleConfirm}
@@ -1514,11 +1534,20 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
         actions={
           // 버튼이 많아 좁아지면 글자가 세로로 쪼개져 읽기 어려워집니다. 줄바꿈을 막고 줄어들지 않게 합니다.
           <div className="flex items-center gap-2 [&_button]:whitespace-nowrap [&_button]:shrink-0 [&_span]:whitespace-nowrap">
+            <button
+              onClick={() => setAlgorithmHelpOpen(true)}
+              className="p-1.5 text-slate-400 hover:text-[#005691] hover:bg-blue-50 rounded-lg transition"
+              title="이 단계가 어떤 규칙으로 배치하는지 봅니다"
+              aria-label="배치 규칙 설명"
+            >
+              <HelpCircle className="w-5 h-5" />
+            </button>
+
             {/* Undo / Redo Arrow Buttons */}
             <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 gap-1 shadow-2xs">
               <button
                 onClick={handleUndo}
-                disabled={past.length === 0 || stages.stage4}
+                disabled={past.length === 0 || isStageLocked}
                 aria-label="실행 취소"
                 className="px-2.5 py-1.5 hover:bg-white text-gray-700 rounded-lg text-sm font-bold flex items-center gap-1 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed shadow-2xs"
                 title={past.length > 0 ? `실행 취소 - ${past[past.length - 1].actionName}` : '실행 취소'}
@@ -1528,7 +1557,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
               </button>
               <button
                 onClick={handleRedo}
-                disabled={future.length === 0 || stages.stage4}
+                disabled={future.length === 0 || isStageLocked}
                 aria-label="다시 실행"
                 className="px-2.5 py-1.5 hover:bg-white text-gray-700 rounded-lg text-sm font-bold flex items-center gap-1 transition disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed shadow-2xs"
                 title={future.length > 0 ? `다시 실행 - ${future[0].actionName}` : '다시 실행'}
@@ -1540,8 +1569,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
 
             <button
               onClick={handleAutoPlaceAll}
-              disabled={stages.stage4}
-              className="px-4 py-2 bg-[#005691] hover:bg-blue-800 text-white rounded-xl text-base font-bold flex items-center gap-1.5 shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
+              disabled={isStageLocked}
+              className="px-4 py-2 bg-[#005691] hover:bg-blue-800 text-white rounded-xl text-base font-bold flex items-center gap-1.5 shadow-2xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
               title="미응시자 자기반 대기 보장 및 이동 최소화 최적 배치 실행"
             >
               <Sparkles className="w-4 h-4" /> 전체 자동배치
@@ -1550,8 +1579,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
             {curSlot && (
               <button
                 onClick={() => handleResetAndAutoPlaceSlot(curSlot.index)}
-                disabled={stages.stage4}
-                className="px-3.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-xl text-[15px] font-bold flex items-center gap-1.5 shadow-2xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
+                disabled={isStageLocked}
+                className="px-3.5 py-2 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-xl text-[15px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
                 title={`[${curSlot.title}] 교시만 초기화하고 다시 자동 배치합니다 (다른 교시 영향 없음)`}
               >
                 <RefreshCw className="w-4 h-4 text-indigo-600" />
@@ -1560,65 +1589,17 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
             )}
 
 
-            {stepMode === 8 && (
-              <>
-                <button
-                  onClick={() => handleFillSubsequentWait()}
-                  disabled={stages.stage4}
-                  className="px-3.5 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 shadow-2xs"
-                  title={selectedCell ? `선택된 ${placementSlots.find(s => s.index === selectedCell.slot)?.title || ''}부터 이후 교시들의 빈 고사실을 대기로 일괄 배정` : '전체 교시의 빈 고사실들을 대기로 일괄 배정'}
-                >
-                  <Clock className="w-4 h-4 text-emerald-600" />
-                  <span>이후 대기</span>
-                </button>
-                <button
-                  onClick={handleConfirmWaitNames}
-                  disabled={stages.stage4}
-                  className="px-3 py-2 bg-[#e6f1f8] hover:bg-blue-100 text-[#005691] border border-[#b3d4e8] rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed shadow-2xs"
-                >
-                  대기반 확정
-                </button>
-                <button
-                  onClick={handleDistributeWait}
-                  disabled={stages.stage4}
-                  className="px-3 py-2 bg-[#e6f1f8] hover:bg-[#cce3f0] text-indigo-700 border border-[#b3d4e8] rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed shadow-2xs"
-                >
-                  대기 균등분배
-                </button>
-              </>
-            )}
-
-            {/* 배치금지는 셀의 '사용안함' / '해제' 버튼으로 합니다. 8. 학생 배치에서만 툴바에 남깁니다. */}
-            {selectedCell && stepMode !== 7 && (
-              <button
-                onClick={() => handleToggleForbiddenCell()}
-                disabled={stages.stage4}
-                className={`px-3 py-2 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed shadow-2xs active:scale-95 ${
-                  placement[selectedCell.slot]?.[selectedCell.roomId] === '배치금지'
-                    ? 'bg-rose-600 hover:bg-rose-700 text-white border border-rose-700'
-                    : 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-300'
-                }`}
-                title="선택한 고사실을 해당 교시에 배치금지(과목 및 학생 배제)로 지정하거나 해제합니다."
-              >
-                <Ban className="w-4 h-4" />
-                <span>
-                  {placement[selectedCell.slot]?.[selectedCell.roomId] === '배치금지'
-                    ? '배치금지 해제'
-                    : '배치금지'}
-                </span>
-              </button>
-            )}
             <button
               onClick={handleSaveProgress}
               disabled={isSaving}
-              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs active:scale-95"
+              className="px-3 py-2 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
               title="확정하지 않고 지금까지의 작업만 저장합니다 (클라우드에서 이 시점으로 되돌릴 수 있습니다)"
             >
               <span>{isSaving ? '저장 중…' : '💾 중간 저장'}</span>
             </button>
             <button
               onClick={handleResetStep7}
-              disabled={stages.stage4}
+              disabled={isStageLocked}
               className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed shadow-2xs active:scale-95"
               title="학생 및 고사실 배치를 모두 초기화합니다."
             >
@@ -1769,7 +1750,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         </span>
                         
                         {/* Action icons on room header */}
-                        {!stages.stage4 && (
+                        {!isStageLocked && (
                           <div className="flex items-center gap-0.5">
                             {canDeleteRoom ? (
                               <button
@@ -1857,7 +1838,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         <div className={`font-bold mt-0.5 ${ps.subjects.length === 0 ? 'text-slate-500' : 'text-[#005691]'} ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>
                           {ps.subjects.length === 0 ? '시험 없음 · 전체 자습' : ps.subjects.join(', ')}
                         </div>
-                        {!stages.stage4 && (
+                        {!isStageLocked && (
                           <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
                             {/* 7. 고사장 배치에서는 뺍니다 — +고사장/-축소는 셀의 '고사장 변환'·'대기실 변환'과 겹치고,
                                 재배치·자동배치는 상단 툴바에 있습니다. 교시 칸을 과목 이름에 집중시킵니다. */}
@@ -1912,7 +1893,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                             {stepMode !== 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
                               <button
                                 onClick={() => handleOpenUnplacedModal(ps.index)}
-                                className={`w-full font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-xs transition flex items-center justify-center gap-1 animate-pulse active:scale-95 ${
+                                className={`w-full font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-xs transition flex items-center justify-center gap-1 active:scale-95 ${
                                   isCompactFit ? 'text-[11px] px-1.5 py-0.5 mt-1' : 'text-[12.5px] px-2 py-1 mt-1.5'
                                 }`}
                                 title="이 교시에 아직 배정되지 않은 미배치 학생 명단을 확인하고 고사실에 배정합니다."
@@ -1963,18 +1944,18 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                             rowSpan={stepMode === 7 ? 1 : 3}
                             onClick={() => isUsable && handleCellClick(ps.index, r.id)}
                             onDoubleClick={() => stepMode !== 7 && isUsable && !isForbidden && handleCellDoubleClick(ps.index, r.id)}
-                            draggable={isUsable && !stages.stage4 && !isLocked && !isForbidden}
+                            draggable={isUsable && !isStageLocked && !isLocked && !isForbidden}
                             onDragStart={(e) => {
-                              if (stages.stage4 || !isUsable || isLocked || isForbidden) { e.preventDefault(); return; }
+                              if (isStageLocked || !isUsable || isLocked || isForbidden) { e.preventDefault(); return; }
                               e.dataTransfer.setData('application/json', JSON.stringify({ slot: ps.index, roomId: r.id }));
                             }}
                             onDragOver={(e) => {
-                              if (stages.stage4 || !isUsable || isLocked || isForbidden) return;
+                              if (isStageLocked || !isUsable || isLocked || isForbidden) return;
                               e.preventDefault();
                             }}
                             onDrop={(e) => {
                               e.preventDefault();
-                              if (stages.stage4 || !isUsable || isLocked || isForbidden) return;
+                              if (isStageLocked || !isUsable || isLocked || isForbidden) return;
                               try {
                                 const data = JSON.parse(e.dataTransfer.getData('application/json'));
                                 const sourceIsLocked = lockedCells[data.slot]?.[data.roomId];
@@ -1998,7 +1979,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                               // 대기실은 무채색 + 왼쪽 회색 띠. 과목 팔레트가 모두 옅은 유채색이라
                               // 색을 '종류'부터 갈라야 시험 보는 반과 한눈에 구분됩니다.
                               isWait ? 'bg-slate-100 hover:bg-slate-200/80 border-b border-slate-200' :
-                              cellVal ? `${color.bg} ${color.hoverBg} border-b ${color.border}/50` :
+                              cellVal ? `${color.bg}/50 ${color.hoverBg} border-b border-gray-200` :
                               'hover:bg-white'
                             }`}
                             data-accent={isWait ? 'wait' : cellVal && !isForbidden ? 'exam' : 'none'}
@@ -2040,7 +2021,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                 <div className="text-[10px] text-rose-500 font-semibold leading-none">
                                   (배제됨)
                                 </div>
-                                {!stages.stage4 && (
+                                {!isStageLocked && (
                                   <button
                                     type="button"
                                     onClick={e => {
@@ -2056,7 +2037,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                               </div>
                             ) : cellVal ? (
                               <div
-                                className={`relative space-y-0.5 hover:scale-105 transition-transform group ${isLocked ? 'opacity-70' : ''}`}
+                                className={`relative space-y-0.5 transition-colors group ${isLocked ? 'opacity-70' : ''}`}
                                 onClick={e => {
                                   e.stopPropagation();
                                   handleCellClick(ps.index, r.id);
@@ -2096,7 +2077,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                       type="number"
                                       min={1}
                                       max={99}
-                                      disabled={stages.stage4 || isLocked}
+                                      disabled={isStageLocked || isLocked}
                                       value={roomCap}
                                       onChange={e => {
                                         const v = Number(e.target.value);
@@ -2114,7 +2095,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                           : 'border-gray-200 text-[#005691]'
                                       }`}
                                       title={
-                                        stages.stage4
+                                        isStageLocked
                                           ? "7. 고사장 배치가 확정되어 수정할 수 없습니다. 상단 '확정 취소'를 누르면 다시 고칠 수 있습니다."
                                           : isLocked
                                           ? '잠긴 고사실이라 수정할 수 없습니다. 칸 우측 상단 자물쇠를 풀어 주세요.'
@@ -2135,7 +2116,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                     >
                                       {actualCount}명
                                     </span>
-                                    {hasCapOverride && !stages.stage4 && !isLocked && (
+                                    {hasCapOverride && !isStageLocked && !isLocked && (
                                       <button
                                         onClick={() => {
                                           setSlotRoomCapacity(ps.index, r.id, null);
@@ -2155,7 +2136,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                     }`}
                                     title={`[강제 배정] 정원(${roomCap}명)을 ${actualCount - roomCap}명 초과하여 ${actualCount}명이 강제 배정되었습니다.`}
                                   >
-                                    <AlertTriangle className="w-3 h-3 text-amber-100 shrink-0 animate-pulse" />
+                                    <AlertTriangle className="w-3 h-3 text-amber-100 shrink-0" />
                                     <span>{actualCount}명 (강제배정)</span>
                                   </div>
                                 ) : (
@@ -2165,7 +2146,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                 )}
 
                                 {/* 대기실 ↔ 고사장 원클릭 변환 버튼 */}
-                                {!stages.stage4 && !isLocked && (
+                                {!isStageLocked && !isLocked && (
                                   isWait ? (
                                     <div className="mt-1.5 flex items-center justify-center gap-1">
                                       <button
@@ -2213,7 +2194,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                             ) : (
                               <div className="flex flex-col items-center justify-center py-1">
                                 <span className="text-gray-400 text-[14px]">-</span>
-                                {!stages.stage4 && !isLocked && (
+                                {!isStageLocked && !isLocked && (
                                   <div className="mt-0.5 flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                                     <button
                                       onClick={e => {
@@ -2423,7 +2404,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         return (
                           <button
                             key={idx}
-                            disabled={stages.stage4 || isLockedCell}
+                            disabled={isStageLocked || isLockedCell}
                             onClick={() => setPlacementCell(selectedCell.slot, selectedCell.roomId, it.key)}
                             className={`w-full text-left p-2.5 rounded-xl text-sm border transition flex items-center justify-between font-bold ${color.bg} ${color.hoverBg} ${color.border} ${color.text} shadow-2xs`}
                           >
@@ -2446,7 +2427,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                     <button
                       type="button"
                       onClick={() => handleDistributeWaitSingleSlot(selectedCell.slot)}
-                      disabled={stages.stage4}
+                      disabled={isStageLocked}
                       className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 disabled:opacity-40 text-white rounded-lg text-[11px] font-bold shadow-2xs flex items-center gap-1 active:scale-95 transition cursor-pointer"
                       title="대기 인원을 고사실 정원 한도 내에서 균등 분배합니다."
                     >
@@ -2458,7 +2439,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                   {/* 현재 고사실 배정 학생 요약 및 비우기 */}
                   {curRoomStudents.length > (curRoom?.capacity && curRoom.capacity > 0 ? curRoom.capacity : 28) && (
                     <div className="p-2.5 bg-orange-50 border border-orange-300 rounded-xl flex items-center gap-2 text-orange-950">
-                      <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0 animate-pulse" />
+                      <AlertTriangle className="w-4 h-4 text-orange-600 shrink-0" />
                       <div className="text-xs font-bold leading-tight">
                         <span>⚠️ 정원 초과 강제 배정 반</span>
                         <div className="text-[11px] text-orange-800 font-semibold mt-0.5">
@@ -2475,7 +2456,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                           <Users className="w-3.5 h-3.5 text-blue-600" />
                           <span>현재 고사실 학생 ({curRoomStudents.length}명)</span>
                         </div>
-                        {!stages.stage4 && !lockedCells[selectedCell.slot]?.[selectedCell.roomId] && (
+                        {!isStageLocked && !lockedCells[selectedCell.slot]?.[selectedCell.roomId] && (
                           <button
                             type="button"
                             onClick={handleUnplaceCurrentRoomStudents}
@@ -2512,7 +2493,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                     const isForbidden = curCellVal === '배치금지';
                     const isExam = Boolean(curCellVal && !isWait && !isForbidden);
                     const isLocked = lockedCells[selectedCell.slot]?.[selectedCell.roomId];
-                    if (stages.stage4 || isLocked) return null;
+                    if (isStageLocked || isLocked) return null;
 
                     if (isForbidden) {
                       return (
@@ -2622,7 +2603,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                   <div className="flex gap-2.5">
                     <button
                       onClick={handleDeleteCurrentCell}
-                      disabled={stages.stage4 || lockedCells[selectedCell.slot]?.[selectedCell.roomId]}
+                      disabled={isStageLocked || lockedCells[selectedCell.slot]?.[selectedCell.roomId]}
                       className={`flex-1 py-2.5 text-[15px] font-bold rounded-xl transition ${
                         lockedCells[selectedCell.slot]?.[selectedCell.roomId]
                           ? 'bg-gray-100 text-gray-400 border border-gray-200 cursor-not-allowed'
@@ -2633,7 +2614,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                     </button>
                     <button
                       onClick={handleDeleteSlot}
-                      disabled={stages.stage4}
+                      disabled={isStageLocked}
                       className="flex-1 py-2.5 bg-[#e6f1f8] hover:bg-[#e6f1f8] text-rose-800 border border-gray-200 text-[15px] font-bold rounded-xl transition"
                     >
                       교시 전체 삭제
@@ -2641,7 +2622,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                   </div>
                   <button
                     onClick={() => handleFillSubsequentWait(selectedCell.slot)}
-                    disabled={stages.stage4}
+                    disabled={isStageLocked}
                     className="w-full py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 text-[15px] font-bold rounded-xl transition flex items-center justify-center gap-1.5 shadow-2xs"
                     title="선택한 교시부터 마지막 교시까지 빈 고사실들에 대기 인원 자동 배정"
                   >
@@ -2684,7 +2665,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                       <div className="flex items-center gap-1 bg-white border border-slate-300 rounded-lg px-1 py-0.5 shadow-2xs">
                         <button
                           type="button"
-                          disabled={stages.stage4 || cap <= 1}
+                          disabled={isStageLocked || cap <= 1}
                           onClick={() => {
                             if (cap > 1) {
                               pushHistory(`[${curRoom.roomName}] 정원 축소`);
@@ -2701,7 +2682,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         </span>
                         <button
                           type="button"
-                          disabled={stages.stage4}
+                          disabled={isStageLocked}
                           onClick={() => {
                             pushHistory(`[${curRoom.roomName}] 정원 증가`);
                             updateRoom(curRoom.id, { capacity: cap + 1 });
@@ -2713,7 +2694,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         </button>
                       </div>
                       {count > cap ? (
-                        <span className="px-2 py-0.5 bg-orange-100 text-orange-900 text-[11px] font-extrabold rounded-md flex items-center gap-1 border border-orange-200 animate-pulse">
+                        <span className="px-2 py-0.5 bg-orange-100 text-orange-900 text-[11px] font-extrabold rounded-md flex items-center gap-1 border border-orange-200">
                           ⚠️ {count - cap}명 초과
                         </span>
                       ) : count === cap ? (
@@ -2751,7 +2732,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                 </label>
                 <div className="flex items-center gap-2">
                   <select
-                    disabled={stages.stage4}
+                    disabled={isStageLocked}
                     value={batchTargetRoomId}
                     onChange={e => {
                       const targetId = e.target.value;
@@ -2779,7 +2760,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                     })}
                   </select>
                   <button
-                    disabled={stages.stage4 || selectedStudentKeys.length === 0}
+                    disabled={isStageLocked || selectedStudentKeys.length === 0}
                     onClick={handleMoveSelectedToWait}
                     className="px-3 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-lg font-bold text-[14px] shadow-2xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 flex items-center gap-1 cursor-pointer"
                     title="선택된 학생들의 이동 대상을 대기실로 지정합니다"
@@ -2884,7 +2865,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                           </td>
                           <td className="py-2 px-3 text-center">
                             <select
-                              disabled={stages.stage4}
+                              disabled={isStageLocked}
                               value={currentTarget}
                               onChange={e => {
                                 const newTarget = e.target.value;
@@ -2942,7 +2923,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                   ).length;
                   if (changedCount > 0) {
                     return (
-                      <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 rounded-full font-extrabold text-[12.5px] border border-blue-200 animate-pulse">
+                      <span className="px-2.5 py-0.5 bg-blue-100 text-blue-900 rounded-full font-extrabold text-[12.5px] border border-blue-200">
                         이동 예정: {changedCount}명
                       </span>
                     );
@@ -2952,7 +2933,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  disabled={stages.stage4}
+                  disabled={isStageLocked}
                   onClick={() => {
                     if (batchTargetRoomId && selectedStudentKeys.length > 0) {
                       selectedStudentKeys.forEach(k => {
@@ -2984,6 +2965,103 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
         />
+      )}
+
+      {/* 배치 규칙 설명 */}
+      {algorithmHelpOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setAlgorithmHelpOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#005691] text-white px-5 py-4 flex items-center justify-between shrink-0">
+              <div className="flex items-center gap-2 font-black text-[17px]">
+                <HelpCircle className="w-5 h-5" />
+                <span>{stepMode === 7 ? '7. 고사장 배치 규칙' : '8. 학생 배치 규칙'}</span>
+              </div>
+              <button onClick={() => setAlgorithmHelpOpen(false)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-6 overflow-auto text-[15px] leading-relaxed text-slate-800 space-y-5">
+              {stepMode === 7 ? (
+                <>
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">고사실 정원이 정해지는 순서</h3>
+                    <ol className="list-decimal ml-5 space-y-1">
+                      <li><strong>그 교시에만 지정한 정원</strong>이 있으면 그 값을 씁니다. 칸의 숫자를 고치면 그 교시에만 적용되고, 초록색으로 표시됩니다.</li>
+                      <li>없으면, <strong>전교생이 같은 상황인 교시</strong>(전원 응시이거나 전원 자습)는 <strong>그 반의 학생 수</strong>가 정원입니다. 학생이 자기 반 교실에 그대로 앉기 때문입니다.</li>
+                      <li>그 밖에는 <strong>고사실 기본 정원</strong>을 씁니다. 기본 정원은 <em>2. 기초정보</em>에서 고사실마다 정합니다.</li>
+                    </ol>
+                  </section>
+
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">대기실을 고사장으로 바꿀 때</h3>
+                    <ul className="list-disc ml-5 space-y-1">
+                      <li>남은 실만으로 대기 인원이 <strong>수용되면 실을 늘리지 않습니다.</strong></li>
+                      <li>모자랄 때만 <strong>모자란 만큼</strong> 별도실을 더 쓰고, 정원에 맞춰 균등하게 나눕니다.</li>
+                      <li>일반 교실을 먼저 채우고, 별도실은 마지막에 최소한으로 씁니다.</li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">고사실을 쓰지 않을 때 (사용안함)</h3>
+                    <p>시험실 옆 교실을 비우고 싶을 때처럼 대기실 하나를 빼면, 그 방 학생이 미배치로 남지 않도록 <strong>곧바로 남은 실에 다시 나눕니다.</strong> 위와 같은 규칙을 따릅니다.</p>
+                  </section>
+
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">정원을 고치면</h3>
+                    <p>숫자를 고치고 <strong>칸 밖을 클릭하거나 Enter</strong>를 누르면 그 교시가 새 정원 기준으로 다시 나뉩니다. 정원 총합이 모자라면 교시 칸에 <strong>자리 부족 N명</strong>이 뜹니다.</p>
+                  </section>
+
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">시험이 없는 교시</h3>
+                    <p>시험이 있는 날은 1교시부터 그날 마지막 시험 교시까지 모두 표에 나옵니다. 과목이 없는 교시는 <strong>전교생이 자기 반 교실에서 자습</strong>합니다.</p>
+                  </section>
+                </>
+              ) : (
+                <>
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">응시자를 고사장에 넣는 방법</h3>
+                    <p className="mb-1">교시마다 둘 중 하나를 자동으로 고릅니다.</p>
+                    <ul className="list-disc ml-5 space-y-1">
+                      <li><strong>분반 수 = 시험실 수 ➔ 분반 위주</strong><br />NEIS 분반을 그대로 씁니다. 같은 분반 학생이 같은 고사장에 모입니다.</li>
+                      <li><strong>분반 수 ≠ 시험실 수 ➔ 학번순</strong><br />학번 순서를 유지한 채 <strong>인원만 균등하게</strong> 나눕니다. 예를 들어 91명을 4실에 넣으면 23·23·23·22명이 됩니다. 앞쪽 고사장부터 정원까지 채우지 않습니다.</li>
+                    </ul>
+                  </section>
+
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">자리가 모자라면</h3>
+                    <p>응시자가 고사장 정원 총합보다 많으면 <strong>빈 방이나 대기실을 고사장으로 더 씁니다.</strong> 그러지 않으면 자리를 못 얻은 응시자가 미배치로 남습니다.</p>
+                  </section>
+
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">대기 학생을 넣는 방법</h3>
+                    <ol className="list-decimal ml-5 space-y-1">
+                      <li><strong>자기 반 교실 먼저.</strong> 대기 학생은 되도록 자기 반에 남깁니다. 상단의 <em>원반 대기 보장률</em>이 이 비율입니다.</li>
+                      <li>남은 인원은 다른 대기실에 <strong>균등하게</strong> 나눕니다. 일반 교실을 먼저 채우고 별도실은 최소한으로 씁니다.</li>
+                      <li>정원은 절대 넘기지 않습니다. 끝내 자리가 없으면 <strong>미배치</strong>로 남겨 표에 드러냅니다.</li>
+                    </ol>
+                  </section>
+
+                  <section className="space-y-1.5">
+                    <h3 className="font-black text-[#005691] text-[16px]">손으로 고치기</h3>
+                    <ul className="list-disc ml-5 space-y-1">
+                      <li><strong>칸을 더블클릭</strong>하면 그 고사실의 학생 명단이 열립니다. 학생을 골라 다른 고사실로 옮길 수 있습니다.</li>
+                      <li><strong>칸을 끌어다 놓으면</strong> 같은 교시 안에서 두 고사실의 배치가 서로 바뀝니다.</li>
+                      <li>칸 오른쪽 위 <strong>자물쇠</strong>를 잠그면 자동배치가 그 칸을 건드리지 않습니다.</li>
+                      <li>고사실 구성과 정원은 <em>7. 고사장 배치</em>에서 정합니다.</li>
+                    </ul>
+                  </section>
+                </>
+              )}
+            </div>
+
+            <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex justify-end shrink-0">
+              <button onClick={() => setAlgorithmHelpOpen(false)} className="px-5 py-2 bg-[#005691] hover:bg-blue-800 text-white rounded-xl font-bold transition">
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {alertModal && (

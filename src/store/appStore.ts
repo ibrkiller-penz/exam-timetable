@@ -190,6 +190,9 @@ interface AppStoreActions {
   clearAllPlacement: () => void;
   confirmStage4: () => string[]; // returns notices
   cancelStage4: () => void;
+  /** 7. 고사장 배치만 확정/해제합니다 (8. 학생 배치와 분리). */
+  confirmStep7Rooms: () => void;
+  cancelStep7Rooms: () => void;
 
   // Stage 5 (Attendance & Seats)
   updateAttendanceSeat: (key1: string, seat: number | null) => void;
@@ -814,8 +817,9 @@ export const useAppStore = create<AppStore>((set, get) => ({
       if (stepNumber === 1) nextStages.stage1 = confirmed;
       if (stepNumber === 4) nextStages.stage2 = confirmed;
       if (stepNumber === 6) nextStages.stage3 = confirmed;
-      if (stepNumber === 7) nextStages.stage4 = confirmed;
-      if (stepNumber === 8) nextStages.stage5 = confirmed;
+      // 7단계(고사장 배치)는 stage4를 건드리지 않습니다. stage4는 8단계(학생 배치) 확정입니다.
+      if (stepNumber === 8) nextStages.stage4 = confirmed;
+      if (stepNumber === 9) nextStages.stage5 = confirmed;
       const next = { ...state, stages: nextStages };
       saveStateToIdb(next, confirmed, `[확정] ${stepNumber}단계 ${confirmed ? '확정' : '취소'}`);
       return next;
@@ -1502,8 +1506,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(state => {
       const res = confirmStage4(state);
       notices = res.notices;
-      const next = { ...res.state, stages: { ...res.state.stages, step7: true } };
-      saveStateToIdb(next, true, '[확정] 7단계. 학생배치 확정');
+      const next = { ...res.state, stages: { ...res.state.stages, step8: true } };
+      saveStateToIdb(next, true, '[확정] 8단계. 학생 배치 확정');
       return next;
     });
     return notices;
@@ -1512,7 +1516,28 @@ export const useAppStore = create<AppStore>((set, get) => ({
   cancelStage4: () => {
     set(state => {
       const nextState = cancelStage4(state);
-      const next = { ...nextState, stages: { ...nextState.stages, step7: false } };
+      const next = { ...nextState, stages: { ...nextState.stages, step8: false } };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  /**
+   * 7. 고사장 배치 확정 — 고사실 구성과 정원만 잠급니다.
+   * 예전에는 7번과 8번이 같은 플래그(stage4)를 써서, 7번을 확정하면
+   * 8번의 자동배치와 학생 이동까지 함께 잠겼습니다.
+   */
+  confirmStep7Rooms: () => {
+    set(state => {
+      const next = { ...state, stages: { ...state.stages, step7: true } };
+      saveStateToIdb(next, true, '[확정] 7단계. 고사장 배치 확정');
+      return next;
+    });
+  },
+
+  cancelStep7Rooms: () => {
+    set(state => {
+      const next = { ...state, stages: { ...state.stages, step7: false } };
       saveStateToIdb(next);
       return next;
     });
