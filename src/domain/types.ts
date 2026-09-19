@@ -255,7 +255,11 @@ export interface AttendanceRow {
 export interface LabelRow {
   seq: number; day: DayLabel; period: PeriodLabel; date: string; time: string;
   subject: string;
-  examRoom: string; classRoom: string; stuCount: number;
+  examRoom: string; classRoom: string;
+  /** 이 고사실에서 실제로 시험을 보는 인원. 손으로 옮긴 학생까지 센 수입니다. */
+  stuCount: number;
+  /** 그중 별도 고사실에서 보는 인원. 0이면 표시하지 않습니다. */
+  separateCount: number;
 }
 
 export interface AppMeta {

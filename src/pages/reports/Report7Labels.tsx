@@ -32,7 +32,8 @@ const subjectFontSize = (name: string): number => {
 };
 
 export const Report7Labels: React.FC = () => {
-  const { rooms, days, times, placement, evalSubjects, subjectCodes, setSubjectCode, stages, meta, settings, slotBanLabels, slotBanLabelStyle } = useAppStore();
+  const { rooms, days, times, placement, evalSubjects, subjectCodes, setSubjectCode, stages, meta, settings, slotBanLabels, slotBanLabelStyle,
+          students, studentPlacements, separateExaminers } = useAppStore();
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
@@ -48,8 +49,8 @@ export const Report7Labels: React.FC = () => {
   const banCfg = { defaultStyle: settings.banLabelStyle, slotStyle: slotBanLabelStyle, manual: slotBanLabels };
 
   const labels = useMemo(() => {
-    return buildLabels(placementSlots, placement, rooms, days, times, entries, banCfg);
-  }, [placementSlots, placement, rooms, days, times, entries, settings.banLabelStyle, slotBanLabelStyle, slotBanLabels]);
+    return buildLabels(placementSlots, placement, rooms, days, times, entries, banCfg, students, studentPlacements, separateExaminers);
+  }, [placementSlots, placement, rooms, days, times, entries, settings.banLabelStyle, slotBanLabelStyle, slotBanLabels, students, studentPlacements, separateExaminers]);
 
   // A4 가로 1장에 4개(2x2)씩 분할
   const chunkedLabels = useMemo(() => {
@@ -337,10 +338,10 @@ export const Report7Labels: React.FC = () => {
               name: '봉투 라벨',
               title: `${meta?.title || '고사'} 문제지 봉투 라벨`,
               subtitle: '봉투에 붙일 순서대로입니다.',
-              headers: [['연번', '일차', '교시', '날짜', '시간', '과목', '과목코드', '고사실', '응시분반', '응시인원']],
-              rows: labels.map(l => [l.seq, l.day, l.period, l.date, l.time, onlySubject(l.subject), getSubjectCode(l.subject), l.examRoom, l.classRoom || '전체', l.stuCount]),
-              widths: [7, 8, 8, 13, 15, 22, 11, 11, 12, 10],
-              numericCols: [0, 9],
+              headers: [['연번', '일차', '교시', '날짜', '시간', '과목', '과목코드', '고사실', '응시분반', '응시인원', '별도']],
+              rows: labels.map(l => [l.seq, l.day, l.period, l.date, l.time, onlySubject(l.subject), getSubjectCode(l.subject), l.examRoom, l.classRoom || '전체', l.stuCount, l.separateCount || '']),
+              widths: [7, 8, 8, 13, 15, 22, 11, 11, 12, 10, 8],
+              numericCols: [0, 9, 10],
             }], `${meta?.title || '고사'} 봉투 라벨.xlsx`)}
             disabled={labels.length === 0}
             className="px-3.5 py-2 bg-[#e5f6ec] hover:bg-emerald-100 text-emerald-800 border border-[#00A651]/30 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
@@ -481,6 +482,12 @@ export const Report7Labels: React.FC = () => {
                           <div className="bg-[#e6f1f8] py-1 px-2 rounded border border-[#b3d4e8]">
                             <span className="text-[10.5px] font-black text-[#005691] block">응시인원</span>
                             <strong className="text-base font-black text-[#005691] block truncate">{l.stuCount}명</strong>
+                            {/* 별도 고사실로 나가는 인원. 봉투에서 그만큼 빼서 따로 보내야 합니다. */}
+                            {l.separateCount > 0 && (
+                              <span className="text-[10px] font-black text-amber-700 block leading-tight">
+                                별도 {l.separateCount}명 포함
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
