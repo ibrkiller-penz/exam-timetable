@@ -39,6 +39,31 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
 
           <div>
             <label className="block font-normal text-gray-700 mb-1">
+              분반 이름 표기
+            </label>
+            <div className="flex items-center gap-2">
+              {([['ko', '가 나 다'], ['en', 'A B C']] as const).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => updateSettings({ banLabelStyle: value })}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition ${
+                    (settings.banLabelStyle ?? 'ko') === value
+                      ? 'bg-[#005691] text-white border-[#005691]'
+                      : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              7. 고사장 배치에서 교시마다 따로 지정할 수도 있습니다.
+            </p>
+          </div>
+
+          <div>
+            <label className="block font-normal text-gray-700 mb-1">
               좌석배치도 기본 열 수
             </label>
             <input

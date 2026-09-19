@@ -44,6 +44,24 @@ export const isUsableRoom = (r: ExamRoom): boolean =>
  */
 export type SlotRoomCapacity = Record<number, Record<string, number>>;
 
+/** 분반 이름 표기 방식 — 가나다(ko) 또는 ABC(en). 학교마다 쓰는 방식이 다릅니다. */
+export type BanLabelStyle = 'ko' | 'en';
+
+/** 교시별로 직접 지정한 분반 이름 (slotIndex ➔ roomId ➔ 표기). 비어 있으면 자동 표기를 씁니다. */
+export type SlotBanLabels = Record<number, Record<string, string>>;
+
+/** 교시별 표기 방식 예외 (slotIndex ➔ 방식). 없으면 설정의 기본 방식을 따릅니다. */
+export type SlotBanLabelStyle = Record<number, BanLabelStyle>;
+
+const KO_BAN_LETTERS = '가나다라마바사아자차카타파하거너더러머버서어저처커터'.split('');
+
+/** 분반 번호(1부터)를 표기 글자로 바꿉니다. 범위를 넘으면 숫자를 그대로 씁니다. */
+export const banLetter = (n: number, style: BanLabelStyle): string => {
+  if (!Number.isFinite(n) || n < 1) return String(n);
+  if (style === 'en') return n <= 26 ? String.fromCharCode(64 + n) : String(n);
+  return KO_BAN_LETTERS[n - 1] ?? String(n);
+};
+
 /**
  * 해당 교시에 실제로 적용되는 고사실 정원.
  *
@@ -178,6 +196,8 @@ export interface Settings {
   showSeatOnStudentTable: boolean;
   seatLayoutDirection?: 'col' | 'row';
   studentTicketNotice?: string;
+  /** 분반 이름 기본 표기 — 가나다(ko)가 기본입니다. */
+  banLabelStyle?: BanLabelStyle;
 }
 export interface Stages {
   stage1: boolean;
@@ -217,6 +237,8 @@ export interface GradeData {
   studentPlacements?: Record<number, Record<string, string>>;
   lockedCells?: Record<number, Record<string, boolean>>;
   slotRoomCapacity?: SlotRoomCapacity;
+  slotBanLabels?: SlotBanLabels;
+  slotBanLabelStyle?: SlotBanLabelStyle;
   attendance: AttendanceRow[];
   subjectCodes: Record<string, string>;
   ui: {
@@ -241,6 +263,8 @@ export interface AppState {
   studentPlacements?: Record<number, Record<string, string>>;
   lockedCells?: Record<number, Record<string, boolean>>;
   slotRoomCapacity?: SlotRoomCapacity;
+  slotBanLabels?: SlotBanLabels;
+  slotBanLabelStyle?: SlotBanLabelStyle;
   attendance: AttendanceRow[];
   subjectCodes: Record<string, string>;
   ui: {

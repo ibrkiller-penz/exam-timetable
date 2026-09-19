@@ -6,7 +6,7 @@ import { AlertModal } from '../components/AlertModal';
 import { CloudModal } from '../components/CloudModal';
 import { saveCloudImmediately } from '../domain/firebase';
 import { MSG } from '../domain/messages';
-import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot } from '../domain/types';
+import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle } from '../domain/types';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
@@ -32,6 +32,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     studentPlacements,
     lockedCells = {},
     slotRoomCapacity = {},
+    slotBanLabels = {},
+    slotBanLabelStyle = {},
     rooms,
     days,
     students,
@@ -57,17 +59,36 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     setRooms,
     updateRoom,
     setSlotRoomCapacity,
+    setSlotBanLabel,
+    setSlotBanLabelStyle,
   } = useAppStore();
 
   /**
    * 분반 번호를 학급 반과 헷갈리지 않게 A반·B반으로 보여줍니다.
    * 저장 형식은 그대로 `과목-1반` 이며 화면 표기만 바꿉니다.
    */
-  const banLabel = (val: string): string =>
-    val.replace(/-(\d+)반/g, (whole, n) => {
-      const num = Number(n);
-      return num >= 1 && num <= 26 ? `-${String.fromCharCode(64 + num)}반` : whole;
+  /** 이 교시에 쓰는 분반 표기 방식. 교시별 지정이 없으면 설정의 기본값(가나다)을 씁니다. */
+  const banStyleOf = (slotIndex: number): BanLabelStyle =>
+    slotBanLabelStyle[slotIndex] ?? settings.banLabelStyle ?? 'ko';
+
+  /**
+   * 셀에 보여줄 이름을 만듭니다. 저장 형식은 그대로 `과목-1반`이고 표기만 바꿉니다.
+   * 교시·고사실별로 직접 지정한 이름이 있으면 그 이름을 씁니다.
+   */
+  const banLabel = (val: string, slotIndex?: number, roomId?: string): string => {
+    if (slotIndex !== undefined && roomId) {
+      const manual = slotBanLabels[slotIndex]?.[roomId];
+      if (manual) {
+        const hyphen = val.lastIndexOf('-');
+        return hyphen === -1 ? `${val}-${manual}` : `${val.slice(0, hyphen)}-${manual}`;
+      }
+    }
+    const style = slotIndex !== undefined ? banStyleOf(slotIndex) : (settings.banLabelStyle ?? 'ko');
+    return val.replace(/-(\d+)반/g, (whole, n) => {
+      const letter = banLetter(Number(n), style);
+      return letter ? `-${letter}반` : whole;
     });
+  };
 
   /**
    * 과목-분반 이름은 한 줄로 보여 줍니다.
@@ -110,6 +131,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string; isError?: boolean } | null>(null);
   const [cloudModalOpen, setCloudModalOpen] = useState<boolean>(false);
   const [algorithmHelpOpen, setAlgorithmHelpOpen] = useState<boolean>(false);
+  /** 분반 이름을 지정할 교시. null이면 닫힘. */
+  const [banLabelModal, setBanLabelModal] = useState<number | null>(null);
   const [studentListModal, setStudentListModal] = useState<{
     slotIndex: number;
     roomId: string;
@@ -1836,6 +1859,17 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         <div className={`font-bold mt-0.5 ${ps.subjects.length === 0 ? 'text-slate-500' : 'text-[#005691]'} ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>
                           {ps.subjects.length === 0 ? '시험 없음 · 전체 자습' : ps.subjects.join(', ')}
                         </div>
+                        {stepMode === 7 && ps.subjects.length > 0 && (
+                          <button
+                            onClick={() => setBanLabelModal(ps.index)}
+                            className={`mt-1 px-2 py-0.5 bg-white hover:bg-blue-50 text-slate-600 hover:text-[#005691] border border-gray-300 hover:border-blue-300 rounded-md font-bold transition ${
+                              isCompactFit ? 'text-[11px]' : 'text-[12.5px]'
+                            }`}
+                            title="이 교시의 분반 이름을 가나다 / ABC 중에서 고르거나 직접 지정합니다"
+                          >
+                            분반 이름
+                          </button>
+                        )}
                         {!isStageLocked && (
                           <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
                             {/* 7번에서는 학생 명단 대신 '정원이 모자라다'는 사실만 알립니다.
@@ -2018,11 +2052,11 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                 <div className="flex flex-col items-center justify-center gap-0.5">
                                   <div
                                     className={`font-black leading-tight whitespace-nowrap overflow-hidden ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-600' : `${color.text} hover:underline`}`}
-                                    style={{ fontSize: `${cellLabelFontSize(stepMode === 7 && isWait ? '대기' : banLabel(cellVal), isCompactFit)}px` }}
+                                    style={{ fontSize: `${cellLabelFontSize(stepMode === 7 && isWait ? '대기' : banLabel(cellVal, ps.index, r.id), isCompactFit)}px` }}
                                   >
                                     {stepMode === 7 && isWait
                                       ? '대기' /* 인원은 바로 아래 정원/배치 줄에 나오므로 라벨에서는 뺍니다 */
-                                      : banLabel(cellVal)}
+                                      : banLabel(cellVal, ps.index, r.id)}
                                   </div>
                                   {isOverCapacity && stepMode !== 7 && (
                                     <span className="px-1.5 py-0.2 bg-orange-600 text-white text-[9.5px] rounded-sm font-black shadow-2xs tracking-tighter">
@@ -3026,6 +3060,127 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
           </div>
         </div>
       )}
+
+      {/* 분반 이름 지정 */}
+      {banLabelModal !== null && (() => {
+        const ps = placementSlots.find(s => s.index === banLabelModal);
+        if (!ps) return null;
+        const examRooms = rooms.filter(r => {
+          const v = placement[banLabelModal]?.[r.id];
+          return v && !isWaitCell(v) && !isForbiddenCell(v);
+        });
+        const style = banStyleOf(banLabelModal);
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setBanLabelModal(null)}>
+            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+              <div className="bg-[#005691] text-white px-5 py-4 flex items-center justify-between shrink-0">
+                <div>
+                  <div className="font-black text-[17px]">{ps.title} — 분반 이름</div>
+                  <div className="text-[13px] text-blue-100 font-medium mt-0.5">
+                    {ps.subjects.length ? ps.subjects.join(', ') : '시험 없음'}
+                  </div>
+                </div>
+                <button onClick={() => setBanLabelModal(null)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="px-6 py-4 border-b border-gray-200 shrink-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-bold text-slate-700 text-[14px]">표기 방식</span>
+                  {(['ko', 'en'] as BanLabelStyle[]).map(opt => (
+                    <button
+                      key={opt}
+                      onClick={() => setSlotBanLabelStyle(banLabelModal, opt)}
+                      disabled={isStageLocked}
+                      className={`px-3 py-1.5 rounded-lg text-[14px] font-bold border transition disabled:opacity-50 ${
+                        style === opt
+                          ? 'bg-[#005691] text-white border-[#005691]'
+                          : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
+                      }`}
+                    >
+                      {opt === 'ko' ? '가 나 다' : 'A B C'}
+                    </button>
+                  ))}
+                  <button
+                    onClick={() => setSlotBanLabelStyle(banLabelModal, null)}
+                    disabled={isStageLocked}
+                    className="px-3 py-1.5 rounded-lg text-[13.5px] font-bold text-slate-500 hover:text-rose-700 hover:bg-rose-50 transition disabled:opacity-50"
+                    title="이 교시만의 지정을 지우고 설정의 기본 방식을 따릅니다"
+                  >
+                    기본값 따르기
+                  </button>
+                </div>
+                <p className="text-[13px] text-slate-500 mt-2">
+                  아래 칸에 글자를 직접 적으면 그 고사실만 그 이름으로 나옵니다. 비우면 위 방식대로 자동으로 붙습니다.
+                </p>
+              </div>
+
+              <div className="p-6 overflow-auto">
+                {examRooms.length === 0 ? (
+                  <p className="text-center text-slate-500 py-8">이 교시에는 시험을 치르는 고사실이 없습니다.</p>
+                ) : (
+                  <table className="w-full text-[14px] border-collapse">
+                    <thead className="bg-gray-50 text-slate-700 font-black">
+                      <tr className="divide-x divide-gray-200 border-b border-gray-200">
+                        <th className="py-2 px-3 text-left">고사실</th>
+                        <th className="py-2 px-3 text-left">과목</th>
+                        <th className="py-2 px-3 w-40 text-center">분반 이름</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {examRooms.map(r => {
+                        const cellVal = placement[banLabelModal]?.[r.id] ?? '';
+                        const hyphen = cellVal.lastIndexOf('-');
+                        const subject = hyphen === -1 ? cellVal : cellVal.slice(0, hyphen);
+                        const autoLabel = banLabel(cellVal, banLabelModal, r.id).split('-').pop() || '';
+                        const manual = slotBanLabels[banLabelModal]?.[r.id] ?? '';
+                        return (
+                          <tr key={r.id} className="divide-x divide-gray-200">
+                            <td className="py-2 px-3 font-bold text-gray-900">
+                              {r.roomName}
+                              {r.banName && <span className="ml-1 text-slate-500 font-normal">({r.banName})</span>}
+                            </td>
+                            <td className="py-2 px-3 text-slate-700">{subject}</td>
+                            <td className="py-1.5 px-2 text-center">
+                              <input
+                                type="text"
+                                maxLength={6}
+                                disabled={isStageLocked}
+                                value={manual}
+                                placeholder={autoLabel}
+                                onChange={e => setSlotBanLabel(banLabelModal, r.id, e.target.value)}
+                                className={`w-28 px-2 py-1 border rounded-lg text-center font-black text-[14px] focus:outline-none focus:ring-2 focus:ring-[#005691] disabled:bg-gray-100 disabled:text-gray-400 ${
+                                  manual ? 'border-emerald-400 bg-emerald-50 text-emerald-800' : 'border-gray-200 text-[#005691]'
+                                }`}
+                                title={manual ? '직접 지정한 이름입니다. 비우면 자동 표기로 돌아갑니다.' : `자동 표기: ${autoLabel}`}
+                              />
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+
+              <div className="px-5 py-3 border-t border-gray-200 bg-gray-50 flex items-center justify-between shrink-0">
+                <button
+                  onClick={() => examRooms.forEach(r => setSlotBanLabel(banLabelModal, r.id, null))}
+                  disabled={isStageLocked}
+                  className="px-4 py-2 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-xl font-bold transition disabled:opacity-50"
+                >
+                  직접 지정 모두 지우기
+                </button>
+                <button onClick={() => setBanLabelModal(null)} className="px-5 py-2 bg-[#005691] hover:bg-blue-800 text-white rounded-xl font-bold transition">
+                  닫기
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {alertModal && (
         <AlertModal

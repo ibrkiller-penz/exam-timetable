@@ -56,6 +56,8 @@ export const createInitialGradeData = (grade: GradeId, defaults?: any): GradeDat
     timetable: createInitialTimetable(),
     placement: {},
     slotRoomCapacity: {},
+    slotBanLabels: {},
+    slotBanLabelStyle: {},
     attendance: [],
     subjectCodes: {},
     ui: {
@@ -94,6 +96,8 @@ export const extractGradeData = (state: AppState): GradeData => {
     studentPlacements: state.studentPlacements,
     lockedCells: state.lockedCells,
     slotRoomCapacity: state.slotRoomCapacity,
+    slotBanLabels: state.slotBanLabels,
+    slotBanLabelStyle: state.slotBanLabelStyle,
     attendance: state.attendance,
     subjectCodes: state.subjectCodes,
     ui: state.ui,
@@ -182,6 +186,10 @@ interface AppStoreActions {
   setLockedCell: (slotIndex: number, roomId: string, locked: boolean) => void;
   /** 해당 교시에만 적용되는 고사실 정원을 지정합니다. capacity가 null이면 기본 정원으로 되돌립니다. */
   setSlotRoomCapacity: (slotIndex: number, roomId: string, capacity: number | null) => void;
+  /** 교시별 분반 이름을 직접 지정합니다. label이 비면 자동 표기로 되돌립니다. */
+  setSlotBanLabel: (slotIndex: number, roomId: string, label: string | null) => void;
+  /** 교시별 분반 표기 방식(가나다/ABC). null이면 설정의 기본 방식을 따릅니다. */
+  setSlotBanLabelStyle: (slotIndex: number, style: 'ko' | 'en' | null) => void;
   setPlacementGrid: (placement: AppState['placement']) => void;
   transferStudentsAndUpdatePlacement: (slotIndex: number, transfers: Record<string, string>) => void;
   setSlotStudentPlacements: (slotIndex: number, placements: Record<string, string>) => void;
@@ -1368,6 +1376,32 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
 
       const next = { ...state, slotRoomCapacity };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  setSlotBanLabel: (slotIndex, roomId, label) => {
+    set(state => {
+      const all = { ...(state.slotBanLabels || {}) };
+      const row = { ...(all[slotIndex] || {}) };
+      const clean = (label ?? '').trim();
+      if (clean) row[roomId] = clean;
+      else delete row[roomId];
+      if (Object.keys(row).length === 0) delete all[slotIndex];
+      else all[slotIndex] = row;
+      const next = { ...state, slotBanLabels: all };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  setSlotBanLabelStyle: (slotIndex, style) => {
+    set(state => {
+      const all = { ...(state.slotBanLabelStyle || {}) };
+      if (style) all[slotIndex] = style;
+      else delete all[slotIndex];
+      const next = { ...state, slotBanLabelStyle: all };
       saveStateToIdb(next);
       return next;
     });
