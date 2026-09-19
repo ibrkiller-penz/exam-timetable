@@ -19,7 +19,7 @@ export function buildLabels(
 
     for (const r of rooms.filter(isUsableRoom)) {
       const v = placement[ps.index]?.[r.id] ?? '';
-      if (!v || v === '' || isWaitCell(v)) continue;
+      if (!v || v === '' || isWaitCell(v) || v === '배치금지') continue;
 
       const e = entries.get(v);
       if (!e) continue;

@@ -1,4 +1,4 @@
-import { AppState, isWaitCell } from './types';
+import { AppState, isWaitCell, isForbiddenCell } from './types';
 import { MSG } from './messages';
 import { createInitialTimetable } from './constants';
 import { buildSubjectTables, buildRooms } from './baseData';
@@ -135,7 +135,7 @@ export function confirmStage3(state: AppState): AppState {
         shouldClear = true;
         break;
       }
-      if (!isWaitCell(v)) {
+      if (!isWaitCell(v) && !isForbiddenCell(v)) {
         const sb = entries.get(v);
         if (!sb || !canSub.includes(sb.subject)) {
           shouldClear = true;

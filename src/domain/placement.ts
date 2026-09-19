@@ -1,4 +1,4 @@
-import { SubjectBan, SubjectBanKey, SubjectBanEntry, CellValue, PlacementSlot, PlacementGrid, SlotSummary, CellInfo, Student, ExamRoom, isWaitCell, parseWaitCount } from './types';
+import { SubjectBan, SubjectBanKey, SubjectBanEntry, CellValue, PlacementSlot, PlacementGrid, SlotSummary, CellInfo, Student, ExamRoom, isWaitCell, isForbiddenCell, parseWaitCount } from './types';
 import { MSG } from './messages';
 
 export function subjectBanEntries(subjectBans: SubjectBan[]): Map<SubjectBanKey, SubjectBanEntry> {
@@ -243,7 +243,7 @@ export function hasErrorBaechi(
     const canSub = ps.subjects;
     const row = placement[ps.index] ?? {};
     for (const [roomId, v] of Object.entries(row)) {
-      if (!v || isWaitCell(v)) continue;
+      if (!v || isWaitCell(v) || isForbiddenCell(v)) continue;
       if (seen.has(v)) {
         throw new Error(MSG.S7_DUP_BAN(v));
       }

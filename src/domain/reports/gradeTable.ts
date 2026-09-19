@@ -50,7 +50,7 @@ export function buildGradeTable(
       let displaySubj = '';
       let displayCount: number | '·' = '·';
 
-      if (!v || v === '') {
+      if (!v || v === '' || v === '배치금지') {
         displaySubj = '·';
         displayCount = '·';
       } else if (isWaitCell(v)) {
