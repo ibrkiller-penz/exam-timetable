@@ -1,4 +1,6 @@
-import * as XLSX from 'xlsx';
+// 타입만 가져오고, 실제 모듈은 파일을 읽힐 때 불러옵니다.
+// NEIS 파일은 처음 한 번만 올리고, 그 뒤 여는 날에는 쓰지 않습니다.
+import type * as XLSXType from 'xlsx';
 import { NeisRow } from './types';
 import { MSG } from './messages';
 
@@ -8,7 +10,8 @@ export interface ParseResult {
   warnings: string[];
 }
 
-export function parseNeisFile(buffer: ArrayBuffer | Uint8Array): ParseResult {
+export async function parseNeisFile(buffer: ArrayBuffer | Uint8Array): Promise<ParseResult> {
+  const XLSX: typeof XLSXType = await import('xlsx');
   const wb = XLSX.read(buffer, { type: 'array', cellDates: false });
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new Error(MSG.NEIS_NOT_FILE_1);

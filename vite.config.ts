@@ -12,6 +12,8 @@ export default defineConfig({
         manualChunks: {
           vendor: ['react', 'react-dom'],
           lucide: ['lucide-react'],
+          // NEIS 파일을 읽는 xlsx는 1단계에서 쓰고,
+          // 엑셀을 쓰는 exceljs는 버튼을 누를 때 따로 불러옵니다.
           excel: ['xlsx'],
           firebase: ['firebase/app', 'firebase/firestore'],
         },

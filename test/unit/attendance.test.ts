@@ -10,8 +10,8 @@ import { autoPlaceSlot } from '../../src/domain/autoPlace';
 import { buildAttendance, seatBySeq, seatRandom, hasErrorSeat } from '../../src/domain/attendance';
 
 describe('attendance', () => {
-  it('builds attendance records and assigns seats', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('builds attendance records and assigns seats', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary, subjectBans } = buildSubjectTables(rows, 1);
     const rooms = buildRooms(rows, subjectSummary, subjectBans);
     const students = buildStudents(rows, subjectSummary);

@@ -3,10 +3,10 @@ import { parseNeisFile } from '../../src/domain/neisImport';
 import { makeNeisRows, makeNeisWorkbook } from '../fixtures/makeNeisFixture';
 
 describe('neisImport', () => {
-  it('parses valid NEIS workbook with padding and removes non-students while keeping empty names', () => {
+  it('parses valid NEIS workbook with padding and removes non-students while keeping empty names', async () => {
     const rawRows = makeNeisRows({ includeInvalid: true });
     const buffer = makeNeisWorkbook(rawRows);
-    const res = parseNeisFile(buffer);
+    const res = await parseNeisFile(buffer);
 
     expect(res.removedCount).toBe(1);
     expect(res.rows.length).toBe(rawRows.length - 1);
@@ -15,23 +15,23 @@ describe('neisImport', () => {
     expect(res.rows.some(r => r.name === '')).toBe(true);
   });
 
-  it('works seamlessly when all student names are empty', () => {
+  it('works seamlessly when all student names are empty', async () => {
     const rawRows = makeNeisRows().map(r => ({ ...r, name: '' }));
     const buffer = makeNeisWorkbook(rawRows);
-    const res = parseNeisFile(buffer);
+    const res = await parseNeisFile(buffer);
 
     expect(res.removedCount).toBe(0);
     expect(res.rows.length).toBe(rawRows.length);
     expect(res.rows.every(r => r.name === '')).toBe(true);
   });
 
-  it('correctly parses user real excel files without student names', () => {
+  it('correctly parses user real excel files without student names', async () => {
     const fs = require('fs');
     const path = require('path');
     const f2 = 'C:/Users/pc/Desktop/안티그래비티 결과/시험 시간표 소스/학생편성현황(2026학년도  2학기  2)이름삭제.xlsx';
     if (fs.existsSync(f2)) {
       const buf = fs.readFileSync(f2);
-      const res2 = parseNeisFile(buf);
+      const res2 = await parseNeisFile(buf);
       expect(res2.rows.length).toBe(2050);
       expect(res2.rows[0].subject).toBe('독서와 작문(4)');
     }
@@ -39,7 +39,7 @@ describe('neisImport', () => {
     const f3 = 'C:/Users/pc/Desktop/안티그래비티 결과/시험 시간표 소스/학생편성현황(2026학년도  2학기  3)이름삭제.xlsx';
     if (fs.existsSync(f3)) {
       const buf3 = fs.readFileSync(f3);
-      const res3 = parseNeisFile(buf3);
+      const res3 = await parseNeisFile(buf3);
       expect(res3.rows.length).toBe(1946);
       expect(res3.rows[0].subject).toBe('고전문학 감상(4)');
     }

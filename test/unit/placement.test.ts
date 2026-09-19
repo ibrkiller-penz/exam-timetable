@@ -10,8 +10,8 @@ import { autoPlaceSlot, calculateStudentMovement, initSlotStudentPlacements, get
 import { Student, ExamRoom, PlacementSlot, PlacementGrid } from '../../src/domain/types';
 
 describe('placement', () => {
-  it('generates placement info and runs auto placement', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('generates placement info and runs auto placement', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary, subjectBans } = buildSubjectTables(rows, 1);
     const rooms = buildRooms(rows, subjectSummary, subjectBans);
     const students = buildStudents(rows, subjectSummary);
@@ -31,8 +31,8 @@ describe('placement', () => {
     expect(stats.homeWaitPercentage).toBeGreaterThanOrEqual(0);
   });
 
-  it('tracks student placements and supports moving students between rooms', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('tracks student placements and supports moving students between rooms', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary, subjectBans } = buildSubjectTables(rows, 1);
     const rooms = buildRooms(rows, subjectSummary, subjectBans);
     const students = buildStudents(rows, subjectSummary);
@@ -67,8 +67,8 @@ describe('placement', () => {
     expect(afterRoom1.students.some(s => `${s.ban}-${s.num}` === stKey)).toBe(true);
   });
 
-  it('sanitizes legacy extra room labels and guarantees extra rooms never return 17 students from another class', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('sanitizes legacy extra room labels and guarantees extra rooms never return 17 students from another class', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary, subjectBans } = buildSubjectTables(rows, 1);
     const rooms = buildRooms(rows, subjectSummary, subjectBans);
     const students = buildStudents(rows, subjectSummary);
@@ -110,7 +110,7 @@ describe('placement', () => {
     expect(result.students[0].name).toBe('대기학생');
   });
 
-  it('supports split/added rooms (4반) without throwing wrong subject error and distributes students evenly', () => {
+  it('supports split/added rooms (4반) without throwing wrong subject error and distributes students evenly', async () => {
     // 91 students taking '심화 영어 독해 Ⅰ (4)'
     const sub = '심화 영어 독해 Ⅰ (4)';
     const subStudents: Student[] = Array.from({ length: 91 }, (_, i) => ({

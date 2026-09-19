@@ -1,4 +1,6 @@
-import ExcelJS from 'exceljs';
+// 타입만 가져옵니다. 실제 모듈은 내보낼 때만 불러옵니다 (아래 downloadWorkbook).
+// ExcelJS가 무거워, 함께 묶으면 엑셀을 한 번도 안 쓰는 사람까지 매번 받게 됩니다.
+import type ExcelJS from 'exceljs';
 
 /**
  * 서식을 갖춘 엑셀 내보내기.
@@ -161,7 +163,9 @@ export function addSheet(wb: ExcelJS.Workbook, spec: SheetSpec, used: Set<string
 
 /** 시트 여러 장을 한 파일로 내려받습니다. */
 export async function downloadWorkbook(specs: SheetSpec[], filename: string) {
-  const wb = new ExcelJS.Workbook();
+  // 버튼을 누른 그 순간에 불러옵니다.
+  const { default: ExcelJSRuntime } = await import('exceljs');
+  const wb = new ExcelJSRuntime.Workbook();
   wb.creator = '고사시간표 시스템';
   wb.created = new Date();
 

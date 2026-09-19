@@ -9,8 +9,8 @@ import { recommendIdealTimetable } from '../../src/domain/recommendTimetable';
 import { slotKey, DayIdx, PeriodIdx } from '../../src/domain/types';
 
 describe('timetable', () => {
-  it('detects conflicting subjects', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('detects conflicting subjects', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary } = buildSubjectTables(rows, 1);
     const takers = buildTakers(rows, subjectSummary);
 
@@ -18,8 +18,8 @@ describe('timetable', () => {
     expect(canSameTime(['한국사(3)', '정보(2)'], takers)).toBe(true);
   });
 
-  it('checks slotStatus and ensures ideal recommendation works with 3 periods without placing in periods 4 and 5', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('checks slotStatus and ensures ideal recommendation works with 3 periods without placing in periods 4 and 5', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary } = buildSubjectTables(rows, 1);
     const takers = buildTakers(rows, subjectSummary);
     const students = buildStudents(rows, subjectSummary);
@@ -48,7 +48,7 @@ describe('timetable', () => {
     expect(result.maxDailyExamsForAnyStudent).toBeLessThanOrEqual(2);
   });
 
-  it('guarantees 0 unplaced subjects on real school datasets', () => {
+  it('guarantees 0 unplaced subjects on real school datasets', async () => {
     const fs = require('fs');
     const path = require('path');
     const XLSX = require('xlsx');

@@ -32,7 +32,7 @@ export const Step1Neis: React.FC = () => {
 
     try {
       const buffer = await file.arrayBuffer();
-      const res = parseNeisFile(buffer);
+      const res = await parseNeisFile(buffer);
 
       // 2학년과 3학년 데이터가 모두 들어있는지 분석
       const g2Rows = res.rows.filter(r => String(r.grade || '').trim() === '2' || String(r.track || '').includes('2학년') || String(r.room || '').includes('2학년') || /^[2][0-9]{3}/.test(String(r.ban)));

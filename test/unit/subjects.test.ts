@@ -5,8 +5,8 @@ import { buildSubjectTables } from '../../src/domain/baseData';
 import { buildTakers, findCompatGroups, buildStudents } from '../../src/domain/subjects';
 
 describe('subjects', () => {
-  it('finds compat groups for non-intersecting subjects', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('finds compat groups for non-intersecting subjects', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary } = buildSubjectTables(rows, 1);
     const evalSubjects = subjectSummary.filter(s =>
       ['공통국어2(4)', '공통수학2(4)', '한국사(3)', '정보(2)'].includes(s.subject)
@@ -18,8 +18,8 @@ describe('subjects', () => {
     expect(groups.some(g => g.subjects.includes('공통국어2(4)') && g.subjects.includes('공통수학2(4)'))).toBe(false);
   });
 
-  it('builds student list correctly', () => {
-    const rows = parseNeisFile(makeNeisWorkbook(makeNeisRows())).rows;
+  it('builds student list correctly', async () => {
+    const rows = (await parseNeisFile(makeNeisWorkbook(makeNeisRows()))).rows;
     const { subjectSummary } = buildSubjectTables(rows, 1);
     const students = buildStudents(rows, subjectSummary);
     expect(students.length).toBe(302);
