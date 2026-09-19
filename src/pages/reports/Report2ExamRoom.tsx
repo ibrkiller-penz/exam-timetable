@@ -89,7 +89,7 @@ export const Report2ExamRoom: React.FC = () => {
               className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
             >
               <div className="flex items-center justify-center gap-3 mb-6">
-                <h1 className="text-center font-extrabold text-2xl text-[#005691]">
+                <h1 className="text-center font-black text-[36px] leading-none text-[#005691] tracking-tight">
                   {report.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표'}
                 </h1>
                 {/* 두 장 이상이면 몇 번째 장인지 밝혀 놓습니다. */}
@@ -100,30 +100,30 @@ export const Report2ExamRoom: React.FC = () => {
                 )}
               </div>
 
-              <div className="border border-gray-800 grid grid-cols-5 text-center text-xs mb-4">
-                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">시행일</div>
-                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">교시</div>
-                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">고사실</div>
-                <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">과목(단위)</div>
-                <div className="py-1.5 bg-gray-100 font-bold">응시인원</div>
+              <div className="border-2 border-gray-800 grid grid-cols-5 text-center text-[14px] mb-4">
+                <div className="py-2 bg-gray-100 font-black border-r border-gray-800">시행일</div>
+                <div className="py-2 bg-gray-100 font-black border-r border-gray-800">교시</div>
+                <div className="py-2 bg-gray-100 font-black border-r border-gray-800">고사실</div>
+                <div className="py-2 bg-gray-100 font-black border-r border-gray-800">과목(단위)</div>
+                <div className="py-2 bg-gray-100 font-black">응시인원</div>
 
                 <div className="py-1.5 border-t border-r border-gray-800">{dayDate || '-'}</div>
                 <div className="py-1.5 border-t border-r border-gray-800">{report.period}</div>
-                <div className="py-1.5 border-t border-r border-gray-800 font-bold">{report.examRoom}</div>
+                <div className="py-2 border-t border-r border-gray-800 font-black text-[18px]">{report.examRoom}</div>
                 <div className="py-1.5 border-t border-r border-gray-800 font-semibold">{report.subject}</div>
-                <div className="py-1.5 border-t border-gray-800 font-bold text-[#005691]">{report.totalStudents}명</div>
+                <div className="py-2 border-t border-gray-800 font-black text-[18px] text-[#005691]">{report.totalStudents}명</div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 {[0, 1].map(colIdx => (
-                  <table key={colIdx} className="w-full text-xs text-center border-collapse border border-gray-800">
+                  <table key={colIdx} className="w-full text-[15px] text-center border-collapse border-2 border-gray-800">
                     <thead className="bg-gray-100 border-b border-gray-800">
                       <tr className="divide-x divide-gray-800">
-                        <th className="py-1.5 px-1 w-10">연번</th>
-                        <th className="py-1.5 px-2">학번</th>
-                        <th className="py-1.5 px-2">성명</th>
-                        <th className="py-1.5 px-2 w-14">좌석</th>
-                        <th className="py-1.5 px-2 w-16">비고</th>
+                        <th className="py-2 px-1 w-12 font-black">연번</th>
+                        <th className="py-2 px-2 font-black">학번</th>
+                        <th className="py-2 px-2 font-black">성명</th>
+                        <th className="py-2 px-2 w-16 font-black">좌석</th>
+                        <th className="py-2 px-2 w-20 font-black">비고</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-800">
@@ -131,11 +131,11 @@ export const Report2ExamRoom: React.FC = () => {
                         const s = pageStudents[colIdx * PER_COL + i];
                         const blankSeq = pageIdx * PER_PAGE + colIdx * PER_COL + i + 1;
                         return (
-                          <tr key={i} className="divide-x divide-gray-800 h-7">
+                          <tr key={i} className="divide-x divide-gray-800 h-9">
                             <td>{s ? s.seq : blankSeq}</td>
-                            <td className="font-medium">{s?.hakbun || ''}</td>
-                            <td className="font-bold">{s?.name ? displayName(s.name) : ''}</td>
-                            <td className="font-extrabold text-red-800">{s?.seat || ''}</td>
+                            <td className="font-bold text-slate-700">{s?.hakbun || ''}</td>
+                            <td className="font-black text-[18px] text-slate-900">{s?.name ? displayName(s.name) : ''}</td>
+                            <td className="font-black text-[19px] text-red-700">{s?.seat || ''}</td>
                             <td className="text-[10px] font-bold text-slate-700 whitespace-nowrap">{s?.note || ''}</td>
                           </tr>
                         );

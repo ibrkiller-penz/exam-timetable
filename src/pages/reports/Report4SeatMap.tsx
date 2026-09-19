@@ -147,50 +147,56 @@ export const Report4SeatMap: React.FC = () => {
         <ReportGate what="좌석배치도" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />
       ) : (
         /* 열이 많으면 세로 A4에 칸이 눌려 이름이 읽히지 않습니다. 그때는 가로로 눕힙니다. */
-        <div className={`print-page ${report.columns >= 6 ? 'page-landscape' : 'page-portrait'} bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto`}>
-          <h1 className="text-center font-extrabold text-2xl mb-6 text-[#005691]">
+        /* 학생들이 복도에 서서 자기 자리를 찾는 종이입니다.
+           제목을 크게 쓰고, 좌석 칸이 페이지를 꽉 채우도록 늘립니다.
+           열이 많으면 세로 A4에 칸이 눌려 이름이 읽히지 않으므로 가로로 눕힙니다. */
+        <div className={`print-page ${report.columns >= 6 ? 'page-landscape' : 'page-portrait'} bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto flex flex-col`}>
+          <h1 className="text-center font-black text-[40px] leading-none mb-1 text-[#005691] tracking-tight">
             {report.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도'}
           </h1>
+          <p className="text-center text-[22px] font-black text-slate-800 mb-4">
+            {report.examRoom} · {report.period} · {report.subject}
+          </p>
 
-          <div className="border border-gray-800 grid grid-cols-5 text-center text-xs mb-6">
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">시행일</div>
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">교시</div>
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">고사실</div>
-            <div className="py-1.5 bg-gray-100 font-bold border-r border-gray-800">과목(단위)</div>
-            <div className="py-1.5 bg-gray-100 font-bold">응시인원</div>
+          <div className="border-2 border-gray-800 grid grid-cols-5 text-center text-[14px] mb-4 shrink-0">
+            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">시행일</div>
+            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">교시</div>
+            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">고사실</div>
+            <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">과목(단위)</div>
+            <div className="py-1.5 bg-gray-100 font-black">응시인원</div>
 
-            <div className="py-1.5 border-t border-r border-gray-800">{dayDate || '-'}</div>
-            <div className="py-1.5 border-t border-r border-gray-800">{report.period}</div>
-            <div className="py-1.5 border-t border-r border-gray-800 font-bold">{report.examRoom}</div>
-            <div className="py-1.5 border-t border-r border-gray-800 font-semibold">{report.subject}</div>
-            <div className="py-1.5 border-t border-gray-800 font-bold text-[#005691]">{report.totalStudents}명</div>
+            <div className="py-2 border-t border-r border-gray-800 font-bold">{dayDate || '-'}</div>
+            <div className="py-2 border-t border-r border-gray-800 font-bold">{report.period}</div>
+            <div className="py-2 border-t border-r border-gray-800 font-black text-[17px]">{report.examRoom}</div>
+            <div className="py-2 border-t border-r border-gray-800 font-bold">{report.subject}</div>
+            <div className="py-2 border-t border-gray-800 font-black text-[17px] text-[#005691]">{report.totalStudents}명</div>
           </div>
 
-          {/* Podium (교탁) */}
-          <div className="flex justify-center mb-4">
-            <div className="w-36 py-1.5 bg-gray-200 text-gray-800 text-center font-bold text-xs rounded border border-gray-400 shadow-xs">
-              【 교 탁 (앞) 】
+          {/* 교탁 — 어느 쪽이 앞인지 한눈에 보여야 자리를 제대로 찾습니다. */}
+          <div className="flex justify-center mb-3 shrink-0">
+            <div className="w-2/3 py-2 bg-gray-800 text-white text-center font-black text-[18px] rounded tracking-widest">
+              교 탁 (앞)
             </div>
           </div>
 
-          {/* Seat Grid: Columns right to left or left to right */}
+          {/* 좌석 — 남는 높이를 나눠 가져 페이지를 꽉 채웁니다. */}
           <div
-            className="grid gap-3 mb-8"
+            className="grid gap-2 flex-1"
             style={{ gridTemplateColumns: `repeat(${report.columns}, minmax(0, 1fr))` }}
           >
             {report.grid.map((col, colIdx) => (
-              <div key={colIdx} className="space-y-2">
-                <div className="text-center font-bold text-xs text-gray-600 pb-1 border-b border-gray-200">
+              <div key={colIdx} className="flex flex-col gap-2 min-h-0">
+                <div className="text-center font-black text-[15px] text-slate-500 pb-0.5 border-b-2 border-slate-300 shrink-0">
                   {colIdx + 1}열
                 </div>
                 {col.map(cell => (
                   <div
                     key={cell.seat}
-                    className="border border-gray-800 p-2 text-center rounded bg-gray-50/70 shadow-xs"
+                    className="border-2 border-gray-800 px-1 py-1.5 text-center rounded-lg bg-white flex-1 flex flex-col items-center justify-center min-h-[52px]"
                   >
-                    <div className="font-extrabold text-sm text-red-800">좌석 {cell.physicalSeatNum}</div>
-                    <div className="text-[11px] text-gray-600 font-medium">{cell.hakbun}</div>
-                    <div className="text-xs font-bold text-gray-900">{displayName(cell.name)}</div>
+                    <div className="font-black text-[23px] leading-none text-red-700">{cell.physicalSeatNum}</div>
+                    <div className="text-[13px] text-gray-500 font-black leading-tight mt-0.5">{cell.hakbun}</div>
+                    <div className="text-[23px] font-black text-gray-900 leading-tight break-keep tracking-tight">{displayName(cell.name)}</div>
                   </div>
                 ))}
               </div>
