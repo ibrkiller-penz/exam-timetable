@@ -8,6 +8,29 @@ import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
+/**
+ * 봉투 라벨의 과목명 글자 크기.
+ *
+ * 봉투는 멀리서 집어 들기 때문에 과목명이 클수록 좋습니다.
+ * 다만 '심화 영어 독해Ⅰ'처럼 긴 이름은 그대로 키우면 칸을 넘칩니다.
+ * 한글은 영문·숫자보다 두 배쯤 넓으므로, 글자 수가 아니라 차지하는 폭으로 셉니다.
+ */
+const subjectFontSize = (name: string): number => {
+  const width = [...(name ?? '')].reduce(
+    (w, ch) => w + (/[\x00-\x7F]/.test(ch) ? 0.55 : 1),
+    0
+  );
+  if (width <= 3) return 66;
+  if (width <= 4) return 58;
+  if (width <= 5) return 50;
+  if (width <= 6) return 44;
+  if (width <= 7) return 39;
+  if (width <= 9) return 33;
+  if (width <= 11) return 28;
+  if (width <= 14) return 23;
+  return 19;
+};
+
 export const Report7Labels: React.FC = () => {
   const { rooms, days, times, placement, evalSubjects, subjectCodes, setSubjectCode, stages, meta, settings, slotBanLabels, slotBanLabelStyle } = useAppStore();
   const placementSlots = useAppStore(selPlacementSlots);
@@ -421,18 +444,20 @@ export const Report7Labels: React.FC = () => {
                           </span>
                         </div>
 
-                        {/* 중앙 메인: 과목명 딱 가운데로 크고 시원하게! */}
-                        <div className="my-auto py-3 text-center border-y-2 border-slate-900 bg-slate-50/50 rounded flex flex-col items-center justify-center">
-                          <div className="flex items-center justify-center flex-wrap gap-2">
-                            <span className="text-[26px] md:text-[28px] font-black text-slate-900 tracking-tight leading-tight">
-                              {cleanSubj}
+                        {/* 중앙 메인: 과목명을 칸에 가득 채웁니다.
+                            멀리서도 읽혀야 봉투를 빨리 고를 수 있습니다. */}
+                        <div className="flex-1 my-1 py-2 px-2 text-center border-y-2 border-slate-900 bg-slate-50/50 rounded flex flex-col items-center justify-center gap-1 overflow-hidden">
+                          <span
+                            className="font-black text-slate-900 tracking-tight leading-none break-keep"
+                            style={{ fontSize: `${subjectFontSize(cleanSubj)}px` }}
+                          >
+                            {cleanSubj}
+                          </span>
+                          {code && (
+                            <span className="text-base font-black px-2 py-0.5 bg-blue-50 text-[#005691] border border-blue-200 rounded font-mono">
+                              【 {code} 】
                             </span>
-                            {code && (
-                              <span className="text-base font-black px-2 py-0.5 bg-blue-50 text-[#005691] border border-blue-200 rounded font-mono">
-                                【 {code} 】
-                              </span>
-                            )}
-                          </div>
+                          )}
                         </div>
 
                         {/* 하단 정보 3칸: 고사실 / 응시분반 / 응시인원 */}
