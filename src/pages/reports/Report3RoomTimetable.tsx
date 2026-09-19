@@ -90,6 +90,13 @@ export const Report3RoomTimetable: React.FC = () => {
                     {report.activeDays.map(d => (
                       <td key={d.day} className="py-2 font-black text-[16px] text-[#005691]">
                         {report.grid[p][d.day]?.stuCount ? `${report.grid[p][d.day].stuCount}명` : '-'}
+                        {/* 별도 고사실로 간 학생은 이 교실에 없습니다.
+                            감독 선생님이 인원을 맞출 때 그만큼이 빈 것을 알아야 합니다. */}
+                        {report.grid[p][d.day]?.separateCount > 0 && (
+                          <span className="block text-[12px] font-bold text-amber-700">
+                            별도 {report.grid[p][d.day].separateCount}명
+                          </span>
+                        )}
                       </td>
                     ))}
                   </tr>

@@ -66,13 +66,16 @@ export function buildStudentTableReport(
         if (showSeat && att.seat !== null) {
           const roomObj = rooms.find(r => r.roomName === att.examRoom);
           if (roomObj) {
-            const roomAtts = attendance.filter(a => a.day === att.day && a.period === att.period && a.examRoom === att.examRoom);
+            // 별도 응시자는 그 교실에 앞지 않으므로 좌표 계산에서도 뺀니다.
+            const roomAtts = attendance.filter(a => a.day === att.day && a.period === att.period && a.examRoom === att.examRoom && !a.separateRoom);
             pSeat = calcPhysicalSeatNum(att.seat, roomObj.cols || 5, roomAtts.length, roomObj.layoutDirection || 'col', roomObj.rows);
           }
         }
         grid[p][d.day] = {
           subject: att.subject === '미응시' ? '자습' : onlySubject(att.subject),
-          examRoom: att.examRoom,
+          // 별도 고사실에서 보는 교시는 '(별)'을 붙여, 그 시간에는
+          // 소속 교실에 없다는 것을 학생이 알게 합니다.
+          examRoom: att.separateRoom ? `${att.examRoom}(별)` : att.examRoom,
           seat: showSeat ? pSeat : null,
           timeStr,
         };

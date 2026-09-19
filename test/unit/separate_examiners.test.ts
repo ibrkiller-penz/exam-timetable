@@ -56,21 +56,34 @@ describe('별도 고사실 응시자', () => {
     expect(rows.find(r => r.period === '2교시' && r.num === 3)!.separateRoom).toBe(2);
   });
 
-  it('고사실 명단 비고에 별도고사실 응시중이라고 적힌다', () => {
+  it('고사실 명단에서는 끝으로 밀리고 비고에 별도라고 적힌다', () => {
     const rows = build({ '1반-2': { room: 1, slots: 'all' } });
     const report = buildExamRoomReport(rows, '1일차', '1교시', '3-1', rooms)!;
-    const me = report.students.find(s => s.hakbun.endsWith('02'))!;
-    expect(me.note).toBe('별도고사실 응시중');
-    expect(me.seat).toBe(null);
+
     expect(report.students.length).toBe(4); // 명단에서 빠지지 않습니다.
+
+    const me = report.students[report.students.length - 1]; // 맨 끝으로 보냅니다.
+    expect(me.hakbun.endsWith('02')).toBe(true);
+    expect(me.note).toBe('별도');
+    expect(me.seat).toBe(null);
+
+    // 앞쪽은 이 교실에 실제로 앜는 학생들입니다. 연번은 1부터 이어집니다.
+    expect(report.students.map(s => s.seq)).toEqual([1, 2, 3, 4]);
+    expect(report.students.slice(0, 3).every(s => s.note === '')).toBe(true);
   });
 
-  it('좌석배치도에서는 빠진다', () => {
+  it('좌석배치도에서는 빠지고, 그 자리는 빈 칸으로 남는다', () => {
     const rows = build({ '1반-2': { room: 1, slots: 'all' } });
     const map = buildSeatMapReport(rows, '1일차', '1교시', '3-1', 2)!;
     const names = map.grid.flat().map(c => c.name);
+
     expect(names).not.toContain('학생2');
-    expect(names.length).toBe(3);
+    expect(names.filter(Boolean).length).toBe(3); // 앜는 사람은 세 명.
+
+    // 빈 자리도 칸은 그립니다. 줄마다 칸 수가 같아야
+    // 실제 교실 모양과 맞아 학생이 자리를 세어 찾을 수 있습니다.
+    const colLengths = map.grid.map(c => c.length);
+    expect(new Set(colLengths).size).toBe(1);
   });
 
   it('좌석이 없어도 9단계 확정을 막지 않는다', () => {

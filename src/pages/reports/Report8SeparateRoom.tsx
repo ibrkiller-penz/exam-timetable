@@ -14,7 +14,8 @@ import { ReportGate } from './ReportGate';
  * 시험이 끝나면 답안지를 원고사실 것과 합칩니다.
  */
 export const Report8SeparateRoom: React.FC = () => {
-  const { students, settings, separateExaminers = {}, setSeparateExaminer, attendance, stages } = useAppStore();
+  const { students, settings, separateExaminers = {}, setSeparateExaminer, attendance, stages,
+          placement, studentPlacements = {}, rooms } = useAppStore();
   const placementSlots = useAppStore(selPlacementSlots);
 
   const [tab, setTab] = useState<'manage' | 'print'>('manage');
@@ -63,17 +64,38 @@ export const Report8SeparateRoom: React.FC = () => {
     setSeparateExaminer(key, { ...cur, room });
   };
 
-  const setNote = (key: string, note: string) => {
-    const cur = separateExaminers[key];
-    if (!cur) return;
-    setSeparateExaminer(key, { ...cur, note: note.trim() || undefined });
+  /**
+   * 이 학생이 그 교시에 어느 고사실 소속인지.
+   * 별도실에서 보더라도 답안지는 이 고사실 것과 합쳐야 하므로,
+   * 담당자가 여기서 바로 확인할 수 있어야 합니다.
+   */
+  const homeRoomAt = (key: string, slotIndex: number): string => {
+    const roomId = studentPlacements?.[slotIndex]?.[key];
+    if (!roomId) return '';
+    const cell = placement?.[slotIndex]?.[roomId];
+    if (!cell || cell === '배치금지') return '';
+    return rooms.find(r => r.id === roomId)?.roomName ?? '';
+  };
+
+  /** 별도로 보는 교시들의 소속 고사실을 간추립니다. */
+  const whereText = (key: string) => {
+    const detail = examSlots
+      .filter(ps => separateRoomFor(key, ps.index, separateExaminers))
+      .map(ps => ({ title: ps.title, room: homeRoomAt(key, ps.index) }))
+      .filter(x => x.room);
+    const distinct = [...new Set(detail.map(d => d.room))];
+    return {
+      short: distinct.length === 0 ? '' : distinct.length <= 3 ? distinct.join(', ') : `${distinct.slice(0, 3).join(', ')} 외 ${distinct.length - 3}실`,
+      full: detail.map(d => `${d.title} → ${d.room}`).join('\n'),
+      count: detail.length,
+    };
   };
 
   /** 명렬에 실을 줄: 교시 → 별도실 → 학생. 응시현황(attendance)에서 원고사실과 과목을 가져옵니다. */
   const rosters = useMemo(() => {
     const out: Array<{
       slotTitle: string; day: string; period: string; room: number;
-      rows: Array<{ hakbun: string; name: string; subject: string; homeRoom: string; note?: string }>;
+      rows: Array<{ hakbun: string; name: string; subject: string; homeRoom: string }>;
     }> = [];
 
     for (const ps of examSlots) {
@@ -88,7 +110,6 @@ export const Report8SeparateRoom: React.FC = () => {
             name: r.name,
             subject: r.subject,
             homeRoom: r.examRoom,
-            note: separateExaminers[`${r.ban}-${r.num}`]?.note,
           }));
         if (rows.length > 0) out.push({ slotTitle: ps.title, day, period, room, rows });
       }
@@ -171,7 +192,7 @@ export const Report8SeparateRoom: React.FC = () => {
                   <th className="py-2.5 px-3 text-left font-bold w-40">학생</th>
                   <th className="py-2.5 px-3 text-center font-bold w-64">별도 응시</th>
                   <th className="py-2.5 px-3 text-center font-bold w-24">별도실</th>
-                  <th className="py-2.5 px-3 text-left font-bold">교시 지정 / 사유</th>
+                  <th className="py-2.5 px-3 text-left font-bold">교시 지정 / 응시 장소</th>
                 </tr>
               </thead>
               <tbody>
@@ -239,14 +260,28 @@ export const Report8SeparateRoom: React.FC = () => {
                             })}
                           </div>
                         )}
-                        {cur && (
-                          <input
-                            defaultValue={cur.note ?? ''}
-                            onBlur={e => setNote(key, e.target.value)}
-                            placeholder="사유 (예: 틱 장애, 추가 시간 필요)"
-                            className="w-full max-w-sm px-2 py-1 border border-gray-200 rounded-lg text-[13px]"
-                          />
-                        )}
+                        {cur && (() => {
+                          // 어디서 보는지를 바로 보여 줍니다.
+                          // 별도실에서 보더라도 답안지는 소속 고사실 것과 합쳐야 합니다.
+                          const w = whereText(key);
+                          if (w.count === 0) {
+                            return (
+                              <span className="text-[13px] text-slate-400">
+                                {scope === 'slots' ? '교시를 골라 주세요.' : '배치가 아직 없습니다.'}
+                              </span>
+                            );
+                          }
+                          return (
+                            <div className="text-[13px] leading-relaxed" title={w.full}>
+                              <span className="font-black text-[#005691]">별도 {cur.room}실</span>
+                              <span className="text-slate-400"> 에서 응시 </span>
+                              <span className="text-slate-500">· 답안지는 </span>
+                              <strong className="text-slate-800">{w.short}</strong>
+                              <span className="text-slate-500"> 으로</span>
+                              {w.count > 1 && <span className="text-slate-400"> ({w.count}교시)</span>}
+                            </div>
+                          );
+                        })()}
                       </td>
                     </tr>
                   );
@@ -298,7 +333,7 @@ export const Report8SeparateRoom: React.FC = () => {
                     <th className="py-2 px-2 w-24">성명</th>
                     <th className="py-2 px-2">과목</th>
                     <th className="py-2 px-2 w-24">원고사실</th>
-                    <th className="py-2 px-2 w-32">사유</th>
+                    <th className="py-2 px-2 w-32">비고</th>
                     <th className="py-2 px-2 w-20">답안지</th>
                   </tr>
                 </thead>
@@ -310,7 +345,7 @@ export const Report8SeparateRoom: React.FC = () => {
                       <td className="font-bold">{displayName(s.name)}</td>
                       <td>{s.subject}</td>
                       <td className="font-bold text-[#005691]">{s.homeRoom}</td>
-                      <td className="text-[11.5px]">{s.note ?? ''}</td>
+                      <td></td>
                       <td></td>
                     </tr>
                   ))}

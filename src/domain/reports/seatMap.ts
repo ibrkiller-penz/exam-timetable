@@ -84,15 +84,16 @@ export function buildSeatMapReport(
         ? physicalSeatNum
         : (r - 1) * cols + c;
         
-      if (assignSeq <= totalStudents) {
-        const rowData = seatMap.get(assignSeq);
-        colCells.push({
-          seat: assignSeq,
-          physicalSeatNum: physicalSeatNum,
-          hakbun: rowData ? hakbun(rowData.grade, rowData.ban, rowData.num) : '',
-          name: rowData ? rowData.name : '',
-        });
-      }
+      // 빈 자리도 그립니다.
+      // 사람이 있는 칸만 그리면 줄마다 칸 수가 달라져
+      // 자리 모양이 실제 교실과 달라집니다. 빈 칸은 비워 둡니다.
+      const rowData = assignSeq <= totalStudents ? seatMap.get(assignSeq) : undefined;
+      colCells.push({
+        seat: assignSeq,
+        physicalSeatNum: physicalSeatNum,
+        hakbun: rowData ? hakbun(rowData.grade, rowData.ban, rowData.num) : '',
+        name: rowData ? rowData.name : '',
+      });
     }
     grid.push(colCells);
   }

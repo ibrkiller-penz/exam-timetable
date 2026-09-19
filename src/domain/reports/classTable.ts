@@ -45,7 +45,9 @@ export function buildClassTableReport(
       if (att) {
         periodMap[p] = {
           subject: att.subject === '미응시' ? '미응시' : onlySubject(att.subject),
-          room: att.examRoom,
+          // 별도 고사실에서 보는 교시는 '(별)'을 붙입니다. 소속은 그대로 이 고사실이지만,
+          // 그 시간에는 그 교실에 없다는 것을 학생과 담임이 알아야 합니다.
+          room: att.separateRoom ? `${att.examRoom}(별)` : att.examRoom,
         };
       } else {
         periodMap[p] = {

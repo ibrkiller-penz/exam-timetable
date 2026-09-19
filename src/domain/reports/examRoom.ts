@@ -38,8 +38,15 @@ export function buildExamRoomReport(
   const seatedCount = filtered.filter(r => !r.separateRoom).length;
 
   const students = filtered
-    .sort((a, b) => a.seq - b.seq)
-    .map(r => {
+    // 별도 고사실에서 보는 학생은 명단 끝으로 보냅니다.
+    // 앞쪽은 이 교실에 실제로 앜는 학생들이라 연번과 좌석이 나란히 떨어집니다.
+    .sort((a, b) => {
+      const sa = a.separateRoom ? 1 : 0;
+      const sb = b.separateRoom ? 1 : 0;
+      if (sa !== sb) return sa - sb;
+      return a.seq - b.seq;
+    })
+    .map((r, idx) => {
       let pSeat = r.seat;
       if (r.seat !== null) {
         const roomObj = rooms.find(rm => rm.roomName === r.examRoom);
@@ -49,15 +56,12 @@ export function buildExamRoomReport(
         }
       }
       return {
-        seq: r.seq,
+        seq: idx + 1,
         hakbun: hakbun(r.grade, r.ban, r.num),
         name: r.name,
         seat: pSeat,
-        // 별도 고사장에서 따로 보는 학생입니다. 명단에는 남기고 좌석만 비웁니다.
-        // 감독 선생님이 입실할 때 이 명렬을 보고 누가 어디 있는지 압니다.
-        note: r.separateRoom
-          ? (r.separateRoom > 1 ? `별도고사실 응시중(${r.separateRoom}실)` : '별도고사실 응시중')
-          : '',
+        // 비고 칸이 좁아 짧게 씨고, 별도실이 여럿이면 번호를 붙입니다.
+        note: r.separateRoom ? (r.separateRoom > 1 ? `별도 ${r.separateRoom}실` : '별도') : '',
       };
     });
 

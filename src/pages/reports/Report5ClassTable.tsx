@@ -85,20 +85,26 @@ export const Report5ClassTable: React.FC = () => {
         <ReportGate what="학급 시험시간표" />
       ) : (
         <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="font-extrabold text-2xl text-[#005691] flex items-center justify-between w-full">
-              <span>{report.ban} 시험시간표 — {report.day}일차 <span className="text-xl ml-2 text-slate-700">(소속 고사실: {actualRoomName || '없음'})</span></span>
-              <span>{dateFormatted}</span>
-            </h1>
+          {/* 교실에 붙이는 종이라 멀리서도 어느 반 며칠째인지 보여야 합니다. */}
+          <div className="flex justify-between items-end mb-5 gap-4">
+            <div>
+              <h1 className="font-black text-[36px] leading-none text-[#005691] tracking-tight">
+                {report.ban} 시험시간표
+              </h1>
+              <p className="text-[18px] font-black text-slate-700 mt-1.5">
+                {report.day}일차 · 소속 고사실 {actualRoomName || '없음'}
+              </p>
+            </div>
+            <span className="font-black text-[26px] text-slate-800 whitespace-nowrap">{dateFormatted}</span>
           </div>
 
-          <table className="w-full text-xs text-center border-collapse border border-gray-800">
+          <table className="w-full text-[14px] text-center border-collapse border-2 border-gray-800">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-800 divide-x divide-gray-800">
-                <th rowSpan={2} className="py-2.5 px-2 w-12">번호</th>
-                <th rowSpan={2} className="py-2.5 px-3 w-20">성명</th>
+                <th rowSpan={2} className="py-2.5 px-2 w-14 font-black text-[15px]">번호</th>
+                <th rowSpan={2} className="py-2.5 px-3 w-24 font-black text-[15px]">성명</th>
                 {report.activePeriods.map(p => (
-                  <th key={p} colSpan={2} className="py-1 px-2 font-bold">
+                  <th key={p} colSpan={2} className="py-1.5 px-2 font-black text-[16px]">
                     {p}교시
                   </th>
                 ))}
@@ -106,21 +112,21 @@ export const Report5ClassTable: React.FC = () => {
               <tr className="bg-gray-50 border-b border-gray-800 divide-x divide-gray-800">
                 {report.activePeriods.map(p => (
                   <React.Fragment key={p}>
-                    <th className="py-1 px-1 font-semibold">과목명</th>
-                    <th className="py-1 px-1 font-semibold w-16">고사실</th>
+                    <th className="py-1.5 px-1 font-bold text-[13px]">과목명</th>
+                    <th className="py-1.5 px-1 font-bold text-[13px] w-16">고사실</th>
                   </React.Fragment>
                 ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-800">
               {report.students.map(s => (
-                <tr key={s.num} className="divide-x divide-gray-800 h-7 hover:bg-gray-50">
-                  <td className="font-medium">{s.num}</td>
-                  <td className="font-bold text-gray-900">{s.name}</td>
+                <tr key={s.num} className="divide-x divide-gray-800 h-8 hover:bg-gray-50">
+                  <td className="font-bold text-slate-600">{s.num}</td>
+                  <td className="font-black text-[16px] text-gray-900">{s.name}</td>
                   {report.activePeriods.map(p => (
                     <React.Fragment key={p}>
-                      <td className="font-medium">{s.periods[p]?.subject || '-'}</td>
-                      <td className="font-bold text-red-800">{s.periods[p]?.room || '-'}</td>
+                      <td className="font-bold text-slate-800">{s.periods[p]?.subject || '-'}</td>
+                      <td className="font-black text-[16px] text-red-700">{s.periods[p]?.room || '-'}</td>
                     </React.Fragment>
                   ))}
                 </tr>

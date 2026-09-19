@@ -189,16 +189,31 @@ export const Report4SeatMap: React.FC = () => {
                 <div className="text-center font-black text-[15px] text-slate-500 pb-0.5 border-b-2 border-slate-300 shrink-0">
                   {colIdx + 1}열
                 </div>
-                {col.map(cell => (
-                  <div
-                    key={cell.seat}
-                    className="border-2 border-gray-800 px-1 py-1.5 text-center rounded-lg bg-white flex-1 flex flex-col items-center justify-center min-h-[52px]"
-                  >
-                    <div className="font-black text-[23px] leading-none text-red-700">{cell.physicalSeatNum}</div>
-                    <div className="text-[13px] text-gray-500 font-black leading-tight mt-0.5">{cell.hakbun}</div>
-                    <div className="text-[23px] font-black text-gray-900 leading-tight break-keep tracking-tight">{displayName(cell.name)}</div>
-                  </div>
-                ))}
+                {col.map(cell => {
+                  // 앉는 사람이 없는 자리도 칸은 그립니다. 교실의 실제 자리 모양과 같아야
+                  // 학생이 제 자리를 세어 찾을 수 있습니다.
+                  const empty = !cell.name;
+                  return (
+                    <div
+                      key={cell.seat}
+                      className={`px-1 py-1.5 text-center rounded-lg flex-1 flex flex-col items-center justify-center min-h-[52px] ${
+                        empty ? 'border-2 border-dashed border-gray-300 bg-gray-50/40' : 'border-2 border-gray-800 bg-white'
+                      }`}
+                    >
+                      <div className={`font-black text-[23px] leading-none ${empty ? 'text-gray-300' : 'text-red-700'}`}>
+                        {cell.physicalSeatNum}
+                      </div>
+                      {!empty && (
+                        <>
+                          <div className="text-[13px] text-gray-500 font-black leading-tight mt-0.5">{cell.hakbun}</div>
+                          <div className="text-[23px] font-black text-gray-900 leading-tight break-keep tracking-tight">
+                            {displayName(cell.name)}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
