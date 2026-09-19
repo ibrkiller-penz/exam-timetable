@@ -200,6 +200,8 @@ interface AppStoreActions {
   setAllStudentPlacements: (placements: Record<number, Record<string, string>>) => void;
   clearPlacementSlot: (slotIndex: number) => void;
   clearAllPlacement: () => void;
+  /** 모든 칸의 잠금 상태를 한꺼번에 바꿉니다. */
+  setAllLockedCells: (locked: Record<number, Record<string, boolean>>) => void;
   confirmStage4: () => string[]; // returns notices
   cancelStage4: () => void;
   /** 7. 고사장 배치만 확정/해제합니다 (8. 학생 배치와 분리). */
@@ -1266,7 +1268,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   swapPlacementCells: (slotIndex, roomId1, roomId2) => {
     set(state => {
-      if (state.stages.stage4) throw new Error(MSG.S7_LOCKED);
+      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
       if (state.lockedCells?.[slotIndex]?.[roomId1] || state.lockedCells?.[slotIndex]?.[roomId2]) {
         return state;
       }
@@ -1313,7 +1315,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setPlacementCell: (slotIndex, roomId, value) => {
     set(state => {
-      if (state.stages.stage4) throw new Error(MSG.S7_LOCKED);
+      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
       if (state.lockedCells?.[slotIndex]?.[roomId]) {
         return state;
       }
@@ -1424,7 +1426,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setPlacementGrid: (placement) => {
     set(state => {
-      if (state.stages.stage4) throw new Error(MSG.S7_LOCKED);
+      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
       const next = { ...state, placement };
       saveStateToIdb(next);
       return next;
@@ -1433,7 +1435,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   transferStudentsAndUpdatePlacement: (slotIndex, transfers) => {
     set(state => {
-      if (state.stages.stage4) throw new Error(MSG.S7_LOCKED);
+      if (state.stages.stage4) throw new Error(MSG.S8_STUDENTS_LOCKED);
 
       const pSlots = selPlacementSlots(state);
       const entries = selSubjectBanEntries(state);
@@ -1528,8 +1530,18 @@ export const useAppStore = create<AppStore>((set, get) => ({
   },
   setAllStudentPlacements: (placements) => {
     set(state => {
-      const nextStudentPlacements = { ...(state.studentPlacements ?? {}), ...placements };
-      const next = { ...state, studentPlacements: nextStudentPlacements };
+      // 이름 그대로 '전부 바꾸기'입니다. 예전에는 기존 값에 덮어쓰기만 해서,
+      // 빈 값을 넣어 비우려 해도 비워지지 않고 실행 취소도 제대로 되돌아가지 않았습니다.
+      const next = { ...state, studentPlacements: { ...placements } };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  /** 교시·고사실 칸의 잠금을 한꺼번에 바꿉니다 (전체 잠금 / 전체 해제). */
+  setAllLockedCells: (locked) => {
+    set(state => {
+      const next = { ...state, lockedCells: locked };
       saveStateToIdb(next);
       return next;
     });
@@ -1537,7 +1549,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   clearPlacementSlot: (slotIndex) => {
     set(state => {
-      if (state.stages.stage4) throw new Error(MSG.S7_LOCKED);
+      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
       const nextPlacement = { ...state.placement, [slotIndex]: {} };
       const next = { ...state, placement: nextPlacement };
       saveStateToIdb(next);
@@ -1547,7 +1559,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   clearAllPlacement: () => {
     set(state => {
-      if (state.stages.stage4) throw new Error(MSG.S7_LOCKED);
+      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
       const next = { ...state, placement: {}, studentPlacements: {}, lockedCells: {} };
       saveStateToIdb(next);
       return next;

@@ -48,6 +48,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
     setPlacementCell,
     swapPlacementCells,
     setLockedCell,
+    setAllLockedCells,
     clearPlacementSlot,
     clearAllPlacement,
     setPlacementGrid,
@@ -1333,8 +1334,13 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       message: MSG.S7_AUTO_ALL,
       onConfirm: () => {
         pushHistory('전체 자동배치');
-        const next = autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity, slotCapacityBasis);
-        setPlacementGrid(next);
+        // 7. 고사장 배치를 확정해 두었으면 고사실 구성은 손대지 않고 학생만 앉힙니다.
+        // 잠가 둔 고사장을 자동배치가 다시 짜버리면 잠근 뜻이 없습니다.
+        const roomsLocked = !!stages.step7;
+        const next = roomsLocked
+          ? placement
+          : autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity, slotCapacityBasis);
+        if (!roomsLocked) setPlacementGrid(next);
         const allPlacements: Record<number, Record<string, string>> = {};
         for (const ps of placementSlots) {
           const slotLocked = lockedCells[ps.index];
@@ -1635,6 +1641,37 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
   };
 
   /**
+   * 모든 교시·모든 고사실 칸을 한꺼번에 잠그거나 풉니다.
+   * 잠긴 칸은 자동배치가 건드리지 않습니다. 손으로 맞춘 자리를 지키는 용도입니다.
+   */
+  const handleLockAllCells = (locked: boolean) => {
+    if (isStageLocked) return;
+
+    if (!locked) {
+      setAllLockedCells({});
+      setAlertModal({ isOpen: true, message: '모든 칸의 잠금을 풀었습니다.\n\n이제 자동배치가 모든 칸을 다시 짤 수 있습니다.' });
+      return;
+    }
+
+    const next: Record<number, Record<string, boolean>> = {};
+    let count = 0;
+    for (const ps of placementSlots) {
+      const row: Record<string, boolean> = {};
+      for (const r of rooms) {
+        if (!r.roomName || r.roomName === '0') continue;
+        row[r.id] = true;
+        count++;
+      }
+      next[ps.index] = row;
+    }
+    setAllLockedCells(next);
+    setAlertModal({
+      isOpen: true,
+      message: `모든 칸(${count}칸)을 잠갔습니다.\n\n자동배치가 이 칸들을 건드리지 않습니다. 고칠 칸만 자물쇠를 눌러 풀면 됩니다.`,
+    });
+  };
+
+  /**
    * 초기화는 그 단계가 만든 것만 지웁니다.
    *  - 8. 학생 배치: 학생만 비웁니다. 7번에서 정한 고사장·대기실 구성은 그대로 둡니다.
    *  - 7. 고사장 배치: 고사장 구성까지 비웁니다.
@@ -1809,7 +1846,13 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         cancelLabel="확정 취소"
         onConfirm={handleConfirm}
         onCancel={handleCancel}
-        guideMessage={undefined}
+        /* 두 잠금은 서로 독립입니다. 다만 8번을 확정해 둔 채 고사장을 고치면
+           확정된 학생 배치와 어긋나므로, 막지 않고 알려만 줍니다. */
+        guideMessage={
+          stepMode === 7 && stages.stage4
+            ? '8. 학생 배치가 확정되어 있습니다. 여기서 고사장을 고치면 확정된 학생 배치와 어긋날 수 있으니, 고친 뒤에는 8번에서 다시 확인해 주세요.'
+            : undefined
+        }
         actions={
           // 버튼이 많아 좁아지면 글자가 세로로 쪼개져 읽기 어려워집니다. 줄바꿈을 막고 줄어들지 않게 합니다.
           <div className="flex items-center gap-2 [&_button]:whitespace-nowrap [&_button]:shrink-0 [&_span]:whitespace-nowrap">
@@ -1876,6 +1919,27 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
             >
               <span>{isSaving ? '저장 중…' : '💾 중간 저장'}</span>
             </button>
+            {/* 손으로 맞춘 자리를 지키려면 칸을 잠급니다. 한 칸씩 누르기 번거로워 한꺼번에 여닫습니다. */}
+            <span className="inline-flex rounded-xl border border-gray-300 overflow-hidden shadow-2xs">
+              <button
+                onClick={() => handleLockAllCells(true)}
+                disabled={isStageLocked}
+                className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed active:scale-95"
+                title="모든 교시의 모든 칸을 잠급니다. 자동배치가 건드리지 않습니다."
+              >
+                <Lock className="w-4 h-4 text-slate-500" />
+                <span>전체 잠금</span>
+              </button>
+              <button
+                onClick={() => handleLockAllCells(false)}
+                disabled={isStageLocked}
+                className="px-3 py-2 bg-white hover:bg-slate-50 text-slate-700 text-[15.5px] font-bold flex items-center gap-1.5 border-l border-gray-300 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed active:scale-95"
+                title="모든 칸의 잠금을 풉니다."
+              >
+                <Unlock className="w-4 h-4 text-slate-500" />
+                <span>해제</span>
+              </button>
+            </span>
             <button
               onClick={handleResetStep7}
               disabled={isStageLocked}
