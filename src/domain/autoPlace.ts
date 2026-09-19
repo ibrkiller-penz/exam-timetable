@@ -822,8 +822,34 @@ export function initSlotStudentPlacements(
           matched = subjectStudents.filter(st => neisSet.has(`${st.ban}-${st.num}`));
         }
 
-        // 편성현황으로 못 찾으면(자료가 없거나 이름이 달라 안 맞을 때)
-        // 최소한 분반 인원 수만이라도 맞춰 자르는 예전 방식으로 돌아갑니다.
+        // 이름이 달라 직접 못 찾으면, 편성현황의 분반 묶음을 순서로 짝지읍니다.
+        // 분반 목록(subjectBans)은 강의실 이름 순으로 정렬해 만들었으므로,
+        // 편성현황의 분반도 같은 순서로 늘어놓으면 i번째끼리 대응됩니다.
+        if (matched.length === 0 && neis && neis.length > 0) {
+          const groups = new Map<string, Student[]>();
+          for (const row of neis) {
+            if (row.subject !== entry.subject) continue;
+            const key = row.room2 || row.room;
+            if (!key) continue;
+            const st = subjectStudents.find(x => x.ban === row.ban && x.num === row.num);
+            if (!st) continue;
+            const list = groups.get(key);
+            if (list) list.push(st);
+            else groups.set(key, [st]);
+          }
+
+          const orderedEntries = Array.from(entries.values())
+            .filter(e => e.subject === entry.subject)
+            .sort((a, b) => a.index - b.index);
+          const idx = orderedEntries.findIndex(e => e.key === entry.key);
+          const orderedGroups = Array.from(groups.keys()).sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
+
+          if (idx >= 0 && idx < orderedGroups.length) {
+            matched = groups.get(orderedGroups[idx]) ?? [];
+          }
+        }
+
+        // 그래도 못 찾으면 최소한 분반 인원 수만이라도 맞춰 자릅니다.
         if (matched.length === 0) {
           const subjectEntries = Array.from(entries.values())
             .filter(e => e.subject === entry.subject)
