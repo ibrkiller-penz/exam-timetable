@@ -6,6 +6,7 @@ import { selPlacementSlots } from '../../store/selectors';
 import { displayName } from '../../domain/privacy';
 import { separateRoomFor, SeparateExaminer } from '../../domain/types';
 import { ReportGate } from './ReportGate';
+import { buildStudentTableReport } from '../../domain/reports/studentTable';
 
 /**
  * 10-8. 별도 고사실 — 명단 체크와 명렬 출력.
@@ -16,7 +17,7 @@ import { ReportGate } from './ReportGate';
  */
 export const Report8SeparateRoom: React.FC = () => {
   const { students, settings, separateExaminers = {}, setSeparateExaminer, attendance, stages,
-          placement, studentPlacements = {}, rooms, syncSeparateExaminers } = useAppStore();
+          placement, studentPlacements = {}, rooms, syncSeparateExaminers, days, times } = useAppStore();
   const [syncMsg, setSyncMsg] = useState<string | null>(null);
   const placementSlots = useAppStore(selPlacementSlots);
 
@@ -285,6 +286,54 @@ export const Report8SeparateRoom: React.FC = () => {
                   · 좌석배치도에는 나오지 않습니다. 그 교실에 앉지 않기 때문입니다.<br />
                   · 시험이 끝나면 답안지를 원고사실 것과 합쳐 주세요.
                 </p>
+
+                {/* 이 학생의 개별 수험표. 따로 챙겨 줘야 하는 학생이라
+                    여기서 바로 보고 뽑을 수 있어야 합니다. */}
+                {(() => {
+                  const ticket = buildStudentTableReport(st, attendance, days, times, rooms, placementSlots, true);
+                  if (ticket.activeDays.length === 0) return null;
+                  return (
+                    <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-300">
+                      <h2 className="text-center font-black text-[24px] text-[#005691] mb-1">개별 수험표</h2>
+                      <p className="text-center text-[14px] font-bold text-slate-600 mb-4">
+                        {st.grade}학년 {st.ban} {st.num}번 {displayName(st.name)} · 학번 {ticket.hakbun}
+                      </p>
+                      <table className="w-full text-[13.5px] text-center border-collapse border-2 border-gray-800">
+                        <thead className="bg-gray-100">
+                          <tr className="divide-x divide-gray-800 border-b border-gray-800">
+                            <th className="py-2 px-1 w-16 font-black">교시</th>
+                            {ticket.activeDays.map(d => (
+                              <th key={d.day} className="py-2 px-1 font-black">{d.day}일차<br /><span className="text-[11.5px] text-slate-500">{d.dateText}</span></th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-800">
+                          {ticket.activePeriods.map(p => (
+                            <tr key={p} className="divide-x divide-gray-800">
+                              <td className="py-2 font-black bg-gray-50">{p}교시</td>
+                              {ticket.activeDays.map(d => {
+                                const c = ticket.grid[p][d.day];
+                                const sep = c?.examRoom?.includes('(별)');
+                                return (
+                                  <td key={d.day} className="py-1.5 px-1 leading-tight">
+                                    <div className="font-bold text-slate-800 break-keep">{c?.subject || '-'}</div>
+                                    <div className={`font-black ${sep ? 'text-amber-700' : 'text-red-700'}`}>
+                                      {c?.examRoom || '-'}{c?.seat ? ` · ${c.seat}번` : ''}
+                                    </div>
+                                    {c?.timeStr && <div className="text-[11px] text-slate-400">{c.timeStr}</div>}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                      <p className="text-[12.5px] text-slate-500 mt-2">
+                        고사실 뒤에 <strong className="text-amber-700">(별)</strong>이 붙은 교시는 별도 고사실에서 봅니다.
+                      </p>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
           </div>
