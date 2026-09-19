@@ -84,7 +84,7 @@ export const Report5ClassTable: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="학급 시험시간표" />
       ) : (
-        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs max-w-4xl mx-auto">
+        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <div className="flex justify-between items-center mb-6">
             <h1 className="font-extrabold text-2xl text-[#005691] flex items-center justify-between w-full">
               <span>{report.ban} 시험시간표 — {report.day}일차 <span className="text-xl ml-2 text-slate-700">(소속 고사실: {actualRoomName || '없음'})</span></span>

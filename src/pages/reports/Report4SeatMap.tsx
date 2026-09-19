@@ -138,7 +138,8 @@ export const Report4SeatMap: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="좌석배치도" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />
       ) : (
-        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs max-w-4xl mx-auto">
+        /* 열이 많으면 세로 A4에 칸이 눌려 이름이 읽히지 않습니다. 그때는 가로로 눕힙니다. */
+        <div className={`print-page ${report.columns >= 6 ? 'page-landscape' : 'page-portrait'} bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto`}>
           <h1 className="text-center font-extrabold text-2xl mb-6 text-[#005691]">
             {report.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도'}
           </h1>

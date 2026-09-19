@@ -77,7 +77,7 @@ export const Report2ExamRoom: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="고사실 명단" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />
       ) : (
-        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs max-w-4xl mx-auto">
+        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <h1 className="text-center font-extrabold text-2xl mb-6 text-[#005691]">
             {report.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표'}
           </h1>

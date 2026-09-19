@@ -49,7 +49,7 @@ export const Report3RoomTimetable: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="고사실 시험시간표" />
       ) : (
-        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs max-w-4xl mx-auto">
+        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <div className="flex justify-between items-center mb-6">
             <h1 className="font-extrabold text-2xl text-[#005691]">고사실 시험시간표</h1>
             <span className="text-sm font-bold text-gray-800 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
