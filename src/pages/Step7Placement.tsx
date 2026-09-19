@@ -1835,7 +1835,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                   </th>
                 )}
                 <th colSpan={4} className={`py-1.5 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'text-[14.5px]' : 'text-[17px]'}`}>
-                  {stepMode === 7 ? '배정 가능 인원' : '인원 요약 현황'}
+                  {stepMode === 7 ? '배정 가능 인원' : '인원 요약'}
                 </th>
                 {rooms.map(r => {
                   // calculate total students placed in this room across all slots
@@ -1909,7 +1909,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                 <th className={`py-1 px-0.5 text-center font-black text-[#005691] ${isCompactFit ? 'w-8 text-[13.5px]' : 'w-12 text-[15px]'}`}>응시</th>
                 {/* 7. 고사장 배치에서는 셀에 쓰는 말과 맞춰 '대기'로 부릅니다. */}
                 <th className={`py-1 px-0.5 text-center font-black text-slate-600 ${isCompactFit ? 'w-8 text-[13.5px]' : 'w-12 text-[15px]'}`}>
-                  {stepMode === 7 ? '대기' : '미응시'}
+                  대기
                 </th>
               </tr>
             </thead>
@@ -2652,6 +2652,50 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                 ✕
               </button>
             </div>
+
+            {/* 이 고사실 전체를 다른 고사실로 통째로 옮깁니다 (분반을 쪼개지 않고 자리만 바꿀 때). */}
+            {studentListModal.students.length > 0 && !isStageLocked && (
+              <div className="px-5 py-2.5 bg-amber-50/70 border-b border-amber-200 flex items-center gap-2.5 text-[14.5px]">
+                <span className="font-black text-amber-900 shrink-0">이 고사실 전체 이동</span>
+                <span className="text-amber-800 shrink-0">{studentListModal.students.length}명</span>
+                <select
+                  value=""
+                  onChange={e => {
+                    const targetId = e.target.value;
+                    if (!targetId) return;
+                    const moves: Record<string, string> = {};
+                    studentListModal.students.forEach(st => { moves[`${st.ban}-${st.num}`] = targetId; });
+                    const targetName = rooms.find(r => r.id === targetId)?.roomName ?? '';
+                    pushHistory(`[${placementSlots.find(s => s.index === studentListModal.slotIndex)?.title ?? ''}] 고사실 전체 이동 ➔ ${targetName}`);
+                    transferStudentsAndUpdatePlacement(studentListModal.slotIndex, moves);
+                    setStudentListModal(null);
+                    setAlertModal({
+                      isOpen: true,
+                      message: `✅ ${studentListModal.students.length}명을 통째로 [${targetName}]로 옮겼습니다.`,
+                    });
+                  }}
+                  className="px-3 py-1.5 bg-white border border-amber-300 rounded-lg text-[14px] font-bold text-amber-900 focus:outline-none focus:ring-2 focus:ring-amber-400 cursor-pointer"
+                  title="이 고사실의 학생 전원을 고른 고사실로 옮깁니다"
+                >
+                  <option value="">-- 옮길 고사실 선택 --</option>
+                  {roomsAt(studentListModal.slotIndex)
+                    .filter(r => r.id !== studentListModal.roomId && r.roomName !== '' && r.roomName !== '0')
+                    .map(r => {
+                      const row = placement[studentListModal.slotIndex] ?? {};
+                      const sp = studentPlacements?.[studentListModal.slotIndex] ?? {};
+                      const used = students.filter(x => sp[`${x.ban}-${x.num}`] === r.id).length;
+                      const cap = capacityForSlot(r, studentListModal.slotIndex, slotRoomCapacity,
+                        placementSlots.find(s => s.index === studentListModal.slotIndex), row[r.id],
+                        slotCapacityBasis[studentListModal.slotIndex]);
+                      return (
+                        <option key={r.id} value={r.id}>
+                          {r.roomName} ({used}/{cap}석){used === 0 ? ' · 비어있음' : ''}
+                        </option>
+                      );
+                    })}
+                </select>
+              </div>
+            )}
 
             {/* Batch Action Toolbar */}
             {studentListModal.students.length > 0 && (

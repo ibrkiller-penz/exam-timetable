@@ -316,7 +316,11 @@ export function autoPlaceSlot(
     if (b.dominantRatio !== a.dominantRatio) {
       return b.dominantRatio - a.dominantRatio;
     }
-    return b.dominantCount - a.dominantCount;
+    if (b.dominantCount !== a.dominantCount) {
+      return b.dominantCount - a.dominantCount;
+    }
+    // 큰 분반부터 자리를 잡아야 큰 방을 먼저 차지합니다.
+    return b.assignedStudents.length - a.assignedStudents.length;
   });
 
   // 2. 분반별 최적 고사실 매칭 (잠긴 고사실 제외)
@@ -352,11 +356,18 @@ export function autoPlaceSlot(
     }
 
     if (!targetRoom) {
-      targetRoom = rooms.find(r => 
+      // 원반이 겹치지 않는 이동수업 분반은 '크기에 맞는 방'에 넣습니다.
+      // 빈 방 순서대로 넣으면 29명 분반이 24석 방에 들어가 정원을 넘기게 됩니다.
+      const free = rooms.filter(r =>
         !lockedCellsRow?.[r.id] &&
         !isExtraRoom(r) &&
         (!newPlacement[i][r.id] || newPlacement[i][r.id] === '')
       );
+      const size = item.assignedStudents.length;
+      const capOf = (r: ExamRoom) => (r.capacity && r.capacity > 0 ? r.capacity : 28);
+      const fits = free.filter(r => capOf(r) >= size).sort((a, b) => capOf(a) - capOf(b));
+      // 담을 수 있는 방 중 가장 작은 방, 없으면 남은 방 중 가장 큰 방을 씁니다.
+      targetRoom = fits[0] ?? [...free].sort((a, b) => capOf(b) - capOf(a))[0];
     }
 
     if (!targetRoom) {
