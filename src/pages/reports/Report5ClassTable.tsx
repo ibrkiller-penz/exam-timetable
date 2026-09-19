@@ -105,55 +105,85 @@ export const Report5ClassTable: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="학급 시험시간표" />
       ) : (
-        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
-          {/* 교실에 붙이는 종이라 멀리서도 어느 반 며칠째인지 보여야 합니다. */}
-          <div className="flex justify-between items-end mb-5 gap-4">
-            <div>
-              <h1 className="font-black text-[36px] leading-none text-[#005691] tracking-tight">
-                {report.ban} 시험시간표
-              </h1>
-              <p className="text-[18px] font-black text-slate-700 mt-1.5">
-                {report.day}일차 · 소속 고사실 {actualRoomName || '없음'}
-              </p>
-            </div>
-            <span className="font-black text-[26px] text-slate-800 whitespace-nowrap">{dateFormatted}</span>
-          </div>
+        <div className="print-pages flex flex-col gap-8">
+          {(() => {
+            // 한 장에 30명까지 싣습니다. 넘으면 장을 나눕니다.
+            const PER_PAGE = 30;
+            const cnt = Math.max(1, Math.ceil(report.students.length / PER_PAGE));
+            const sheets = Array.from({ length: cnt }, (_, i) => report.students.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
 
-          <table className="w-full text-[14px] text-center border-collapse border-2 border-gray-800">
-            <thead>
-              <tr className="bg-gray-100 border-b border-gray-800 divide-x divide-gray-800">
-                <th rowSpan={2} className="py-2.5 px-2 w-14 font-black text-[15px]">번호</th>
-                <th rowSpan={2} className="py-2.5 px-3 w-24 font-black text-[15px]">성명</th>
-                {report.activePeriods.map(p => (
-                  <th key={p} colSpan={2} className="py-1.5 px-2 font-black text-[16px]">
-                    {p}교시
-                  </th>
-                ))}
-              </tr>
-              <tr className="bg-gray-50 border-b border-gray-800 divide-x divide-gray-800">
-                {report.activePeriods.map(p => (
-                  <React.Fragment key={p}>
-                    <th className="py-1.5 px-1 font-bold text-[13px]">과목명</th>
-                    <th className="py-1.5 px-1 font-bold text-[13px] w-16">고사실</th>
-                  </React.Fragment>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-800">
-              {report.students.map(s => (
-                <tr key={s.num} className="divide-x divide-gray-800 h-8 hover:bg-gray-50">
-                  <td className="font-bold text-slate-600">{s.num}</td>
-                  <td className="font-black text-[16px] text-gray-900">{s.name}</td>
-                  {report.activePeriods.map(p => (
-                    <React.Fragment key={p}>
-                      <td className="font-bold text-slate-800">{s.periods[p]?.subject || '-'}</td>
-                      <td className="font-black text-[16px] text-red-700">{s.periods[p]?.room || '-'}</td>
-                    </React.Fragment>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+            return sheets.map((pageStudents, pageIdx) => (
+              <div
+                key={pageIdx}
+                className="print-page page-portrait bg-white border border-gray-300 p-8 print:p-3 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
+              >
+                {/* 교실에 붙이는 종이라 멀리서도 어느 반 며칠째인지 보여야 합니다. */}
+                <div className="flex justify-between items-end mb-5 gap-4">
+                  <div>
+                    <h1 className="font-black text-[34px] print:text-[28px] leading-none text-[#005691] tracking-tight">
+                      {report.ban} 시험시간표
+                      {cnt > 1 && <span className="text-[17px] text-slate-500 ml-2">#{pageIdx + 1}/{cnt}</span>}
+                    </h1>
+                    <p className="text-[17px] print:text-[15px] font-black text-slate-700 mt-1.5">
+                      {report.day}일차 · 소속 고사실 {actualRoomName || '없음'}
+                    </p>
+                  </div>
+                  <span className="font-black text-[24px] print:text-[20px] text-slate-800 whitespace-nowrap">{dateFormatted}</span>
+                </div>
+
+                <table className="w-full table-fixed text-[14px] print:text-[13px] text-center border-collapse border-2 border-gray-800">
+                  {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}
+                  <colgroup>
+                    <col style={{ width: '7%' }} />
+                    <col style={{ width: '13%' }} />
+                    {report.activePeriods.map(p => (
+                      <React.Fragment key={p}>
+                        <col style={{ width: `${(80 / report.activePeriods.length) * 0.62}%` }} />
+                        <col style={{ width: `${(80 / report.activePeriods.length) * 0.38}%` }} />
+                      </React.Fragment>
+                    ))}
+                  </colgroup>
+                  <thead>
+                    <tr className="bg-gray-100 border-b border-gray-800 divide-x divide-gray-800">
+                      <th rowSpan={2} className="py-2 px-1 font-black text-[15px]">번호</th>
+                      <th rowSpan={2} className="py-2 px-1 font-black text-[15px]">성명</th>
+                      {report.activePeriods.map(p => (
+                        <th key={p} colSpan={2} className="py-1.5 px-1 font-black text-[16px]">
+                          {p}교시
+                        </th>
+                      ))}
+                    </tr>
+                    <tr className="bg-gray-50 border-b border-gray-800 divide-x divide-gray-800">
+                      {report.activePeriods.map(p => (
+                        <React.Fragment key={p}>
+                          <th className="py-1 px-1 font-bold text-[12.5px] text-slate-500">과목명</th>
+                          <th className="py-1 px-1 font-bold text-[12.5px] text-slate-500">고사실</th>
+                        </React.Fragment>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-800">
+                    {pageStudents.map(st => (
+                      <tr key={st.num} className="divide-x divide-gray-800 h-8 print:h-7">
+                        <td className="font-bold text-slate-600">{st.num}</td>
+                        <td className="font-black text-[16px] print:text-[15px] text-gray-900 whitespace-nowrap">{displayName(st.name)}</td>
+                        {report.activePeriods.map(p => {
+                          const room = st.periods[p]?.room || '-';
+                          const sep = room.includes('(별)');
+                          return (
+                            <React.Fragment key={p}>
+                              <td className="font-bold text-slate-800 break-keep leading-tight px-1">{st.periods[p]?.subject || '-'}</td>
+                              <td className={`font-black text-[16px] print:text-[15px] ${sep ? 'text-amber-700' : 'text-red-700'}`}>{room}</td>
+                            </React.Fragment>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ));
+          })()}
         </div>
       )}
     </div>

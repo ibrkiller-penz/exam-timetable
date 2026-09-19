@@ -76,6 +76,29 @@
   .page-portrait { page: a4-portrait; }
   .page-landscape { page: a4-landscape; }
 
+  /* 화면용 레이아웃이 종이 폭을 좁힙니다.
+     화면은 사이드바와 본문을 가로로 나눠 놓고 높이를 화면에 맞춰 두는데,
+     그대로 인쇄하면 본문이 종이의 일부만 쓰고 나머지는 빈 채로 나옵니다.
+     인쇄할 때는 모두 풀어 한 장을 통째로 씁니다. */
+  #root > div,
+  #root > div > main,
+  #root > div > main > div {
+    display: block !important;
+    width: auto !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+
+  /* 페이지를 감싼 상자는 블록이어야 합니다.
+     flex나 grid 안에 있으면 브라우저가 페이지 나눔(break-after)을 무시해서,
+     여러 장이 한 장에 우겨 넣어집니다. */
+  .print-pages {
+    display: block !important;
+    gap: 0 !important;
+  }
+
   /* 인쇄할 때는 용지가 크기를 정하므로, 화면용으로 잡아 둔 치수를 풉니다. */
   .print-page {
     width: auto !important;

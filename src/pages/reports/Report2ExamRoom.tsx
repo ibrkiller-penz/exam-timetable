@@ -109,7 +109,7 @@ export const Report2ExamRoom: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="고사실 명단" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />
       ) : (
-        <div className="flex flex-col gap-8">
+        <div className="print-pages flex flex-col gap-8">
           {(printingAll ? uniqueRooms : [curRoom]).map(rn => {
             const rep = rn === curRoom ? report : buildExamRoomReport(attendance, selectedDay, selectedPeriod, rn, rooms);
             if (!rep) return null;
@@ -132,7 +132,7 @@ export const Report2ExamRoom: React.FC = () => {
                   )}
                 </div>
 
-                <div className="border-2 border-gray-800 grid grid-cols-5 text-center text-[13.5px] print:text-[12px] mb-3">
+                <div className="w-full border-2 border-gray-800 grid text-center text-[13.5px] print:text-[12px] mb-3" style={{ gridTemplateColumns: '1.5fr 0.9fr 1fr 1.7fr 1fr' }}>
                   <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">시행일</div>
                   <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">교시</div>
                   <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">고사실</div>

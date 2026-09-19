@@ -501,7 +501,7 @@ export const Report8SeparateRoom: React.FC = () => {
           </div>
         )
       ) : (
-        <div className="flex flex-col gap-8">
+        <div className="print-pages flex flex-col gap-8">
           {rosters.map(r => (
             <div
               key={`${r.slotTitle}-${r.room}`}

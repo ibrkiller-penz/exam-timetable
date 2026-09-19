@@ -87,7 +87,7 @@ export const Report3RoomTimetable: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="고사실 시험시간표" />
       ) : (
-        <div className="flex flex-col gap-8">
+        <div className="print-pages flex flex-col gap-8">
         {(printingAll ? rooms.filter(r => r.roomName && r.roomName !== '0') : [room]).map(rm => {
         const rep = rm.id === room.id ? report : buildRoomTimetableReport(rm, attendance, days, times);
         if (!rep) return null;

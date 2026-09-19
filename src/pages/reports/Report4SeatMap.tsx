@@ -196,7 +196,7 @@ export const Report4SeatMap: React.FC = () => {
             {report.examRoom} · {report.period} · {report.subject}
           </p>
 
-          <div className="border-2 border-gray-800 grid grid-cols-5 text-center text-[14px] mb-4 shrink-0">
+          <div className="w-full border-2 border-gray-800 grid text-center text-[14px] mb-4 shrink-0" style={{ gridTemplateColumns: '1.5fr 0.9fr 1fr 1.7fr 1fr' }}>
             <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">시행일</div>
             <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">교시</div>
             <div className="py-1.5 bg-gray-100 font-black border-r border-gray-800">고사실</div>
@@ -219,11 +219,11 @@ export const Report4SeatMap: React.FC = () => {
 
           {/* 좌석 — 남는 높이를 나눠 가져 페이지를 꽉 채웁니다. */}
           <div
-            className="grid gap-2 flex-1"
+            className="w-full grid gap-3 flex-1"
             style={{ gridTemplateColumns: `repeat(${report.columns}, minmax(0, 1fr))` }}
           >
             {report.grid.map((col, colIdx) => (
-              <div key={colIdx} className="flex flex-col gap-2 min-h-0">
+              <div key={colIdx} className="flex flex-col gap-3 min-h-0">
                 <div className="text-center font-black text-[15px] text-slate-500 pb-0.5 border-b-2 border-slate-300 shrink-0">
                   {colIdx + 1}열
                 </div>
@@ -234,7 +234,7 @@ export const Report4SeatMap: React.FC = () => {
                   return (
                     <div
                       key={cell.seat}
-                      className={`px-1 py-1.5 text-center rounded-lg flex-1 flex flex-col items-center justify-center min-h-[52px] ${
+                      className={`px-2 py-2 text-center rounded-lg flex-1 flex flex-col items-center justify-center min-h-[58px] ${
                         empty ? 'border-2 border-dashed border-gray-300 bg-gray-50/40' : 'border-2 border-gray-800 bg-white'
                       }`}
                     >

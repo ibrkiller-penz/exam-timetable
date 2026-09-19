@@ -78,7 +78,7 @@ export const Report1GradeTable: React.FC = () => {
           7. 고사장 배치를 하면 전체 시험시간표가 만들어집니다.
         </div>
       ) : (
-        <div className="flex flex-col gap-8">
+        <div className="print-pages flex flex-col gap-8">
           {pages.map((pageRows, pageIdx) => (
             <div
               key={pageIdx}
