@@ -525,58 +525,110 @@ export function initSlotStudentPlacements(
     }
   }
 
-  // 1. Assign exam students according to actual NEIS room or fallback to entry offset
+  // 1. Assign exam students according to actual NEIS room or fallback to entry offset / split-room even distribution
+  const subjectsInSlot = new Set<string>();
   for (const r of rooms) {
     const val = placementRow[r.id];
-    if (!val || isWaitCell(val)) continue;
+    if (!val || isWaitCell(val) || val === '배치금지') continue;
+    const hyphenIdx = val.lastIndexOf('-');
+    const cleanSub = hyphenIdx !== -1 ? val.slice(0, hyphenIdx).trim() : val.trim();
+    subjectsInSlot.add(cleanSub);
+  }
 
-    const normKey = val.endsWith('반') ? val : `${val}반`;
-    const entry = entries.get(val) || entries.get(normKey) || Array.from(entries.values()).find(e => e.key === val || e.key === normKey);
-    if (!entry) continue;
+  for (const sub of subjectsInSlot) {
+    const subRooms = rooms.filter(r => {
+      const val = placementRow[r.id];
+      if (!val || isWaitCell(val) || val === '배치금지') return false;
+      const hyphenIdx = val.lastIndexOf('-');
+      const cleanSub = hyphenIdx !== -1 ? val.slice(0, hyphenIdx).trim() : val.trim();
+      return cleanSub === sub;
+    });
+
+    const subEntries = Array.from(entries.values()).filter(e => e.subject === sub);
+    const hasSplitOrAdded = subRooms.length !== subEntries.length || subRooms.some(r => {
+      const val = placementRow[r.id]!;
+      const normKey = val.endsWith('반') ? val : `${val}반`;
+      return !entries.has(val) && !entries.has(normKey) && !Array.from(entries.values()).some(e => e.key === val || e.key === normKey);
+    });
 
     const subjectStudents = students
-      .filter(st => st.subjects.includes(entry.subject))
+      .filter(st => st.subjects.includes(sub))
       .sort((a, b) => {
         if (a.ban !== b.ban) return a.ban.localeCompare(b.ban, 'ko');
         return a.num - b.num;
       });
 
-    let matched: Student[] = [];
+    if (hasSplitOrAdded) {
+      // Even distribution across active (unlocked) exam rooms for this subject
+      const activeRooms = subRooms.filter(r => !lockedCellsRow?.[r.id]);
+      const studentsToPlace = subjectStudents.filter(st => !assignedStudentKeys.has(`${st.ban}-${st.num}`));
+      const numRooms = activeRooms.length;
 
-    if (neis && neis.length > 0) {
-      // 1A. Exact NEIS match
-      const neisSet = new Set(
-        neis.filter(row => row.subject === entry.subject && (row.room === entry.room || row.room2 === entry.room))
-            .map(row => `${row.ban}-${row.num}`)
-      );
-      matched = subjectStudents.filter(st => neisSet.has(`${st.ban}-${st.num}`));
-    } else {
-      // 1B. Fallback offset match
-      const subjectEntries = Array.from(entries.values())
-        .filter(e => e.subject === entry.subject)
-        .sort((a, b) => a.index - b.index);
+      if (numRooms > 0 && studentsToPlace.length > 0) {
+        const q = Math.floor(studentsToPlace.length / numRooms);
+        const rem = studentsToPlace.length % numRooms;
 
-      let offset = 0;
-      for (const e of subjectEntries) {
-        if (e.key === entry.key) break;
-        offset += e.stuCount;
+        let studentIdx = 0;
+        activeRooms.forEach((r, idx) => {
+          const quota = q + (idx < rem ? 1 : 0);
+          const cap = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
+          const toTake = Math.min(quota, cap);
+          for (let i = 0; i < toTake && studentIdx < studentsToPlace.length; i++) {
+            const st = studentsToPlace[studentIdx++];
+            const k = `${st.ban}-${st.num}`;
+            result[k] = r.id;
+            assignedStudentKeys.add(k);
+          }
+        });
+
+        // Any excess beyond room capacities goes to overflow
+        for (let i = studentIdx; i < studentsToPlace.length; i++) {
+          overflowExamStudents.push({ student: studentsToPlace[i], originalRoomId: activeRooms[0]?.id || '', subject: sub });
+        }
       }
-      matched = subjectStudents.slice(offset, offset + entry.stuCount);
-    }
+    } else {
+      // Standard 1:1 NEIS / offset match
+      for (const r of subRooms) {
+        const val = placementRow[r.id]!;
+        const normKey = val.endsWith('반') ? val : `${val}반`;
+        const entry = entries.get(val) || entries.get(normKey) || Array.from(entries.values()).find(e => e.key === val || e.key === normKey);
+        if (!entry) continue;
 
-    const roomCapacity = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
-    let currentRoomAssigned = Object.values(result).filter(id => id === r.id).length;
+        let matched: Student[] = [];
+        if (neis && neis.length > 0) {
+          const neisSet = new Set(
+            neis.filter(row => row.subject === entry.subject && (row.room === entry.room || row.room2 === entry.room))
+                .map(row => `${row.ban}-${row.num}`)
+          );
+          matched = subjectStudents.filter(st => neisSet.has(`${st.ban}-${st.num}`));
+        } else {
+          const subjectEntries = Array.from(entries.values())
+            .filter(e => e.subject === entry.subject)
+            .sort((a, b) => a.index - b.index);
 
-    for (const st of matched) {
-      const k = `${st.ban}-${st.num}`;
-      if (assignedStudentKeys.has(k)) continue;
+          let offset = 0;
+          for (const e of subjectEntries) {
+            if (e.key === entry.key) break;
+            offset += e.stuCount;
+          }
+          matched = subjectStudents.slice(offset, offset + entry.stuCount);
+        }
 
-      if (currentRoomAssigned < roomCapacity) {
-        result[k] = r.id;
-        assignedStudentKeys.add(k);
-        currentRoomAssigned++;
-      } else {
-        overflowExamStudents.push({ student: st, originalRoomId: r.id, subject: entry.subject });
+        const roomCapacity = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
+        let currentRoomAssigned = Object.values(result).filter(id => id === r.id).length;
+
+        for (const st of matched) {
+          const k = `${st.ban}-${st.num}`;
+          if (assignedStudentKeys.has(k)) continue;
+
+          if (currentRoomAssigned < roomCapacity) {
+            result[k] = r.id;
+            assignedStudentKeys.add(k);
+            currentRoomAssigned++;
+          } else {
+            overflowExamStudents.push({ student: st, originalRoomId: r.id, subject: entry.subject });
+          }
+        }
       }
     }
   }

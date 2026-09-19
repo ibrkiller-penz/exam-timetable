@@ -31,7 +31,13 @@ export function cellDerived(
     const roomName = e.room.replace('7차일반 ', '');
     return { classRoom: roomName, stuCount: e.stuCount };
   }
-  return { classRoom: '오류', stuCount: 0 };
+
+  const hyphenIdx = v.lastIndexOf('-');
+  if (hyphenIdx !== -1) {
+    const banPart = v.slice(hyphenIdx + 1).trim();
+    return { classRoom: banPart, stuCount: '' };
+  }
+  return { classRoom: '', stuCount: '' };
 }
 
 export function slotSummary(
@@ -81,7 +87,23 @@ export function slotSummary(
         placedNon += parseWaitCount(v);
       } else {
         const e = entries.get(v);
-        if (e) placedTakers += e.stuCount;
+        if (e) {
+          placedTakers += e.stuCount;
+        } else {
+          const hyphenIdx = v.lastIndexOf('-');
+          const subj = hyphenIdx !== -1 ? v.slice(0, hyphenIdx).trim() : v.trim();
+          if (ps.subjects.includes(subj)) {
+            const sameSubjRooms = Object.values(row).filter(val => {
+              if (!val || isWaitCell(val) || val === '배치금지') return false;
+              const h = val.lastIndexOf('-');
+              return (h !== -1 ? val.slice(0, h).trim() : val.trim()) === subj;
+            });
+            const subjTakers = students && students.length > 0 
+              ? students.filter(s => s.subjects.includes(subj)).length 
+              : ps.takers;
+            placedTakers += Math.round(subjTakers / Math.max(1, sameSubjRooms.length));
+          }
+        }
       }
     }
   }
@@ -228,10 +250,12 @@ export function hasErrorBaechi(
   placement: PlacementGrid,
   placementSlots: PlacementSlot[],
   rooms: ExamRoom[],
-  entries: Map<SubjectBanKey, SubjectBanEntry>
+  entries: Map<SubjectBanKey, SubjectBanEntry>,
+  studentPlacements?: Record<number, Record<string, string>>,
+  students?: Student[]
 ): void {
   for (const ps of placementSlots) {
-    const sum = slotSummary(ps.index, placement, placementSlots, entries);
+    const sum = slotSummary(ps.index, placement, placementSlots, entries, studentPlacements, students);
     if (sum.errorKey === '응시초과') throw new Error(MSG.S7_ERR_1);
     if (sum.errorKey === '응시미배치') throw new Error(MSG.S7_ERR_2);
     if (sum.errorKey === '미응시미배치') throw new Error(MSG.S7_ERR_3);
@@ -249,8 +273,12 @@ export function hasErrorBaechi(
       }
       seen.add(v);
 
+      const hyphenIdx = v.lastIndexOf('-');
+      const subjName = hyphenIdx !== -1 ? v.slice(0, hyphenIdx).trim() : v.trim();
       const sb = entries.get(v);
-      if (!sb || !canSub.includes(sb.subject)) {
+      const subjectToCheck = sb ? sb.subject : subjName;
+
+      if (!canSub.includes(subjectToCheck)) {
         throw new Error(MSG.S7_WRONG_SUBJ(v, canSub.join(',')));
       }
     }

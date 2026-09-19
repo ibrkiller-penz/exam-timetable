@@ -136,8 +136,11 @@ export function confirmStage3(state: AppState): AppState {
         break;
       }
       if (!isWaitCell(v) && !isForbiddenCell(v)) {
+        const hyphenIdx = v.lastIndexOf('-');
+        const subjName = hyphenIdx !== -1 ? v.slice(0, hyphenIdx).trim() : v.trim();
         const sb = entries.get(v);
-        if (!sb || !canSub.includes(sb.subject)) {
+        const subjectToCheck = sb ? sb.subject : subjName;
+        if (!canSub.includes(subjectToCheck)) {
           shouldClear = true;
           break;
         }
@@ -169,7 +172,7 @@ export function confirmStage4(state: AppState): { state: AppState; notices: stri
 
   const placementSlots = buildPlacementInfo(state.timetable, state.students, state.evalSubjects);
   const entries = subjectBanEntries(state.subjectBans);
-  hasErrorBaechi(state.placement, placementSlots, state.rooms, entries);
+  hasErrorBaechi(state.placement, placementSlots, state.rooms, entries, state.studentPlacements, state.students);
 
   const { rows: attendance, notices } = buildAttendance(
     state.neis,

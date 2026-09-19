@@ -51,7 +51,7 @@ export const selDayLoad = (state: AppState, day: 1 | 2 | 3 | 4 | 5) => {
 export const selSlotSummary = (state: AppState, slotIndex: number): SlotSummary => {
   const pSlots = selPlacementSlots(state);
   const entries = selSubjectBanEntries(state);
-  return calcSlotSummary(slotIndex, state.placement, pSlots, entries);
+  return calcSlotSummary(slotIndex, state.placement, pSlots, entries, state.studentPlacements, state.students);
 };
 
 export const selCellInfo = (state: AppState, slotIndex: number, roomId: string): CellInfo | null => {

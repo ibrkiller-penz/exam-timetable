@@ -5,8 +5,9 @@ import { buildSubjectTables, buildRooms } from '../../src/domain/baseData';
 import { buildStudents } from '../../src/domain/subjects';
 import { createInitialTimetable } from '../../src/domain/constants';
 import { buildPlacementInfo } from '../../src/domain/placementInfo';
-import { subjectBanEntries, slotSummary } from '../../src/domain/placement';
+import { subjectBanEntries, slotSummary, cellDerived, hasErrorBaechi } from '../../src/domain/placement';
 import { autoPlaceSlot, calculateStudentMovement, initSlotStudentPlacements, getStudentListForSlotRoom, sanitizePlacementGrid } from '../../src/domain/autoPlace';
+import { Student, ExamRoom, PlacementSlot, PlacementGrid } from '../../src/domain/types';
 
 describe('placement', () => {
   it('generates placement info and runs auto placement', () => {
@@ -107,5 +108,77 @@ describe('placement', () => {
     const result = getStudentListForSlotRoom(1, extraRoom.id, cleanedGrid, placementSlots, [extraRoom], entries, testStudents);
     expect(result.students.length).toBe(1);
     expect(result.students[0].name).toBe('대기학생');
+  });
+
+  it('supports split/added rooms (4반) without throwing wrong subject error and distributes students evenly', () => {
+    // 91 students taking '심화 영어 독해 Ⅰ (4)'
+    const sub = '심화 영어 독해 Ⅰ (4)';
+    const subStudents: Student[] = Array.from({ length: 91 }, (_, i) => ({
+      grade: '3',
+      ban: `${(i % 3) + 1}반`,
+      num: Math.floor(i / 3) + 1,
+      name: `학생${i + 1}`,
+      subjects: [sub],
+    }));
+
+    const mockRooms: ExamRoom[] = [
+      { id: 'r1', roomName: '3-1', capacity: 28, maxClassSize: 28, banName: '1반' },
+      { id: 'r2', roomName: '3-2', capacity: 28, maxClassSize: 28, banName: '2반' },
+      { id: 'r3', roomName: '3-3', capacity: 28, maxClassSize: 28, banName: '3반' },
+      { id: 'r4', roomName: '3-4', capacity: 28, maxClassSize: 28, banName: '4반' },
+    ];
+
+    // Static NEIS entries only had 3 bans
+    const entries = new Map<string, any>([
+      [`${sub}-1반`, { key: `${sub}-1반`, subject: sub, room: '1반', stuCount: 31, index: 1 }],
+      [`${sub}-2반`, { key: `${sub}-2반`, subject: sub, room: '2반', stuCount: 30, index: 2 }],
+      [`${sub}-3반`, { key: `${sub}-3반`, subject: sub, room: '3반', stuCount: 30, index: 3 }],
+    ]);
+
+    const pSlots: PlacementSlot[] = [{
+      index: 1,
+      day: 1 as any,
+      period: 1 as any,
+      title: '1일차 1교시',
+      subjects: [sub],
+      banCounts: [3],
+      banCountTotal: 3,
+      takers: 91,
+      nonTakers: 0,
+    }];
+
+    // Grid has 4 rooms: 1반, 2반, 3반, and newly added 4반
+    const grid: PlacementGrid = {
+      1: {
+        r1: `${sub}-1반`,
+        r2: `${sub}-2반`,
+        r3: `${sub}-3반`,
+        r4: `${sub}-4반`,
+      },
+    };
+
+    // 1. cellDerived for 4반 should return '4반', not '오류'
+    const d = cellDerived(`${sub}-4반`, entries);
+    expect(d.classRoom).toBe('4반');
+
+    // 2. initSlotStudentPlacements should evenly distribute 91 students into 23, 23, 23, 22
+    const slotPlacements = initSlotStudentPlacements(1, grid[1], pSlots, mockRooms, entries, subStudents);
+    const countR1 = Object.values(slotPlacements).filter(id => id === 'r1').length;
+    const countR2 = Object.values(slotPlacements).filter(id => id === 'r2').length;
+    const countR3 = Object.values(slotPlacements).filter(id => id === 'r3').length;
+    const countR4 = Object.values(slotPlacements).filter(id => id === 'r4').length;
+
+    expect(countR1 + countR2 + countR3 + countR4).toBe(91);
+    expect([countR1, countR2, countR3, countR4].sort((a, b) => b - a)).toEqual([23, 23, 23, 22]);
+
+    // 3. hasErrorBaechi must NOT throw
+    expect(() => {
+      hasErrorBaechi(grid, pSlots, mockRooms, entries, { 1: slotPlacements }, subStudents);
+    }).not.toThrow();
+
+    // 4. slotSummary should report OK and 0 unplaced
+    const sum = slotSummary(1, grid, pSlots, entries, { 1: slotPlacements }, subStudents);
+    expect(sum.errorKey).toBe('OK');
+    expect(sum.remaining.takers).toBe(0);
   });
 });

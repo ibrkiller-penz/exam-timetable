@@ -22,10 +22,9 @@ export function buildLabels(
       if (!v || v === '' || isWaitCell(v) || v === '배치금지') continue;
 
       const e = entries.get(v);
-      if (!e) continue;
-
       const hyphenIdx = v.lastIndexOf('-');
-      const cleanSubject = hyphenIdx !== -1 ? v.slice(0, hyphenIdx) : v;
+      const cleanSubject = hyphenIdx !== -1 ? v.slice(0, hyphenIdx).trim() : v.trim();
+      const banLabel = hyphenIdx !== -1 ? v.slice(hyphenIdx + 1).trim() : '';
 
       out.push({
         seq: ++seq,
@@ -35,8 +34,8 @@ export function buildLabels(
         time: timeStr,
         subject: cleanSubject,
         examRoom: r.roomName,
-        classRoom: e.room,
-        stuCount: e.stuCount,
+        classRoom: e ? e.room : banLabel,
+        stuCount: e ? e.stuCount : 0,
       });
     }
   }
