@@ -13,9 +13,10 @@ export function useAttendance() {
   const attendance = useAppStore(s => s.attendance);
   const separateExaminers = useAppStore(s => s.separateExaminers);
   const slots = useAppStore(selPlacementSlots);
+  const allDay = useAppStore(s => s.settings.separateRoomAllDay ?? false);
 
   return useMemo(
-    () => applySeparate(attendance, slots, separateExaminers),
-    [attendance, slots, separateExaminers]
+    () => applySeparate(attendance, slots, separateExaminers, allDay),
+    [attendance, slots, separateExaminers, allDay]
   );
 }

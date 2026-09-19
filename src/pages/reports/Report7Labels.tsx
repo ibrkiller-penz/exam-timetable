@@ -4,6 +4,7 @@ import { selPlacementSlots, selSubjectBanEntries } from '../../store/selectors';
 import { buildLabels } from '../../domain/reports/labels';
 import { downloadWorkbook } from '../../utils/excelStyled';
 import { onlySubject } from '../../domain/util/text';
+import { PrintPageSize } from './PrintPageSize';
 import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -231,7 +232,11 @@ export const Report7Labels: React.FC = () => {
         if (i > 0) {
           pdf.addPage('a4', 'landscape');
         }
-        pdf.addImage(imgData, 'JPEG', 0, 0, 297, 210, undefined, 'FAST');
+        // 비율을 지킨 채 A4 가로 안에 넣고 가운데 놓습니다.
+        const ratio = canvas.width / canvas.height;
+        let w = 297, h = 297 / ratio;
+        if (h > 210) { h = 210; w = 210 * ratio; }
+        pdf.addImage(imgData, 'JPEG', (297 - w) / 2, (210 - h) / 2, w, h, undefined, 'FAST');
       }
 
       const filename = `문제지_봉투라벨_${meta.title || '시험시간표'}.pdf`;
@@ -246,6 +251,8 @@ export const Report7Labels: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-slate-100 overflow-auto p-4 md:p-6 print:overflow-visible print:h-auto print:p-0 print:m-0 print:bg-white print:block">
+      {/* 봉투 라벨은 가로 2x2 입니다. */}
+      <PrintPageSize landscape />
       {/* 가로 2x2 인쇄 스타일 */}
       <style>{`
         @media print {

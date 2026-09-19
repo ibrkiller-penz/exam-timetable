@@ -5,6 +5,7 @@ import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/appStore';
 import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
+import { PrintPageSize } from './PrintPageSize';
 import { selPlacementSlots } from '../../store/selectors';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
 import { Printer, AlertTriangle, LayoutGrid, Square, Users, User, Building, FileDown, Loader2 } from 'lucide-react';
@@ -179,7 +180,11 @@ export const Report6StudentTable: React.FC = () => {
         if (i > 0) {
           pdf.addPage('a4', 'portrait');
         }
-        pdf.addImage(imgData, 'JPEG', 0, 0, 210, 297, undefined, 'FAST');
+        // 비율을 지킨 채 A4 안에 넣고 가운데 놓습니다. 늘리면 글자가 눌립니다.
+        const ratio = canvas.width / canvas.height;
+        let w = 210, h = 210 / ratio;
+        if (h > 297) { h = 297; w = 297 * ratio; }
+        pdf.addImage(imgData, 'JPEG', (210 - w) / 2, (297 - h) / 2, w, h, undefined, 'FAST');
       }
 
       const scopeName = printScope === 'student' ? `${banStudents.find(s => s.num === selectedNum)?.name ?? '학생'}` : printScope === 'class' ? `${curBan}` : '전체';
@@ -195,6 +200,7 @@ export const Report6StudentTable: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-slate-100 overflow-auto p-4 md:p-6 print:overflow-visible print:h-auto print:p-0 print:m-0 print:bg-white print:block">
+      <PrintPageSize />
       {/* PDF 생성 중 진행 모달 */}
       {isGeneratingPdf && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">

@@ -56,15 +56,24 @@ export function usePdfSave() {
         });
 
         const img = canvas.toDataURL('image/jpeg', 0.95);
-        const w = landscape ? 297 : 210;
-        const h = landscape ? 210 : 297;
+
+        // 찍은 그림을 A4 에 억지로 늘리면 비율이 틀어져 글자가 눌리고
+        // 가장자리가 잘립니다. 비율을 지킨 채 종이 안에 넣고 가운데 놓습니다.
+        const pageW = landscape ? 297 : 210;
+        const pageH = landscape ? 210 : 297;
+        const ratio = canvas.width / canvas.height;
+        let w = pageW;
+        let h = pageW / ratio;
+        if (h > pageH) { h = pageH; w = pageH * ratio; }
+        const x = (pageW - w) / 2;
+        const y = (pageH - h) / 2;
 
         if (!pdf) {
           pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
         } else {
           pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
         }
-        pdf.addImage(img, 'JPEG', 0, 0, w, h, undefined, 'FAST');
+        pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
       }
 
       pdf?.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);

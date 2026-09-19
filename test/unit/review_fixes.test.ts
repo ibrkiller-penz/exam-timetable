@@ -61,11 +61,23 @@ describe('2. 별도 응시는 시험을 보는 교시에만 붙는다', () => {
     { key1: 'b', key2: 'b', key3: '1반2번1일차1교시', day: '1일차' as const, period: '1교시' as const, examRoom: '3-2', subject: '미응시', grade: '3', ban: '1반', num: 2, name: '대기', classRoom: '1반', seq: 1, seat: 1 },
   ];
 
-  it('모든 시험으로 지정해도 대기 시간 줄에는 표시가 붙지 않는다', () => {
+  it("'시험만'(기본)이면 대기 시간 줄에는 표시가 붙지 않는다", () => {
     const out = applySeparate(rows, slots, { '1반-1': { room: 1, slots: 'all' }, '1반-2': { room: 1, slots: 'all' } });
     expect(out.find(r => r.num === 1)!.separateRoom).toBe(1);        // 시험 보는 줄
     expect(out.find(r => r.num === 2)!.separateRoom).toBeUndefined(); // 대기 줄은 제 교실에 있습니다.
     expect(out.find(r => r.num === 2)!.seat).toBe(1);                 // 대기실 좌석도 그대로입니다.
+  });
+
+  it("'종일'이면 대기 시간에도 별도실에 있는 것으로 본다", () => {
+    // 학생 상태에 따라 하루 종일 별도실에 있는 경우가 있습니다.
+    const out = applySeparate(
+      rows, slots,
+      { '1반-1': { room: 1, slots: 'all' }, '1반-2': { room: 2, slots: 'all' } },
+      true
+    );
+    expect(out.find(r => r.num === 1)!.separateRoom).toBe(1);
+    expect(out.find(r => r.num === 2)!.separateRoom).toBe(2); // 대기 줄도 별도실
+    expect(out.find(r => r.num === 2)!.seat).toBe(null);      // 대기실 좌석에서 빠집니다.
   });
 });
 

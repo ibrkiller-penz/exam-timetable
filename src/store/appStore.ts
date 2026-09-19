@@ -231,7 +231,7 @@ export type AppStore = AppState & AppStoreActions;
 /** 별도 응시자 지정을 응시현황에 반영합니다. 규칙은 domain/separate 한 곳에만 둡니다. */
 function applySeparateToAttendance(state: AppState, map: Record<string, SeparateExaminer>): AttendanceRow[] {
   const slots = buildPlacementInfo(state.timetable, state.students, state.evalSubjects);
-  return applySeparate(state.attendance, slots, map);
+  return applySeparate(state.attendance, slots, map, state.settings.separateRoomAllDay ?? false);
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({

@@ -147,6 +147,33 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
               8. 학생 배치에서 학생을 별도 응시자로 지정할 때, 여기서 정한 수만큼 고를 수 있습니다.
               별도 응시자는 원래 고사실 명단에 남고 비고에 '별도'로 표시되며, 좌석배치도에서는 빠집니다.
             </p>
+
+            {/* 학생 상태에 따라 다릅니다. 시험만 따로 보고 대기는 제 교실에서 하는 경우도,
+                하루 종일 별도실에 있는 경우도 있습니다. */}
+            <div className="mt-3">
+              <span className="block text-sm font-bold text-gray-700 mb-1.5">별도 고사실에 언제 있나요?</span>
+              <div className="flex items-center gap-2">
+                {([[false, '시험만'], [true, '종일']] as const).map(([value, label]) => (
+                  <button
+                    key={String(value)}
+                    type="button"
+                    onClick={() => updateSettings({ separateRoomAllDay: value })}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-bold border transition ${
+                      (settings.separateRoomAllDay ?? false) === value
+                        ? 'bg-[#005691] text-white border-[#005691]'
+                        : 'bg-white text-slate-700 border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500 mt-1">
+                {(settings.separateRoomAllDay ?? false)
+                  ? '대기 시간에도 별도 고사실에 머뭅니다. 대기실 좌석배치도에서도 빠집니다.'
+                  : '시험 보는 교시에만 별도 고사실에 가고, 대기 시간에는 제 교실에 있습니다.'}
+              </p>
+            </div>
           </div>
 
           {/* 어느 한 화면에 매이지 않는 설정이라 맨 아래에 둡니다.

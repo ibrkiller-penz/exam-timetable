@@ -43,6 +43,23 @@ export const Report4SeatMap: React.FC = () => {
     setApplyOpen(false);
   };
 
+  // 전체 출력일 때 고사실마다 좌석배치도를 만듭니다.
+  const seatMapOf = (roomName: string) => {
+    const ro = rooms.find(x => x.roomName === roomName);
+    return buildSeatMapReport(
+      attendance, selectedDay, selectedPeriod, roomName,
+      ro?.cols ?? settings.seatColumns,
+      ro?.layoutDirection ?? settings.seatLayoutDirection ?? 'col',
+      ro?.rows ?? settings.seatsPerColumn
+    );
+  };
+
+  // 한 번에 인쇄하는 장들은 종이 방향이 같아야 합니다(@page 는 하나뿐).
+  // 열이 많은 고사실이 하나라도 있으면 모두 가로로 눕힙니다.
+  const anyWide = (printingAll ? uniqueRooms : [curRoom])
+    .some(rn => (seatMapOf(rn)?.columns ?? 0) >= 6);
+
+  const rn0 = curRoom;
   const report = buildSeatMapReport(
     attendance, 
     selectedDay, 
@@ -56,7 +73,7 @@ export const Report4SeatMap: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
-      <PrintPageSize landscape={(report?.columns ?? 0) >= 6} />
+      <PrintPageSize landscape={anyWide} />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
           <h2 className="text-xl font-bold text-[#005691]">10-4. 고사실 좌석배치도</h2>
@@ -193,22 +210,26 @@ export const Report4SeatMap: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="좌석배치도" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />
       ) : (
-        /* 열이 많으면 세로 A4에 칸이 눌려 이름이 읽히지 않습니다. 그때는 가로로 눕힙니다. */
         /* 학생들이 복도에 서서 자기 자리를 찾는 종이입니다.
            제목을 크게 쓰고, 좌석 칸이 페이지를 꽉 채우도록 늘립니다.
-           열이 많으면 세로 A4에 칸이 눌려 이름이 읽히지 않으므로 가로로 눕힙니다. */
-        <div className={`print-page ${report.columns >= 6 ? 'page-landscape' : 'page-portrait'} bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto flex flex-col`}>
+           전체 출력일 때는 이 교시의 모든 고사실을 한 번에 그립니다. */
+        <div className="print-pages flex flex-col gap-8">
+          {(printingAll ? uniqueRooms : [rn0]).map(rn => {
+            const rep = rn === rn0 ? report : seatMapOf(rn);
+            if (!rep) return null;
+            return (
+        <div key={rn} className={`print-page ${anyWide ? 'page-landscape' : 'page-portrait'} bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto flex flex-col`}>
           <ReportSheetHeader
-            title={report.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도'}
-            subtitle={`${report.examRoom} · ${report.period} · ${report.subject}`}
+            title={rep.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도'}
+            subtitle={`${rep.examRoom} · ${rep.period} · ${rep.subject}`}
             infoColumns="1.5fr 0.9fr 1fr 1.7fr 1fr"
             emphasize={[2, 4]}
             info={[
               ['시행일', dayDate || '-'],
-              ['교시', report.period],
-              ['고사실', report.examRoom],
-              ['과목(단위)', report.subject],
-              ['응시인원', `${report.totalStudents}명`],
+              ['교시', rep.period],
+              ['고사실', rep.examRoom],
+              ['과목(단위)', rep.subject],
+              ['응시인원', `${rep.totalStudents}명`],
             ]}
           />
 
@@ -222,9 +243,9 @@ export const Report4SeatMap: React.FC = () => {
           {/* 좌석 — 남는 높이를 나눠 가져 페이지를 꽉 채웁니다. */}
           <div
             className="w-full grid gap-3 flex-1"
-            style={{ gridTemplateColumns: `repeat(${report.columns}, minmax(0, 1fr))` }}
+            style={{ gridTemplateColumns: `repeat(${rep.columns}, minmax(0, 1fr))` }}
           >
-            {report.grid.map((col, colIdx) => (
+            {rep.grid.map((col, colIdx) => (
               <div key={colIdx} className="flex flex-col gap-3 min-h-0">
                 <div className="text-center font-black text-[15px] text-slate-500 pb-0.5 border-b-2 border-slate-300 shrink-0">
                   {colIdx + 1}열
@@ -262,7 +283,7 @@ export const Report4SeatMap: React.FC = () => {
               자리에서는 빼되, 감독 선생님이 누가 없는지 알아야 합니다. */}
           {(() => {
             const away = attendance
-              .filter(r => r.day === selectedDay && r.period === selectedPeriod && r.examRoom === curRoom && r.separateRoom)
+              .filter(r => r.day === selectedDay && r.period === selectedPeriod && r.examRoom === rn && r.separateRoom)
               .sort((a, b) => a.seq - b.seq);
             if (away.length === 0) return null;
             return (
@@ -281,6 +302,9 @@ export const Report4SeatMap: React.FC = () => {
               </div>
             );
           })()}
+        </div>
+            );
+          })}
         </div>
       )}
 

@@ -284,6 +284,13 @@ export interface Settings {
   banLabelStyle?: BanLabelStyle;
   /** 별도 고사장을 몇 실 운영하는지. 보통 2실이고 학교마다 다릅니다. */
   separateRoomCount?: number;
+  /**
+   * 별도 응시자가 별도 고사실에 종일 머무는지.
+   *  - false(기본) 시험 보는 교시에만 별도실에 가고, 대기 시간에는 제 교실에 있습니다.
+   *  - true        대기 시간까지 종일 별도실에 있습니다.
+   * 학교 사정과 학생 상태에 따라 다르므로 고를 수 있게 둡니다.
+   */
+  separateRoomAllDay?: boolean;
 }
 export interface Stages {
   stage1: boolean;

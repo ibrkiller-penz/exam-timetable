@@ -19,7 +19,9 @@ export const isTakingRow = (r: Pick<AttendanceRow, 'subject'>): boolean =>
 export function applySeparate(
   attendance: AttendanceRow[],
   slots: PlacementSlot[],
-  map: SeparateExaminers | undefined
+  map: SeparateExaminers | undefined,
+  /** 별도실에 종일 머무는지. 기본은 시험 보는 교시에만 갑니다. */
+  allDay = false
 ): AttendanceRow[] {
   if (!attendance || attendance.length === 0) return attendance;
   if (!map || Object.keys(map).length === 0) {
@@ -34,8 +36,10 @@ export function applySeparate(
   let changed = false;
   const marked = attendance.map(r => {
     const slotIndex = slotOf.get(`${r.day}${r.period}`);
-    // '모든 시험'으로 지정해도 대기 시간에는 제 교실에 있습니다.
-    const room = slotIndex === undefined || !isTakingRow(r) ? undefined : separateRoomFor(`${r.ban}-${r.num}`, slotIndex, map);
+    // 기본은 시험 보는 교시에만 별도실에 갑니다. 대기 시간에는 제 교실에 있습니다.
+    // '종일'로 설정하면 대기 시간까지 별도실에 머뭅니다.
+    const applies = allDay || isTakingRow(r);
+    const room = slotIndex === undefined || !applies ? undefined : separateRoomFor(`${r.ban}-${r.num}`, slotIndex, map);
     if (room === r.separateRoom) return r;
     changed = true;
     return { ...r, separateRoom: room };
