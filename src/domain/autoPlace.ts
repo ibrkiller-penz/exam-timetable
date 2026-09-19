@@ -16,6 +16,18 @@ export interface MovementStats {
  * 3. Then fill remaining empty room cells in room table order:
  *    - If isExtra: each home room gets wait cell for its own non-takers (`대기 - ${waitMap.get(ci.ban)}명`).
 /**
+ * 분반 강의실 이름이 같은 분반을 가리키는지 봅니다.
+ * NEIS 원본은 '학교지정-G1', 분반 목록은 'G1'처럼 접두어만 다른 경우가 있습니다.
+ */
+const sameBanRoom = (a: string | undefined, b: string | undefined): boolean => {
+  if (!a || !b) return false;
+  const norm = (v: string) => v.replace(/\s+/g, '').toLowerCase();
+  const A = norm(a);
+  const B = norm(b);
+  return A === B || A.endsWith(B) || B.endsWith(A);
+};
+
+/**
  * 분반(SubjectBanEntry)에 매칭되는 실제 수강 학생 목록을 가져옵니다.
  */
 export function getStudentsForSubjectBanEntry(
@@ -800,12 +812,19 @@ export function initSlotStudentPlacements(
 
         let matched: Student[] = [];
         if (neis && neis.length > 0) {
+          // 편성현황(NEIS)에서 이 분반에 실제로 속한 학생을 찾습니다.
+          // 강의실 이름이 '학교지정-G1'과 'G1'처럼 접두어만 다를 수 있어 느슨하게 맞춥니다.
           const neisSet = new Set(
-            neis.filter(row => row.subject === entry.subject && (row.room === entry.room || row.room2 === entry.room))
+            neis.filter(row => row.subject === entry.subject &&
+                               (sameBanRoom(row.room, entry.room) || sameBanRoom(row.room2, entry.room)))
                 .map(row => `${row.ban}-${row.num}`)
           );
           matched = subjectStudents.filter(st => neisSet.has(`${st.ban}-${st.num}`));
-        } else {
+        }
+
+        // 편성현황으로 못 찾으면(자료가 없거나 이름이 달라 안 맞을 때)
+        // 최소한 분반 인원 수만이라도 맞춰 자르는 예전 방식으로 돌아갑니다.
+        if (matched.length === 0) {
           const subjectEntries = Array.from(entries.values())
             .filter(e => e.subject === entry.subject)
             .sort((a, b) => a.index - b.index);
