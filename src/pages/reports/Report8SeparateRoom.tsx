@@ -97,7 +97,9 @@ export const Report8SeparateRoom: React.FC = () => {
         const st = students.find(x => `${x.ban}-${x.num}` === key);
         const subject = ps.subjects.find(sub => st?.subjects.includes(sub)) ?? '';
         return { title: ps.title, room: homeRoomAt(key, ps.index), subject, slotIndex: ps.index };
-      });
+      })
+      // 대기 시간에는 별도실에 가지 않으므로, 실제로 시험을 보는 교시만 남깁니다.
+      .filter(x => x.subject);
 
   /** 별도로 보는 교시들의 소속 고사실을 간추립니다. */
   const whereText = (key: string) => {

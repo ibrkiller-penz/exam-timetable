@@ -1,4 +1,8 @@
-import { AttendanceRow, PlacementSlot, SeparateExaminers, separateRoomFor } from './types';
+import { AttendanceRow, PlacementSlot, SeparateExaminers, separateRoomFor, isWaitCell } from './types';
+
+/** 그 줄이 실제로 시험을 보는 줄인지. 대기·자습 시간에는 별도실에 갈 이유가 없습니다. */
+export const isTakingRow = (r: Pick<AttendanceRow, 'subject'>): boolean =>
+  Boolean(r.subject) && !isWaitCell(r.subject) && r.subject !== '미응시' && r.subject !== '자습(대기)' && r.subject !== '자습';
 
 /**
  * 별도 고사실 지정을 응시현황에 입힙니다.
@@ -30,7 +34,8 @@ export function applySeparate(
   let changed = false;
   const marked = attendance.map(r => {
     const slotIndex = slotOf.get(`${r.day}${r.period}`);
-    const room = slotIndex === undefined ? undefined : separateRoomFor(`${r.ban}-${r.num}`, slotIndex, map);
+    // '모든 시험'으로 지정해도 대기 시간에는 제 교실에 있습니다.
+    const room = slotIndex === undefined || !isTakingRow(r) ? undefined : separateRoomFor(`${r.ban}-${r.num}`, slotIndex, map);
     if (room === r.separateRoom) return r;
     changed = true;
     return { ...r, separateRoom: room };

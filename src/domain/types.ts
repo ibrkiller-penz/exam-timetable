@@ -220,8 +220,6 @@ export interface SeparateExaminer {
    *  - 교시 번호 목록  그 교시만 별도실에서 봅니다 (한 과목만 따로 보는 경우).
    */
   slots: 'all' | number[];
-  /** 왜 따로 보는지 (선택). 명단에 적어 두면 담당자끼리 인수인계가 쉽습니다. */
-  note?: string;
 }
 
 /** 별도 응시자 모음. 키는 `반-번호`. */

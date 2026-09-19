@@ -110,7 +110,12 @@ describe('placement', () => {
     expect(result.students[0].name).toBe('대기학생');
   });
 
-  it('supports split/added rooms (4반) without throwing wrong subject error and distributes students evenly', async () => {
+  /**
+   * 예전 규칙: 고사장을 1실 더 열면 응시자 91명을 23·23·23·22로 균등 분배했습니다.
+   * 그러면 편성현황의 분반(31·30·30)이 통째로 흩어져 명단과 어긋납니다.
+   * 지금 규칙: 분반은 제 방에 그대로 앉히고, 더 연 방은 비워 담당자가 직접 옮깁니다.
+   */
+  it('고사장을 1실 더 열어도 분반은 그대로이고 추가한 방은 비워 둔다', async () => {
     // 91 students taking '심화 영어 독해 Ⅰ (4)'
     const sub = '심화 영어 독해 Ⅰ (4)';
     const subStudents: Student[] = Array.from({ length: 91 }, (_, i) => ({
@@ -161,15 +166,16 @@ describe('placement', () => {
     const d = cellDerived(`${sub}-4반`, entries);
     expect(d.classRoom).toBe('4반');
 
-    // 2. initSlotStudentPlacements should evenly distribute 91 students into 23, 23, 23, 22
+    // 2. 분반 세 개(31·30·30)는 제 방에 통째로, 새로 연 4반 방은 비어 있어야 합니다.
     const slotPlacements = initSlotStudentPlacements(1, grid[1], pSlots, mockRooms, entries, subStudents);
     const countR1 = Object.values(slotPlacements).filter(id => id === 'r1').length;
     const countR2 = Object.values(slotPlacements).filter(id => id === 'r2').length;
     const countR3 = Object.values(slotPlacements).filter(id => id === 'r3').length;
     const countR4 = Object.values(slotPlacements).filter(id => id === 'r4').length;
 
-    expect(countR1 + countR2 + countR3 + countR4).toBe(91);
-    expect([countR1, countR2, countR3, countR4].sort((a, b) => b - a)).toEqual([23, 23, 23, 22]);
+    expect(countR1 + countR2 + countR3 + countR4).toBe(91); // 아무도 미배치로 남지 않습니다.
+    expect([countR1, countR2, countR3]).toEqual([31, 30, 30]);
+    expect(countR4).toBe(0); // 담당자가 손으로 옮길 자리입니다.
 
     // 3. hasErrorBaechi must NOT throw
     expect(() => {

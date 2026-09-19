@@ -1,11 +1,12 @@
 import { create } from 'zustand';
-import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis, SeparateExaminer, separateRoomFor, AttendanceRow } from '../domain/types';
+import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis, SeparateExaminer, AttendanceRow } from '../domain/types';
 import { createInitialDays, createInitialTimes, createInitialTimetable, APP_VERSION } from '../domain/constants';
 import { MSG } from '../domain/messages';
 import { confirmStage1, cancelStage1, confirmStage2, cancelStage2, confirmStage3, cancelStage3, confirmStage4, cancelStage4, confirmStage5, cancelStage5 } from '../domain/stages';
 import { moveToConvenience, deleteStudent, buildSubjectTables, buildRooms, normalizeNeisRooms } from '../domain/baseData';
 import { buildTakers, buildStudents } from '../domain/subjects';
 import { buildPlacementInfo } from '../domain/placementInfo';
+import { applySeparate } from '../domain/separate';
 import { recommendIdealTimetable, RecommendationResult } from '../domain/recommendTimetable';
 import { initSlotStudentPlacements, sanitizePlacementGrid } from '../domain/autoPlace';
 import { subjectBanEntries } from '../domain/placement';
@@ -227,39 +228,10 @@ interface AppStoreActions {
 
 export type AppStore = AppState & AppStoreActions;
 
-/**
- * 별도 응시자 지정을 응시현황(attendance)에 반영합니다.
- *
- * 1) 그 학생의 줄에 별도실 번호를 답니다.
- * 2) 그 학생이 빠지거나 돌아온 고사실은 좌석 번호를 다시 매깁니다.
- *    빠진 자리를 비워 두면 좌석배치도에 구멍이 생기고, 명단의 좌석 번호와도
- *    어긋납니다.
- */
+/** 별도 응시자 지정을 응시현황에 반영합니다. 규칙은 domain/separate 한 곳에만 둡니다. */
 function applySeparateToAttendance(state: AppState, map: Record<string, SeparateExaminer>): AttendanceRow[] {
-  if (!state.attendance || state.attendance.length === 0) return state.attendance;
-
   const slots = buildPlacementInfo(state.timetable, state.students, state.evalSubjects);
-  const slotOf = new Map(slots.map(ps => [`${ps.day}일차${ps.period}교시`, ps.index]));
-
-  const marked = state.attendance.map(r => {
-    const slotIndex = slotOf.get(`${r.day}${r.period}`);
-    const room = slotIndex === undefined ? undefined : separateRoomFor(`${r.ban}-${r.num}`, slotIndex, map);
-    return room === r.separateRoom ? r : { ...r, separateRoom: room };
-  });
-
-  // 좌석은 고사실마다 1번부터 빈틈없이 이어져야 합니다.
-  const seatCounter = new Map<string, number>();
-  return [...marked]
-    .sort((a, b) => a.seq - b.seq)
-    .map(r => {
-      const key = `${r.day}|${r.period}|${r.examRoom}`;
-      if (r.separateRoom) {
-        return r.seat === null ? r : { ...r, seat: null, key2: `${r.day}${r.period}${r.examRoom}_` };
-      }
-      const n = (seatCounter.get(key) ?? 0) + 1;
-      seatCounter.set(key, n);
-      return r.seat === n ? r : { ...r, seat: n, key2: `${r.day}${r.period}${r.examRoom}_${n}` };
-    });
+  return applySeparate(state.attendance, slots, map);
 }
 
 export const useAppStore = create<AppStore>((set, get) => ({

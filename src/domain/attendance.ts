@@ -43,11 +43,12 @@ export function buildAttendance(
         const DD = `${ps.day}일차` as DayLabel;
         const TT = `${ps.period}교시` as PeriodLabel;
         const key1 = `${DD}${TT}${r.roomName}_${seq}`;
-        const separateRoom = separateRoomFor(`${st.ban}-${st.num}`, ps.index, separateExaminers);
         const key3 = `${st.ban}${st.num}번${DD}${TT}`;
 
         const stSlotSubjects = st.subjects.filter(sub => ps.subjects.includes(sub));
         const isWaitStudent = stSlotSubjects.length === 0;
+        // 대기 시간에는 별도실에 갈 이유가 없으므로, 시험을 보는 줄에만 답니다.
+        const separateRoom = isWaitStudent ? undefined : separateRoomFor(`${st.ban}-${st.num}`, ps.index, separateExaminers);
         const stSubject = isWaitStudent 
           ? (isWaitCell(cellVal) ? (cellVal.split(' - ')[0] || '미응시') : '자습(대기)') 
           : stSlotSubjects[0];

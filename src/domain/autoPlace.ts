@@ -19,12 +19,25 @@ export interface MovementStats {
  * 분반 강의실 이름이 같은 분반을 가리키는지 봅니다.
  * NEIS 원본은 '학교지정-G1', 분반 목록은 'G1'처럼 접두어만 다른 경우가 있습니다.
  */
+/**
+ * 편성현황의 강의실 이름과 분반 목록의 이름이 같은 분반인지.
+ *
+ * 편성현황에는 '학교지정-G1'처럼 접두어가 붙고, 분반 목록에는 'G1'로 줄여
+ * 저장됩니다. 그래서 '-' 뒤의 꼬리만 떼어 비교합니다.
+ *
+ * 예전에는 endsWith로 느슨하게 맞췄는데, 그러면 '11반'이 '1반'과 같다고
+ * 판정되어 학급이 열 개 넘는 학교에서 명단이 뒤섞였습니다. 꼬리는 완전히
+ * 같아야 합니다.
+ */
 const sameBanRoom = (a: string | undefined, b: string | undefined): boolean => {
   if (!a || !b) return false;
-  const norm = (v: string) => v.replace(/\s+/g, '').toLowerCase();
-  const A = norm(a);
-  const B = norm(b);
-  return A === B || A.endsWith(B) || B.endsWith(A);
+  const tail = (v: string) => {
+    const norm = v.replace(/\s+/g, '').toLowerCase();
+    return norm.includes('-') ? norm.slice(norm.lastIndexOf('-') + 1) : norm;
+  };
+  const A = tail(a);
+  const B = tail(b);
+  return A.length > 0 && A === B;
 };
 
 /**
@@ -639,21 +652,38 @@ export function getSlotPlacementStrategy(
   const roomCount = activeExamRooms.length > 0 ? activeExamRooms.length : rooms.filter(r => !isExtraRoom(r)).length;
   const banCount = slotEntries.length;
 
-  if (roomCount > 0 && banCount === roomCount) {
+  // 칸에 분반 이름이 적혀 있으면 분반 위주로 앉힙니다. 분반 수와 고사실 수가
+  // 달라도 그렇습니다. 담당자가 고사장을 1실 더 열었다고 해서 분반을 학번순으로
+  // 흩어 놓으면 편성현황과 명단이 어긋납니다. 남는 고사실은 비워 두고
+  // 담당자가 직접 옮기면 됩니다.
+  //
+  // 학번순은 칸에 분반이 없을 때(과목 이름만 적힌 경우)만 씁니다.
+  const isBanKey = (val: string) => {
+    const normKey = val.endsWith('반') ? val : `${val}반`;
+    return entries.has(val) || entries.has(normKey);
+  };
+  const cellsWithBan = activeExamRooms.filter(r => isBanKey(placementRow[r.id] as string)).length;
+
+  if (activeExamRooms.length > 0 && cellsWithBan > 0) {
     return {
       strategy: 'ban',
       banCount,
       roomCount,
-      reason: `분반 수(${banCount}) = 시험실 수(${roomCount}) ➔ 분반 위주 배정`,
-    };
-  } else {
-    return {
-      strategy: 'student_id',
-      banCount,
-      roomCount,
-      reason: `분반 수(${banCount}) ≠ 시험실 수(${roomCount}) ➔ 학번순 배정`,
+      reason: banCount === roomCount
+        ? `분반 수(${banCount}) = 시험실 수(${roomCount}) ➔ 분반 위주 배정`
+        : `칸에 분반이 적혀 있음 ➔ 분반 위주 배정 (시험실 ${roomCount}실 중 ${roomCount - cellsWithBan}실은 비워 둠)`,
     };
   }
+
+  if (roomCount > 0 && banCount === roomCount) {
+    return { strategy: 'ban', banCount, roomCount, reason: `분반 수(${banCount}) = 시험실 수(${roomCount}) ➔ 분반 위주 배정` };
+  }
+  return {
+    strategy: 'student_id',
+    banCount,
+    roomCount,
+    reason: `칸에 분반이 없고 분반 수(${banCount}) ≠ 시험실 수(${roomCount}) ➔ 학번순 배정`,
+  };
 }
 
 /**
