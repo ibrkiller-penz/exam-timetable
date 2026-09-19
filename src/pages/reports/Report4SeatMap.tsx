@@ -22,6 +22,19 @@ export const Report4SeatMap: React.FC = () => {
   const curRows = roomObj?.rows ?? settings.seatsPerColumn;
   const curLayout = roomObj?.layoutDirection ?? settings.seatLayoutDirection ?? 'col';
 
+  // 지금 열·행·배치순서를 어느 고사실에 옮길지 고르는 창.
+  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyTargets, setApplyTargets] = useState<string[]>([]);
+
+  const applicableRooms = rooms.filter(r => r.roomName && r.roomName !== '0' && r.id !== roomObj?.id);
+
+  const applyLayout = (alsoDefault: boolean) => {
+    applyTargets.forEach(id => updateRoom(id, { cols: curCols, rows: curRows, layoutDirection: curLayout }));
+    // 전부 고른 경우에만 앞으로 만들 고사실의 기본값도 같이 바꿉니다.
+    if (alsoDefault) updateSettings({ seatColumns: curCols, seatsPerColumn: curRows, seatLayoutDirection: curLayout });
+    setApplyOpen(false);
+  };
+
   const report = buildSeatMapReport(
     attendance, 
     selectedDay, 
@@ -102,20 +115,15 @@ export const Report4SeatMap: React.FC = () => {
             </select>
           </div>
           
+          {/* 교실 구조가 같은 고사실끼리만 묶어 적용할 수 있어야 합니다.
+              세미나실과 일반 교실은 열·행이 다릅니다. */}
           <button
-            onClick={() => {
-              if (roomObj) {
-                rooms.forEach(r => {
-                  updateRoom(r.id, { cols: curCols, rows: curRows, layoutDirection: curLayout });
-                });
-                updateSettings({ seatColumns: curCols, seatsPerColumn: curRows });
-                alert('현재 설정된 가로/세로 배치가 전체 고사실에 일괄 적용되었습니다.');
-              }
-            }}
-            className="ml-2 px-3 py-1 bg-[#005691] hover:bg-[#004270] text-white rounded font-bold shadow-sm transition flex items-center gap-1 text-[13px]"
-            title="현재 행/열 및 배치순서를 모든 고사실의 기본값으로 일괄 저장합니다."
+            onClick={() => { setApplyTargets(rooms.filter(r => r.id !== roomObj?.id).map(r => r.id)); setApplyOpen(true); }}
+            disabled={!roomObj}
+            className="ml-2 px-3 py-1 bg-[#005691] hover:bg-[#004270] text-white rounded font-bold shadow-sm transition flex items-center gap-1 text-[13px] disabled:bg-gray-200 disabled:text-gray-400"
+            title="지금 열·행·배치순서를 다른 고사실에도 적용합니다."
           >
-            💾 전체 고사실 적용
+            💾 다른 고사실에도 적용
           </button>
         </div>
 
@@ -187,6 +195,77 @@ export const Report4SeatMap: React.FC = () => {
                 ))}
               </div>
             ))}
+          </div>
+        </div>
+      )}
+
+      {/* 어느 고사실에 같이 적용할지 고릅니다. */}
+      {applyOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6 no-print" onClick={() => setApplyOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#005691] text-white px-5 py-4">
+              <div className="font-black text-[17px]">다른 고사실에도 적용</div>
+              <div className="text-[13px] text-blue-100 font-medium mt-0.5">
+                {curRoom} 기준 — {curCols}열 × {curRows}행 · {curLayout === 'col' ? '세로 먼저' : '가로 먼저'}
+              </div>
+            </div>
+
+            <div className="px-5 py-3 border-b border-gray-200 flex items-center gap-2">
+              <button
+                onClick={() => setApplyTargets(applicableRooms.map(r => r.id))}
+                className="px-2.5 py-1 text-[13px] font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                전체 선택
+              </button>
+              <button
+                onClick={() => setApplyTargets([])}
+                className="px-2.5 py-1 text-[13px] font-bold bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                전체 해제
+              </button>
+              <span className="text-[13px] text-slate-500 ml-auto">{applyTargets.length}실 선택됨</span>
+            </div>
+
+            <div className="p-5 overflow-auto grid grid-cols-2 gap-1.5">
+              {applicableRooms.map(r => {
+                const on = applyTargets.includes(r.id);
+                return (
+                  <label
+                    key={r.id}
+                    className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition ${
+                      on ? 'bg-blue-50 border-[#005691]' : 'bg-white border-gray-200 hover:bg-gray-50'
+                    }`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={on}
+                      onChange={() => setApplyTargets(prev => on ? prev.filter(id => id !== r.id) : [...prev, r.id])}
+                      className="w-4 h-4 rounded accent-[#005691]"
+                    />
+                    <span className="font-bold text-[14px] text-slate-800">{r.roomName}</span>
+                    <span className="text-[12px] text-slate-400 ml-auto">
+                      {(r.cols ?? settings.seatColumns)}×{(r.rows ?? settings.seatsPerColumn)}
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+
+            <div className="px-5 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-2">
+              <button
+                onClick={() => setApplyOpen(false)}
+                className="px-4 py-2 bg-white hover:bg-gray-100 text-slate-700 border border-gray-300 rounded-lg font-bold text-[14px]"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => applyLayout(applyTargets.length === applicableRooms.length)}
+                disabled={applyTargets.length === 0}
+                className="px-4 py-2 bg-[#005691] hover:bg-[#00426e] text-white rounded-lg font-bold text-[14px] disabled:bg-gray-200 disabled:text-gray-400"
+              >
+                {applyTargets.length}실에 적용
+              </button>
+            </div>
           </div>
         </div>
       )}
