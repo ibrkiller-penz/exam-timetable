@@ -180,6 +180,84 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
   };
 
   // Toggle forbidden cell ("배치금지") on a room in a slot
+  /**
+   * 한 고사실을 쓰지 않기로(또는 다시 쓰기로) 바꾼 뒤, 그 교시의 대기 인원을 남은 실에 다시 나눕니다.
+   *
+   * 시험실 옆 교실을 비우고 싶을 때처럼 대기실 하나를 빼면, 그 방에 있던 학생이 미배치로
+   * 남지 않도록 곧바로 재배치합니다. 남은 실로 수용되면 실을 늘리지 않고,
+   * 모자랄 때만 모자란 만큼 별도실을 씁니다(distributeWaitToRooms가 일반실부터 채웁니다).
+   *
+   * 시험을 치르는 칸을 막는 경우는 과목 배치까지 다시 짜야 하므로 여기서 다루지 않고 null을 돌려줍니다.
+   */
+  const redistributeWaitForSlot = (
+    slotIndex: number,
+    changedRoomId: string,
+    willForbid: boolean
+  ): { slotRow: Record<string, string>; slotPlacements: Record<string, string>; message: string } | null => {
+    const ps = placementSlots.find(s => s.index === slotIndex);
+    if (!ps) return null;
+
+    const slotRow = { ...(placement[slotIndex] || {}) };
+    const changedVal = slotRow[changedRoomId] || '';
+
+    // 시험이 배치된 칸을 막는 것은 과목 재배치가 필요한 별개의 작업입니다.
+    if (willForbid && changedVal && !isWaitCell(changedVal) && !isForbiddenCell(changedVal)) return null;
+
+    const slotPlacements = { ...(studentPlacements?.[slotIndex] || initSlotStudentPlacements(
+      slotIndex, slotRow, placementSlots, roomsAt(slotIndex), entries, students, neis
+    )) };
+
+    // 시험을 보는 학생은 그대로 두고, 대기(또는 아직 자리 없는) 학생만 다시 나눕니다.
+    // 반드시 칸을 바꾸기 '전'의 배치를 기준으로 추려야 합니다. 먼저 배치금지로 표시해 버리면
+    // 그 방에 있던 학생이 대기로 잡히지 않아 조용히 미배치로 사라집니다.
+    const waitStudents = students.filter(st => {
+      const rId = slotPlacements[`${st.ban}-${st.num}`];
+      if (rId && lockedCells[slotIndex]?.[rId]) return false;
+      const val = rId ? slotRow[rId] : undefined;
+      return !val || isWaitCell(val);
+    }).sort((a, b) => (a.ban !== b.ban ? a.ban.localeCompare(b.ban, 'ko') : a.num - b.num));
+
+    if (willForbid) {
+      slotRow[changedRoomId] = '배치금지';
+    } else {
+      delete slotRow[changedRoomId];
+    }
+
+    const availableRooms = roomsAt(slotIndex).filter(r => {
+      if (lockedCells[slotIndex]?.[r.id]) return false;
+      const val = slotRow[r.id];
+      if (isForbiddenCell(val)) return false;
+      return !val || isWaitCell(val);
+    });
+
+    availableRooms.forEach(r => { delete slotRow[r.id]; });
+    waitStudents.forEach(st => { delete slotPlacements[`${st.ban}-${st.num}`]; });
+
+    const assignments = distributeWaitToRooms(waitStudents, availableRooms, students);
+    assignments.forEach(a => {
+      slotRow[a.room.id] = `대기 - ${a.count}명`;
+      a.students.forEach(st => { slotPlacements[`${st.ban}-${st.num}`] = a.room.id; });
+    });
+
+    const placedCount = assignments.reduce((sum, a) => sum + a.count, 0);
+    const unplaced = waitStudents.length - placedCount;
+    const usedExtraRooms = assignments.filter(a => isExtraRoom(a.room)).length;
+    const roomLabel = rooms.find(r => r.id === changedRoomId)?.roomName || changedRoomId;
+
+    const lines = [
+      willForbid
+        ? `🚫 [${roomLabel}] 고사실을 이 교시에 쓰지 않도록 설정했습니다.`
+        : `✅ [${roomLabel}] 고사실을 이 교시에 다시 쓸 수 있게 했습니다.`,
+      '',
+      `대기 ${waitStudents.length}명을 남은 ${assignments.length}개 실에 다시 나눴습니다.`,
+    ];
+    if (usedExtraRooms > 0) lines.push(`일반 교실만으로 모자라 별도실 ${usedExtraRooms}개를 함께 사용했습니다.`);
+    else lines.push('남은 교실만으로 수용되어 실을 더 늘리지 않았습니다.');
+    if (unplaced > 0) lines.push(`⚠️ 정원이 모자라 ${unplaced}명이 미배치로 남았습니다. 정원을 올리거나 실을 추가해 주세요.`);
+
+    return { slotRow, slotPlacements, message: lines.join('\n') };
+  };
+
   const handleToggleForbiddenCell = (slot?: number, roomId?: string) => {
     if (stages.stage4) return;
     const targetSlot = slot ?? selectedCell?.slot;
@@ -189,6 +267,20 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     const curVal = placement[targetSlot]?.[targetRoomId] || '';
     const room = rooms.find(r => r.id === targetRoomId);
     const roomLabel = room ? room.roomName : targetRoomId;
+    const willForbid = curVal !== '배치금지';
+
+    // 7. 고사장 배치에서는 쓰는 실이 바뀌면 대기 인원을 그 자리에서 다시 나눕니다.
+    // 남은 실로 수용되면 그대로 두고, 모자랄 때만 별도실을 덧붙입니다.
+    if (stepMode === 7) {
+      const result = redistributeWaitForSlot(targetSlot, targetRoomId, willForbid);
+      if (result) {
+        pushHistory(`고사실 [${roomLabel}] 배치금지 ${willForbid ? '설정' : '해제'}`);
+        setPlacementGrid({ ...placement, [targetSlot]: result.slotRow });
+        setSlotStudentPlacements(targetSlot, result.slotPlacements);
+        setAlertModal({ isOpen: true, message: result.message });
+        return;
+      }
+    }
 
     if (curVal === '배치금지') {
       pushHistory(`고사실 [${roomLabel}] 배치금지 해제`);
@@ -1333,7 +1425,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           ? "시간표 Grid 상에서 고사실과 대기실을 배치하고, 수용 정원을 지정합니다."
           : "분반 수와 시험실 수가 일치하면 [분반 위주], 다르면 [학번순]으로 학생이 자동 배정됩니다."}
         actions={
-          <div className="flex items-center gap-2">
+          // 버튼이 많아 좁아지면 글자가 세로로 쪼개져 읽기 어려워집니다. 줄바꿈을 막고 줄어들지 않게 합니다.
+          <div className="flex items-center gap-2 [&_button]:whitespace-nowrap [&_button]:shrink-0 [&_span]:whitespace-nowrap">
             {/* Undo / Redo Arrow Buttons */}
             <div className="flex items-center bg-gray-100 p-1 rounded-xl border border-gray-200 gap-1 shadow-2xs">
               <button
@@ -1723,6 +1816,10 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                         <div className={`text-[#005691] font-bold mt-0.5 ${isCompactFit ? 'text-[12.5px]' : 'text-[14.5px]'}`}>{ps.subjects.join(', ')}</div>
                         {!stages.stage4 && (
                           <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
+                            {/* 7. 고사장 배치에서는 뺍니다 — +고사장/-축소는 셀의 '고사장 변환'·'대기실 변환'과 겹치고,
+                                재배치·자동배치는 상단 툴바에 있습니다. 교시 칸을 과목 이름에 집중시킵니다. */}
+                            {stepMode !== 7 && (
+                            <>
                             <button
                               onClick={() => handleAddExamRoomFromWait(ps.index)}
                               className={`font-bold bg-blue-50 text-[#005691] border border-blue-200 rounded-lg hover:bg-blue-100 shadow-2xs transition ${isCompactFit ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'}`}
@@ -1751,6 +1848,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                             >
                               자동배치
                             </button>
+                            </>
+                            )}
 
                             {sum.remaining.takers + sum.remaining.nonTakers > 0 && (
                               <button
@@ -1897,17 +1996,19 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                 onClick={e => {
                                   e.stopPropagation();
                                   handleCellClick(ps.index, r.id);
-                                  handleCellDoubleClick(ps.index, r.id);
+                                  if (stepMode !== 7) handleCellDoubleClick(ps.index, r.id);
                                 }}
                               >
                                 <div className="flex flex-col items-center justify-center gap-0.5">
                                   <div className={`font-bold break-keep leading-tight ${isCompactFit ? 'text-[12px]' : 'text-[14.5px]'} ${isOverCapacity ? 'text-orange-950 font-black' : isWait ? 'text-amber-950 hover:underline' : `${color.text} hover:underline`}`}>
-                                    {cellVal.split('-').map((part, i) => (
-                                      <React.Fragment key={i}>
-                                        {i > 0 && <br />}
-                                        {i > 0 ? '-' : ''}{part}
-                                      </React.Fragment>
-                                    ))}
+                                    {stepMode === 7 && isWait
+                                      ? '대기' /* 인원은 바로 아래 정원/배치 줄에 나오므로 라벨에서는 뺍니다 */
+                                      : cellVal.split('-').map((part, i) => (
+                                          <React.Fragment key={i}>
+                                            {i > 0 && <br />}
+                                            {i > 0 ? '-' : ''}{part}
+                                          </React.Fragment>
+                                        ))}
                                   </div>
                                   {isOverCapacity && stepMode !== 7 && (
                                     <span className="px-1.5 py-0.2 bg-orange-600 text-white text-[9.5px] rounded-sm font-black shadow-2xs tracking-tighter">
@@ -1947,10 +2048,14 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                       }
                                     />
                                     <span className={isCompactFit ? 'text-[10px] text-slate-500' : 'text-[12px] text-slate-500'}>석</span>
-                                    <span className={`font-black ${isCompactFit ? 'text-[10.5px]' : 'text-[12.5px]'} ${
-                                      isOverCapacity ? 'text-rose-700' : 'text-slate-700'
-                                    }`}>
-                                      / {actualCount}명
+                                    <span className={`text-slate-300 ${isCompactFit ? 'text-[10px]' : 'text-[12px]'}`}>|</span>
+                                    <span
+                                      className={`font-black whitespace-nowrap ${isCompactFit ? 'text-[10.5px]' : 'text-[12.5px]'} ${
+                                        isOverCapacity ? 'text-rose-700' : 'text-slate-700'
+                                      }`}
+                                      title={`정원 ${roomCap}석에 ${actualCount}명 배치`}
+                                    >
+                                      {actualCount}명
                                     </span>
                                     {hasCapOverride && !stages.stage4 && !isLocked && (
                                       <button
@@ -1981,25 +2086,40 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                 {/* 대기실 ↔ 고사장 원클릭 변환 버튼 */}
                                 {!stages.stage4 && !isLocked && (
                                   isWait ? (
-                                    <button
-                                      onClick={e => {
-                                        e.stopPropagation();
-                                        handleAddExamRoomFromWait(ps.index, undefined, r.id);
-                                      }}
-                                      className={`mt-1.5 px-2 py-0.5 bg-rose-900 hover:bg-rose-950 text-white rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 mx-auto ${
-                                        isCompactFit ? 'text-[10px]' : 'text-[11.5px]'
-                                      }`}
-                                      title="이 대기실을 시험 고사장으로 변환"
-                                    >
-                                      <span>고사장 변환</span>
-                                    </button>
+                                    <div className="mt-1.5 flex items-center justify-center gap-1">
+                                      <button
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          handleAddExamRoomFromWait(ps.index, undefined, r.id);
+                                        }}
+                                        className={`px-2 py-0.5 bg-rose-900 hover:bg-rose-950 text-white rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 whitespace-nowrap ${
+                                          isCompactFit ? 'text-[10px]' : 'text-[11.5px]'
+                                        }`}
+                                        title="이 대기실을 시험 고사장으로 변환"
+                                      >
+                                        <span>{isCompactFit ? '고사장' : '고사장 변환'}</span>
+                                      </button>
+                                      {/* 시험실 옆 교실을 비우고 싶을 때처럼, 이 교시에만 이 실을 빼는 버튼입니다. */}
+                                      <button
+                                        onClick={e => {
+                                          e.stopPropagation();
+                                          handleToggleForbiddenCell(ps.index, r.id);
+                                        }}
+                                        className={`px-1.5 py-0.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-gray-300 hover:border-rose-300 rounded-md font-bold inline-flex items-center justify-center shadow-2xs transition active:scale-95 whitespace-nowrap ${
+                                          isCompactFit ? 'text-[10px]' : 'text-[11.5px]'
+                                        }`}
+                                        title="이 교시에는 이 고사실을 쓰지 않습니다 (대기 인원은 남은 실에 다시 나눕니다)"
+                                      >
+                                        <span>사용안함</span>
+                                      </button>
+                                    </div>
                                   ) : (
                                     <button
                                       onClick={e => {
                                         e.stopPropagation();
                                         handleShrinkExamRoomToWait(ps.index, subjectName, r.id);
                                       }}
-                                      className={`mt-1.5 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 mx-auto ${
+                                      className={`mt-1.5 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 mx-auto whitespace-nowrap ${
                                         isCompactFit ? 'text-[10px]' : 'text-[11.5px]'
                                       }`}
                                       title="이 고사장을 대기실로 변환"
