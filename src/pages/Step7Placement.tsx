@@ -62,6 +62,16 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     setSlotRoomCapacity,
   } = useAppStore();
 
+  /**
+   * 분반 번호를 학급 반과 헷갈리지 않게 A반·B반으로 보여줍니다.
+   * 저장 형식은 그대로 `과목-1반` 이며 화면 표기만 바꿉니다.
+   */
+  const banLabel = (val: string): string =>
+    val.replace(/-(\d+)반/g, (whole, n) => {
+      const num = Number(n);
+      return num >= 1 && num <= 26 ? `-${String.fromCharCode(64 + num)}반` : whole;
+    });
+
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
@@ -1759,7 +1769,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
           <table className={`w-full text-left border-collapse ${isCompactFit ? 'text-[15px]' : 'text-[17px] min-w-[950px]'}`}>
             <thead className="bg-gray-50 text-[#0f172a] sticky top-0 z-20 shadow-xs">
               <tr className="divide-x divide-gray-200 border-b border-gray-200 bg-gray-50">
-                <th rowSpan={2} className={`py-2 px-2 text-center font-bold text-gray-900 ${isCompactFit ? 'w-24 text-[14.5px]' : 'w-32 text-[17px]'}`}>
+                <th rowSpan={2} className={`py-2 px-2 text-center font-bold text-gray-900 ${isCompactFit ? 'w-28 text-[14.5px]' : 'w-36 text-[17px]'}`}>
                   슬롯 (과목)
                 </th>
                 <th rowSpan={2} className={`py-2 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'w-10 text-[14.5px]' : 'w-12 text-[17px]'}`}>
@@ -1845,16 +1855,28 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
               </tr>
             </thead>
             <tbody className="divide-y-2 divide-gray-200 font-normal">
-              {placementSlots.map(ps => {
+              {placementSlots.map((ps, slotIdx) => {
                 const sum = slotSummary(ps.index, placement, placementSlots, entries, studentPlacements, students);
                 const hasError = sum.errorKey !== 'OK';
+                // 일차가 바뀌는 첫 줄에 굵은 경계선을 그어 날짜를 구분합니다.
+                const isNewDay = slotIdx === 0 || placementSlots[slotIdx - 1].day !== ps.day;
+                const dayTone = ps.day % 2 === 1
+                  ? { bar: 'bg-[#005691]', chip: 'bg-[#005691] text-white', cell: 'bg-white' }
+                  : { bar: 'bg-slate-500', chip: 'bg-slate-600 text-white', cell: 'bg-slate-50/70' };
 
                 return (
                   <React.Fragment key={ps.index}>
-                    <tr className="divide-x divide-gray-200 bg-white">
-                      <td rowSpan={stepMode === 7 ? 1 : 3} className={`py-2 px-2 font-bold text-center bg-white ${isCompactFit ? 'w-24' : 'w-32'}`}>
-                        <div className={`text-gray-900 font-black ${isCompactFit ? 'text-[15px]' : 'text-[17.5px]'}`}>{ps.title}</div>
-                        <div className={`text-[#005691] font-bold mt-0.5 ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>{ps.subjects.join(', ')}</div>
+                    <tr className={`divide-x divide-gray-200 bg-white ${isNewDay ? 'border-t-[6px] border-t-slate-700' : ''}`}>
+                      <td rowSpan={stepMode === 7 ? 1 : 3} className={`py-2 px-2 font-bold text-center ${dayTone.cell} ${isCompactFit ? 'w-28' : 'w-36'}`}>
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className={`inline-block px-2 py-0.5 rounded-md font-black leading-none whitespace-nowrap ${dayTone.chip} ${isCompactFit ? 'text-[12.5px]' : 'text-[14px]'}`}>
+                            {ps.day}일차
+                          </span>
+                          <span className={`text-gray-900 font-black whitespace-nowrap ${isCompactFit ? 'text-[15px]' : 'text-[17.5px]'}`}>{ps.period}교시</span>
+                        </div>
+                        <div className={`font-bold mt-0.5 ${ps.subjects.length === 0 ? 'text-slate-500' : 'text-[#005691]'} ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>
+                          {ps.subjects.length === 0 ? '시험 없음 · 전체 자습' : ps.subjects.join(', ')}
+                        </div>
                         {!stages.stage4 && (
                           <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
                             {/* 7. 고사장 배치에서는 뺍니다 — +고사장/-축소는 셀의 '고사장 변환'·'대기실 변환'과 겹치고,
@@ -2056,7 +2078,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                   <div className={`font-black break-keep leading-tight ${isCompactFit ? 'text-[13.5px]' : 'text-[16.5px]'} ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-600' : `${color.text} hover:underline`}`}>
                                     {stepMode === 7 && isWait
                                       ? '대기' /* 인원은 바로 아래 정원/배치 줄에 나오므로 라벨에서는 뺍니다 */
-                                      : cellVal.split('-').map((part, i) => (
+                                      : banLabel(cellVal).split('-').map((part, i) => (
                                           <React.Fragment key={i}>
                                             {i > 0 && <br />}
                                             {i > 0 ? '-' : ''}{part}

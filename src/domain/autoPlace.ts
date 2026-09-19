@@ -239,6 +239,43 @@ export function autoPlaceSlot(
   const ps = placementSlots.find(s => s.index === i);
   if (!ps) return newPlacement;
 
+  // 시험이 없는 교시(예: 2일차 1교시)는 전교생이 '자기 반 교실'에서 대기합니다.
+  // 대기 인원을 여러 실에 고르게 흩뿌리지 않고, 반마다 제 교실에 그대로 둡니다.
+  if (ps.subjects.length === 0) {
+    const sameBan = (st: Student, r: ExamRoom) =>
+      st.ban === r.banName || st.ban.replace('반', '') === r.banName.replace('반', '');
+
+    const homeRooms = rooms.filter(r => !isExtraRoom(r) && r.banName && !lockedCellsRow?.[r.id] && preservedSlot[r.id] !== '배치금지');
+    const homeCount = new Map<string, number>();
+    const strayStudents: Student[] = [];
+
+    for (const st of students) {
+      const home = homeRooms.find(r => sameBan(st, r));
+      if (home) homeCount.set(home.id, (homeCount.get(home.id) ?? 0) + 1);
+      else strayStudents.push(st);
+    }
+
+    for (const r of homeRooms) {
+      const n = homeCount.get(r.id) ?? 0;
+      if (n > 0) newPlacement[i][r.id] = `대기 - ${n}명`;
+      else delete newPlacement[i][r.id];
+    }
+
+    // 제 교실이 없는 학생(위탁 등)만 남은 실에 나눕니다.
+    if (strayStudents.length > 0) {
+      const leftoverRooms = rooms.filter(r =>
+        !lockedCellsRow?.[r.id] &&
+        preservedSlot[r.id] !== '배치금지' &&
+        !newPlacement[i][r.id]
+      );
+      distributeWaitToRooms(strayStudents, leftoverRooms, students).forEach(a => {
+        newPlacement[i][a.room.id] = `대기 - ${a.count}명`;
+      });
+    }
+
+    return newPlacement;
+  }
+
   const extraRooms = rooms.filter(isExtraRoom);
   const items = panelItems(i, roomIdSelected, newPlacement, placementSlots, rooms, entries, students);
   const queue = [...items];
