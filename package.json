@@ -17,6 +17,7 @@
     "@tanstack/react-virtual": "^3.13.2",
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
+    "exceljs": "^4.4.0",
     "firebase": "^12.19.0",
     "html2canvas": "^1.4.1",
     "idb-keyval": "^6.2.1",

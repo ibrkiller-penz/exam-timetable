@@ -49,7 +49,7 @@ export const Report3RoomTimetable: React.FC = () => {
       {!report || !stages.stage5 ? (
         <ReportGate what="고사실 시험시간표" />
       ) : (
-        <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
+        <div className="print-page page-landscape bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <div className="flex justify-between items-center mb-6">
             <h1 className="font-extrabold text-2xl text-[#005691]">고사실 시험시간표</h1>
             <span className="text-sm font-bold text-gray-800 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
@@ -57,15 +57,15 @@ export const Report3RoomTimetable: React.FC = () => {
             </span>
           </div>
 
-          <table className="w-full text-xs text-center border-collapse border border-gray-800">
+          <table className="w-full text-[15px] print:text-[14px] text-center border-collapse border border-gray-800">
             <thead>
               <tr className="bg-gray-100 border-b border-gray-800 divide-x divide-gray-800">
-                <th className="py-2.5 px-2 w-16">교시</th>
-                <th className="py-2.5 px-2 w-20">구분</th>
+                <th className="py-3 px-2 w-24 text-[16px]">교시</th>
+                <th className="py-3 px-2 w-28 text-[16px]">구분</th>
                 {report.activeDays.map(d => (
-                  <th key={d.day} className="py-2 px-2 font-bold">
+                  <th key={d.day} className="py-3 px-2 font-black text-[16px]">
                     <div>{d.label}</div>
-                    <div className="text-[11px] text-gray-600">{d.dateText}</div>
+                    <div className="text-[13px] text-gray-600 font-semibold">{d.dateText}</div>
                   </th>
                 ))}
               </tr>
@@ -74,30 +74,30 @@ export const Report3RoomTimetable: React.FC = () => {
               {report.activePeriods.map(p => (
                 <React.Fragment key={p}>
                   <tr className="divide-x divide-gray-800">
-                    <td rowSpan={3} className="py-2 font-bold bg-gray-50 align-middle">
+                    <td rowSpan={3} className="py-2 font-black text-[17px] bg-gray-50 align-middle">
                       {p}교시
                     </td>
-                    <td className="py-1.5 bg-gray-50 font-semibold">과목</td>
+                    <td className="py-2 bg-gray-50 font-bold text-[14px]">과목</td>
                     {report.activeDays.map(d => (
-                      <td key={d.day} className="py-1.5 font-bold text-gray-900">
+                      <td key={d.day} className="py-2.5 font-black text-[17px] text-gray-900 break-keep leading-tight">
                         {report.grid[p][d.day]?.subject || '-'}
                       </td>
                     ))}
                   </tr>
 
                   <tr className="divide-x divide-gray-800">
-                    <td className="py-1.5 bg-gray-50 font-semibold">응시자수</td>
+                    <td className="py-2 bg-gray-50 font-bold text-[14px]">응시자수</td>
                     {report.activeDays.map(d => (
-                      <td key={d.day} className="py-1.5 font-semibold text-[#005691]">
+                      <td key={d.day} className="py-2 font-black text-[16px] text-[#005691]">
                         {report.grid[p][d.day]?.stuCount ? `${report.grid[p][d.day].stuCount}명` : '-'}
                       </td>
                     ))}
                   </tr>
 
                   <tr className="divide-x divide-gray-800 border-b-2 border-gray-800">
-                    <td className="py-1 bg-gray-50 text-[11px] text-gray-500">시험시간</td>
+                    <td className="py-1.5 bg-gray-50 text-[13px] text-gray-500 font-semibold">시험시간</td>
                     {report.activeDays.map(d => (
-                      <td key={d.day} className="py-1 text-[11px] text-gray-600">
+                      <td key={d.day} className="py-1.5 text-[13px] text-gray-600 font-medium">
                         {report.grid[p][d.day]?.timeStr || '-'}
                       </td>
                     ))}
