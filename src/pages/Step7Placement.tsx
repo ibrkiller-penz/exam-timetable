@@ -1840,41 +1840,6 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                         </div>
                         {!isStageLocked && (
                           <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
-                            {/* 7. 고사장 배치에서는 뺍니다 — +고사장/-축소는 셀의 '고사장 변환'·'대기실 변환'과 겹치고,
-                                재배치·자동배치는 상단 툴바에 있습니다. 교시 칸을 과목 이름에 집중시킵니다. */}
-                            {stepMode !== 7 && (
-                            <>
-                            <button
-                              onClick={() => handleAddExamRoomFromWait(ps.index)}
-                              className={`font-bold bg-blue-50 text-[#005691] border border-blue-200 rounded-lg hover:bg-blue-100 shadow-2xs transition ${isCompactFit ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'}`}
-                              title="이 교시에 시험 고사장 1실 추가 (대기실을 고사장으로 변환)"
-                            >
-                              + 고사장
-                            </button>
-                            <button
-                              onClick={() => handleShrinkExamRoomToWait(ps.index)}
-                              className={`font-bold bg-amber-50 text-amber-900 border border-amber-200 rounded-lg hover:bg-amber-100 shadow-2xs transition ${isCompactFit ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'}`}
-                              title="이 교시의 고사장 1실 축소 (대기실로 변환하고 학생 합침)"
-                            >
-                              - 축소
-                            </button>
-                            <button
-                              onClick={() => handleResetAndAutoPlaceSlot(ps.index)}
-                              className={`font-bold bg-indigo-50 text-indigo-800 border border-indigo-200 rounded-lg hover:bg-indigo-100 shadow-2xs transition ${isCompactFit ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'}`}
-                              title="이 교시만 초기화하고 다시 자동배치 (다른 교시 영향 없음)"
-                            >
-                              재배치
-                            </button>
-                            <button
-                              onClick={() => handleAutoPlaceSlot(ps.index)}
-                              className={`font-bold bg-[#e6f1f8] text-[#005691] border border-gray-200 rounded-lg hover:bg-[#fee2e2] shadow-2xs transition ${isCompactFit ? 'text-[11px] px-1.5 py-0.5' : 'text-[13px] px-2 py-0.5'}`}
-                              title="이 교시 자동배치"
-                            >
-                              자동배치
-                            </button>
-                            </>
-                            )}
-
                             {/* 7번에서는 학생 명단 대신 '정원이 모자라다'는 사실만 알립니다.
                                 정원 설계가 이 단계의 일이므로 숫자는 보여야 합니다. */}
                             {stepMode === 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
@@ -2021,7 +1986,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                 <div className="text-[10px] text-rose-500 font-semibold leading-none">
                                   (배제됨)
                                 </div>
-                                {!isStageLocked && (
+                                {stepMode === 7 && !isStageLocked && (
                                   <button
                                     type="button"
                                     onClick={e => {
@@ -2145,8 +2110,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                                   </div>
                                 )}
 
-                                {/* 대기실 ↔ 고사장 원클릭 변환 버튼 */}
-                                {!isStageLocked && !isLocked && (
+                                {/* 고사실 구성은 7. 고사장 배치에서만 바꿉니다. */}
+                                {stepMode === 7 && !isStageLocked && !isLocked && (
                                   isWait ? (
                                     <div className="mt-1.5 flex items-center justify-center gap-1">
                                       <button
@@ -2194,7 +2159,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
                             ) : (
                               <div className="flex flex-col items-center justify-center py-1">
                                 <span className="text-gray-400 text-[14px]">-</span>
-                                {!isStageLocked && !isLocked && (
+                                {stepMode === 7 && !isStageLocked && !isLocked && (
                                   <div className="mt-0.5 flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                                     <button
                                       onClick={e => {
