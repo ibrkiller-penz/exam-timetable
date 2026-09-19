@@ -78,45 +78,53 @@ export const Report3RoomTimetable: React.FC = () => {
         <ReportGate what="고사실 시험시간표" />
       ) : (
         <div className="print-page page-landscape bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="font-extrabold text-2xl text-[#005691]">고사실 시험시간표</h1>
-            <span className="text-sm font-bold text-gray-800 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
-              고사실: {room.roomName} {room.banName && room.banName !== room.roomName ? `(${room.banName})` : ''}
-            </span>
+          {/* 교실 문에 붙이는 종이입니다. 고사실 이름이 제목만큼 커야 복도에서 찾습니다. */}
+          <div className="flex justify-between items-end mb-5 gap-4 border-b-4 border-[#005691] pb-3">
+            <div>
+              <h1 className="font-black text-[34px] leading-none text-[#005691] tracking-tight">고사실 시험시간표</h1>
+              <p className="text-[15px] font-bold text-slate-500 mt-1.5">교시별 시험 과목과 응시 인원입니다.</p>
+            </div>
+            <div className="text-right shrink-0">
+              <div className="text-[13px] font-bold text-slate-400">고사실</div>
+              <div className="font-black text-[38px] leading-none text-slate-900 tracking-tight">{room.roomName}</div>
+              {room.banName && room.banName !== room.roomName && (
+                <div className="text-[14px] font-bold text-slate-500 mt-0.5">{room.banName}</div>
+              )}
+            </div>
           </div>
 
-          <table className="w-full text-[15px] print:text-[14px] text-center border-collapse border border-gray-800">
+          <table className="w-full text-[15px] print:text-[14px] text-center border-collapse">
             <thead>
-              <tr className="bg-gray-100 border-b border-gray-800 divide-x divide-gray-800">
-                <th className="py-3 px-2 w-24 text-[16px]">교시</th>
-                <th className="py-3 px-2 w-28 text-[16px]">구분</th>
+              <tr className="bg-[#eef4f9] text-[#00426e] border-b-2 border-[#005691]">
+                <th className="py-2.5 px-2 w-20 text-[15px] font-black border-r border-[#cfe0ed]">교시</th>
+                <th className="py-2.5 px-2 w-24 text-[15px] font-black border-r border-[#cfe0ed]">구분</th>
                 {report.activeDays.map(d => (
-                  <th key={d.day} className="py-3 px-2 font-black text-[16px]">
+                  <th key={d.day} className="py-2.5 px-2 font-black text-[16px] border-r border-[#cfe0ed] last:border-r-0">
                     <div>{d.label}</div>
                     <div className="text-[13px] text-gray-600 font-semibold">{d.dateText}</div>
                   </th>
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody>
               {report.activePeriods.map(p => (
                 <React.Fragment key={p}>
-                  <tr className="divide-x divide-gray-800">
-                    <td rowSpan={3} className="py-2 font-black text-[17px] bg-gray-50 align-middle">
+                  <tr>
+                    <td rowSpan={3} className="py-2 font-black text-[19px] bg-[#f4f7fa] align-middle border-t-2 border-[#005691] border-r border-[#e2e8f0]">
                       {p}교시
                     </td>
-                    <td className="py-2 bg-gray-50 font-bold text-[14px]">과목</td>
+                    <td className="py-2 bg-[#f8fafc] font-bold text-[13px] text-slate-500 border-t-2 border-[#005691] border-r border-[#e2e8f0]">과목</td>
                     {report.activeDays.map(d => (
-                      <td key={d.day} className="py-2.5 font-black text-[17px] text-gray-900 break-keep leading-tight">
+                      <td key={d.day} className="py-2.5 font-black text-[17px] text-gray-900 break-keep leading-tight border-t-2 border-[#005691] border-r border-[#e2e8f0] last:border-r-0">
                         {report.grid[p][d.day]?.subject || '-'}
                       </td>
                     ))}
                   </tr>
 
-                  <tr className="divide-x divide-gray-800">
-                    <td className="py-2 bg-gray-50 font-bold text-[14px]">응시자수</td>
+                  <tr>
+                    <td className="py-2 bg-[#f8fafc] font-bold text-[13px] text-slate-500 border-r border-[#e2e8f0]">응시자수</td>
                     {report.activeDays.map(d => (
-                      <td key={d.day} className="py-2 font-black text-[16px] text-[#005691]">
+                      <td key={d.day} className="py-2 font-black text-[17px] text-[#b91c1c] border-r border-[#e2e8f0] last:border-r-0">
                         {report.grid[p][d.day]?.stuCount ? `${report.grid[p][d.day].stuCount}명` : '-'}
                         {/* 별도 고사실로 간 학생은 이 교실에 없습니다.
                             감독 선생님이 인원을 맞출 때 그만큼이 빈 것을 알아야 합니다. */}
@@ -129,10 +137,10 @@ export const Report3RoomTimetable: React.FC = () => {
                     ))}
                   </tr>
 
-                  <tr className="divide-x divide-gray-800 border-b-2 border-gray-800">
-                    <td className="py-1.5 bg-gray-50 text-[13px] text-gray-500 font-semibold">시험시간</td>
+                  <tr>
+                    <td className="py-1.5 bg-[#f8fafc] text-[12px] text-slate-400 font-bold border-r border-[#e2e8f0]">시험시간</td>
                     {report.activeDays.map(d => (
-                      <td key={d.day} className="py-1.5 text-[13px] text-gray-600 font-medium">
+                      <td key={d.day} className="py-1.5 text-[13px] text-slate-500 font-semibold border-r border-[#e2e8f0] last:border-r-0">
                         {report.grid[p][d.day]?.timeStr || '-'}
                       </td>
                     ))}

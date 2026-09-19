@@ -20,6 +20,8 @@ export const Report8SeparateRoom: React.FC = () => {
   const placementSlots = useAppStore(selPlacementSlots);
 
   const [tab, setTab] = useState<'manage' | 'print'>('manage');
+  // 한 학생이 어느 교시에 무슨 과목을 어디서 보는지 펼쳐 보는 창.
+  const [detailKey, setDetailKey] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [onlyChecked, setOnlyChecked] = useState(false);
 
@@ -78,12 +80,22 @@ export const Report8SeparateRoom: React.FC = () => {
     return rooms.find(r => r.id === roomId)?.roomName ?? '';
   };
 
+  /**
+   * 그 학생이 별도로 보는 교시를 하나하나 펼칩니다.
+   * 과목까지 있어야 감독 선생님이 어느 시험지를 챙길지 압니다.
+   */
+  const detailOf = (key: string) =>
+    examSlots
+      .filter(ps => separateRoomFor(key, ps.index, separateExaminers))
+      .map(ps => {
+        const st = students.find(x => `${x.ban}-${x.num}` === key);
+        const subject = ps.subjects.find(sub => st?.subjects.includes(sub)) ?? '';
+        return { title: ps.title, room: homeRoomAt(key, ps.index), subject, slotIndex: ps.index };
+      });
+
   /** 별도로 보는 교시들의 소속 고사실을 간추립니다. */
   const whereText = (key: string) => {
-    const detail = examSlots
-      .filter(ps => separateRoomFor(key, ps.index, separateExaminers))
-      .map(ps => ({ title: ps.title, room: homeRoomAt(key, ps.index) }))
-      .filter(x => x.room);
+    const detail = detailOf(key).filter(x => x.room);
     const distinct = [...new Set(detail.map(d => d.room))];
     return {
       short: distinct.length === 0 ? '' : distinct.length <= 3 ? distinct.join(', ') : `${distinct.slice(0, 3).join(', ')} 외 ${distinct.length - 3}실`,
@@ -173,6 +185,94 @@ export const Report8SeparateRoom: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 한 학생이 어느 교시에 무슨 과목을 어디서 보는지. 그대로 인쇄해 담임께 드릴 수 있습니다. */}
+      {detailKey && (() => {
+        const st = students.find(x => `${x.ban}-${x.num}` === detailKey);
+        const cur = separateExaminers[detailKey];
+        const rows = detailOf(detailKey);
+        if (!st || !cur) return null;
+
+        return (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6 print:static print:bg-white print:p-0" onClick={() => setDetailKey(null)}>
+            <div
+              className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden print:max-w-none print:max-h-none print:shadow-none print:rounded-none"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="bg-[#005691] text-white px-5 py-3 flex items-center justify-between shrink-0 no-print">
+                <span className="font-black text-[16px]">별도 응시 상세</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-[13.5px] font-bold flex items-center gap-1.5 transition"
+                  >
+                    <Printer className="w-4 h-4" /> 인쇄
+                  </button>
+                  <button onClick={() => setDetailKey(null)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-8 overflow-auto print-page page-portrait">
+                <h1 className="text-center font-black text-[30px] leading-none text-[#005691] tracking-tight mb-1">
+                  별도 고사실 응시 안내
+                </h1>
+                <p className="text-center text-[15px] font-bold text-slate-600 mb-5">
+                  아래 시간에는 소속 교실이 아니라 별도 고사실에서 시험을 봅니다.
+                </p>
+
+                <div className="border-2 border-gray-800 grid grid-cols-4 text-center text-[14px] mb-5">
+                  <div className="py-2 bg-gray-100 font-black border-r border-gray-800">학년·반·번호</div>
+                  <div className="py-2 bg-gray-100 font-black border-r border-gray-800">성명</div>
+                  <div className="py-2 bg-gray-100 font-black border-r border-gray-800">별도 고사실</div>
+                  <div className="py-2 bg-gray-100 font-black">해당 교시</div>
+
+                  <div className="py-2 border-t border-r border-gray-800 font-bold">{st.grade}학년 {st.ban} {st.num}번</div>
+                  <div className="py-2 border-t border-r border-gray-800 font-black text-[16px]">{displayName(st.name)}</div>
+                  <div className="py-2 border-t border-r border-gray-800 font-black text-[16px] text-[#005691]">{cur.room}실</div>
+                  <div className="py-2 border-t border-gray-800 font-bold">
+                    {cur.slots === 'all' ? '모든 시험' : `${rows.length}개 교시`}
+                  </div>
+                </div>
+
+                {rows.length === 0 ? (
+                  <p className="text-center text-slate-400 py-10">아직 배치된 교시가 없습니다.</p>
+                ) : (
+                  <table className="w-full text-[15px] text-center border-collapse border-2 border-gray-800">
+                    <thead className="bg-gray-100">
+                      <tr className="divide-x divide-gray-800 border-b border-gray-800">
+                        <th className="py-2 px-2 w-16 font-black">연번</th>
+                        <th className="py-2 px-2 w-32 font-black">교시</th>
+                        <th className="py-2 px-2 font-black">과목</th>
+                        <th className="py-2 px-2 w-28 font-black">원고사실</th>
+                        <th className="py-2 px-2 w-24 font-black">답안지</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-800">
+                      {rows.map((d, i) => (
+                        <tr key={d.slotIndex} className="divide-x divide-gray-800 h-9">
+                          <td className="text-slate-500 font-bold">{i + 1}</td>
+                          <td className="font-black">{d.title}</td>
+                          <td className="font-bold text-slate-800">{d.subject || '-'}</td>
+                          <td className="font-black text-[16px] text-red-700">{d.room || '-'}</td>
+                          <td></td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+
+                <p className="text-[13px] text-slate-500 mt-4 leading-relaxed">
+                  · 이 학생은 <strong>원고사실 명단에도 그대로 올라 있습니다.</strong> 명단 비고에 '별도'로 표시됩니다.<br />
+                  · 좌석배치도에는 나오지 않습니다. 그 교실에 앉지 않기 때문입니다.<br />
+                  · 시험이 끝나면 답안지를 원고사실 것과 합쳐 주세요.
+                </p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {tab === 'manage' ? (
         <div className="no-print">
@@ -294,13 +394,21 @@ export const Report8SeparateRoom: React.FC = () => {
                             );
                           }
                           return (
-                            <div className="text-[13px] leading-relaxed" title={w.full}>
-                              <span className="font-black text-[#005691]">별도 {cur.room}실</span>
-                              <span className="text-slate-400"> 에서 응시 </span>
-                              <span className="text-slate-500">· 답안지는 </span>
-                              <strong className="text-slate-800">{w.short}</strong>
-                              <span className="text-slate-500"> 으로</span>
-                              {w.count > 1 && <span className="text-slate-400"> ({w.count}교시)</span>}
+                            <div className="flex items-center gap-2 flex-wrap text-[13px] leading-relaxed">
+                              <span>
+                                <span className="font-black text-[#005691]">별도 {cur.room}실</span>
+                                <span className="text-slate-400"> 에서 응시 </span>
+                                <span className="text-slate-500">· 답안지는 </span>
+                                <strong className="text-slate-800">{w.short}</strong>
+                                <span className="text-slate-500"> 으로</span>
+                                {w.count > 1 && <span className="text-slate-400"> ({w.count}교시)</span>}
+                              </span>
+                              <button
+                                onClick={() => setDetailKey(key)}
+                                className="px-2 py-0.5 rounded-md border border-gray-300 bg-white hover:bg-blue-50 hover:border-[#005691] text-slate-600 hover:text-[#005691] font-bold text-[12.5px] transition"
+                              >
+                                자세히 보기
+                              </button>
                             </div>
                           );
                         })()}
