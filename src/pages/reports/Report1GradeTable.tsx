@@ -13,6 +13,9 @@ export const Report1GradeTable: React.FC = () => {
   // 화면에서 정한 분반 표기를 인쇄물에도 그대로 씁니다.
   const banCfg = { defaultStyle: settings.banLabelStyle, slotStyle: slotBanLabelStyle, manual: slotBanLabels };
 
+  // 배치가 하나라도 있으면 표를 만들 수 있습니다. 응시현황 확정과는 무관합니다.
+  const hasPlacement = Object.values(placement || {}).some(row => Object.values(row || {}).some(v => v && v !== '배치금지'));
+
   const { columns, rows } = buildGradeTable(rooms, days, times, placementSlots, placement, entries, banCfg);
 
   return (
@@ -21,23 +24,23 @@ export const Report1GradeTable: React.FC = () => {
         <h2 className="text-xl font-bold text-[#005691]">10-1. 전체 시험시간표</h2>
         <button
           onClick={() => window.print()}
-          disabled={!stages.stage5}
+          disabled={!hasPlacement}
           className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >
           <Printer className="w-4 h-4" /> 인쇄하기
         </button>
         <button
           onClick={() => exportMultipleDOMTablesToExcel('table', 'Report1GradeTable.xlsx')}
-          disabled={!stages.stage5}
+          disabled={!hasPlacement}
           className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >
           <Download className="w-4 h-4" /> 엑셀 내보내기
         </button>
       </div>
 
-      {!stages.stage5 ? (
+      {!hasPlacement ? (
         <div className="p-12 text-center text-gray-400 border border-gray-200 rounded-xl bg-gray-50">
-          응시현황(9단계)이 확정되면 전체 시험시간표가 생성됩니다.
+          7. 고사장 배치를 하면 전체 시험시간표가 만들어집니다.
         </div>
       ) : (
         <div className="print-page page-landscape bg-white border border-gray-300 p-6 print:p-2 rounded-xl shadow-xs print:border-none print:shadow-none">

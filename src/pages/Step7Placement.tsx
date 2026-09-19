@@ -4,6 +4,7 @@ import { StageHeader } from '../components/StageHeader';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AlertModal } from '../components/AlertModal';
 import { CloudModal } from '../components/CloudModal';
+import { TimetablePreviewModal } from '../components/TimetablePreviewModal';
 import { saveCloudImmediately } from '../domain/firebase';
 import { MSG } from '../domain/messages';
 import { isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle, CapacityBasis } from '../domain/types';
@@ -150,6 +151,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   const [algorithmHelpOpen, setAlgorithmHelpOpen] = useState<boolean>(false);
   /** 분반 이름을 지정할 교시. null이면 닫힘. */
   const [banLabelModal, setBanLabelModal] = useState<number | null>(null);
+  const [timetablePreviewOpen, setTimetablePreviewOpen] = useState(false);
   const [studentListModal, setStudentListModal] = useState<{
     slotIndex: number;
     roomId: string;
@@ -1688,20 +1690,13 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
             >
               <Sparkles className="w-4 h-4" /> 전체 자동배치
             </button>
-            {/* Re-place Current Slot Button */}
-            {curSlot && (
-              <button
-                onClick={() => handleResetAndAutoPlaceSlot(curSlot.index)}
-                disabled={isStageLocked}
-                className="px-3.5 py-2 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-xl text-[15px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200"
-                title={`[${curSlot.title}] 교시만 초기화하고 다시 자동 배치합니다 (다른 교시 영향 없음)`}
-              >
-                <RefreshCw className="w-4 h-4 text-indigo-600" />
-                <span>이 교시 재배치</span>
-              </button>
-            )}
-
-
+            <button
+              onClick={() => setTimetablePreviewOpen(true)}
+              className="px-3 py-2 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition active:scale-95"
+              title="고사 시간표를 미리 보고 인쇄하거나 엑셀로 내려받습니다"
+            >
+              <span>📋 시간표</span>
+            </button>
             <button
               onClick={handleSaveProgress}
               disabled={isSaving}
@@ -1722,19 +1717,6 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
           </div>
         }
       />
-
-      {/* 7. 고사장 배치는 이 줄이 통째로 비었습니다.
-          정원 일괄 설정은 2. 기초정보에, 단계 이동은 왼쪽 목록에 있습니다. */}
-      {stepMode !== 7 && (
-      <div className="bg-slate-100 border-b border-gray-200 px-6 py-2 flex items-center justify-end">
-        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 bg-white px-3 py-1.5 rounded-xl border border-slate-200 shadow-2xs">
-          <span>💡 자동배정 규칙:</span>
-          <span className="text-blue-700">분반수 = 시험실수 ➔ 분반위주</span>
-          <span className="text-slate-400">|</span>
-          <span className="text-indigo-700">분반수 ≠ 시험실수 ➔ 학번순</span>
-        </div>
-      </div>
-      )}
 
       {/* 이동 최소화 현황: 학생 배치 결과 지표이므로 8. 학생 배치에서만 보여줍니다. */}
       <div className={`bg-[#fee2e2] text-[#005691] border-b border-emerald-800 px-6 py-2 items-center justify-between shrink-0 no-print shadow-xs ${
@@ -1952,6 +1934,17 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                           {ps.subjects.length === 0 ? '시험 없음 · 전체 자습' : ps.subjects.join(', ')}
                         </div>
                         {/* 전원이 시험을 보는 교시는 분반으로 모을지, 학급이 자기 교실에 앉을지 고릅니다. */}
+                        {!isStageLocked && ps.subjects.length > 0 && (
+                          <button
+                            onClick={() => handleResetAndAutoPlaceSlot(ps.index)}
+                            className="mt-1 p-1 text-slate-400 hover:text-[#005691] hover:bg-blue-50 rounded-md transition"
+                            title="이 교시 재배치 — 이 교시만 비우고 다시 자동배치합니다 (다른 교시 영향 없음)"
+                            aria-label="이 교시 재배치"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        )}
+
                         {stepMode === 7 && ps.subjects.length > 0 && ps.nonTakers === 0 && !isStageLocked && (
                           <div className="mt-1 flex items-center justify-center gap-1">
                             {([['ban', '분반'], ['class', '학반']] as const).map(([mode, label]) => {
@@ -3163,6 +3156,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
           </div>
         );
       })()}
+
+      {timetablePreviewOpen && <TimetablePreviewModal onClose={() => setTimetablePreviewOpen(false)} />}
 
       {alertModal && (
         <AlertModal

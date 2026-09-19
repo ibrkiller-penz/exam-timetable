@@ -261,7 +261,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
         </div>
 
         {/* Steps Navigation */}
-        <div className="flex-1 overflow-y-auto py-3.5 px-3 space-y-2">
+        <div className="flex-1 overflow-y-auto py-2 px-3 space-y-0.5">
           <div className="px-3.5 py-1 text-[13px] font-extrabold text-slate-500 uppercase tracking-widest flex items-center justify-between">
             <span>작성 단계</span><span className="text-[13px] text-slate-400 font-bold">Step 1 ~ 8</span>
           </div>
@@ -273,11 +273,11 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
               <button
                 key={s.id}
                 onClick={() => onTabChange(s.id)}
-                className={`w-full flex items-center justify-between px-4 py-3.5 rounded-xl text-[18px] transition-all duration-150`}
+                className={`w-full flex items-center justify-between px-3.5 py-2 rounded-lg text-[16px] transition-all duration-150`}
                 style={active ? { backgroundColor: tc.primary + '15', color: tc.primary, boxShadow: `0 0 0 1px ${tc.primary}30`, fontWeight: 800 } : { color: '#334155', fontWeight: 600 }}
               >
-                <div className="flex items-center gap-3.5">
-                  <Icon className="w-5 h-5" style={{ color: active ? tc.primary : '#64748b' }} />
+                <div className="flex items-center gap-2.5">
+                  <Icon className="w-4.5 h-4.5" style={{ color: active ? tc.primary : '#64748b' }} />
                   <span style={{ color: active ? tc.primary : '#334155' }}>{s.label}</span>
                 </div>
                 {s.done ? (
@@ -301,7 +301,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
               <button
                 key={r.id}
                 onClick={() => onTabChange(r.id)}
-                className="w-full flex items-center gap-3.5 px-4 py-3 rounded-xl text-[17px] transition-all"
+                className="w-full flex items-center gap-3 px-3.5 py-2 rounded-lg text-[15.5px] transition-all"
                 style={active ? { backgroundColor: tc.primary + '15', color: tc.primary, fontWeight: 800 } : { color: '#334155', fontWeight: 600 }}
               >
                 <Printer className="w-4 h-4" style={{ color: active ? tc.primary : '#64748b' }} />
