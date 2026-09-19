@@ -1,0 +1,46 @@
+
+/* Blue Theme (default) */
+:root[data-theme="blue"],
+:root:not([data-theme]) {
+  --primary: #005691;
+  --primary-light: #e6f1f8;
+  --primary-mid: #cce3f0;
+  --primary-btn: #005691;
+  --primary-hover: #004270;
+  --accent: #007a3c;
+  --accent-light: #e5f6ec;
+  --sidebar-bg: #ffffff;
+  --header-bg: #ffffff;
+}
+
+/* Red Theme */
+:root[data-theme="red"] {
+  --primary: #9b1c1c;
+  --primary-light: #fff1f1;
+  --primary-mid: #fecdd3;
+  --primary-btn: #9b1c1c;
+  --primary-hover: #7f1d1d;
+  --accent: #b45309;
+  --accent-light: #fef3c7;
+  --sidebar-bg: #ffffff;
+  --header-bg: #ffffff;
+}
+
+/* Green Theme */
+:root[data-theme="green"] {
+  --primary: #15643a;
+  --primary-light: #ecfdf5;
+  --primary-mid: #a7f3d0;
+  --primary-btn: #15643a;
+  --primary-hover: #064e3b;
+  --accent: #1e40af;
+  --accent-light: #eff6ff;
+  --sidebar-bg: #ffffff;
+  --header-bg: #ffffff;
+}
+
+/* Apply CSS variables */
+.themed-primary { color: var(--primary) !important; }
+.themed-primary-bg { background-color: var(--primary) !important; }
+.themed-primary-light-bg { background-color: var(--primary-light) !important; }
+.themed-border { border-color: var(--primary-mid) !important; }

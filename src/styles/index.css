@@ -1,0 +1,226 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-size: 15.5px; /* Base size */
+  }
+  body {
+    font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+    color: #0f172a;
+    background-color: #F8F7F4;
+    font-size: 1rem;
+    line-height: 1.6; letter-spacing: -0.015em;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    letter-spacing: -0.01em; /* Less tight for readability */
+  }
+}
+
+/* Custom sleek scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #475569;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+@media print {
+  html, body, #root {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    background: #ffffff !important;
+    color: #000000 !important;
+    font-size: 16px;
+  }
+  main, aside, section, article {
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+  }
+  .no-print, aside, header.no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  .print-page {
+    page-break-after: always !important;
+    break-after: page !important;
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+    margin-bottom: 0 !important;
+  }
+  .print-page:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+  .page-landscape { size: A4 landscape; }
+  .page-portrait { size: A4 portrait; }
+}
+
+@page { margin: 12mm; }
+
+
+/* Blue Theme (default) */
+:root, :root[data-theme="blue"] {
+  --c-primary: #005691;
+  --c-primary-light: #e6f1f8;
+  --c-primary-mid: #cce3f0;
+  --c-primary-hover: #004270;
+  --c-primary-text: #005691;
+  --c-sidebar-accent: #e6f1f8;
+  --c-ring: #cce3f0;
+}
+
+/* Red Theme */
+:root[data-theme="red"] {
+  --c-primary: #9b1c1c;
+  --c-primary-light: #fff5f5;
+  --c-primary-mid: #fecdd3;
+  --c-primary-hover: #7f1d1d;
+  --c-primary-text: #9b1c1c;
+  --c-sidebar-accent: #fff5f5;
+  --c-ring: #fecdd3;
+}
+
+/* Green Theme */
+:root[data-theme="green"] {
+  --c-primary: #15643a;
+  --c-primary-light: #f0fdf4;
+  --c-primary-mid: #bbf7d0;
+  --c-primary-hover: #064e3b;
+  --c-primary-text: #15643a;
+  --c-sidebar-accent: #f0fdf4;
+  --c-ring: #bbf7d0;
+}
+
+/* ===================================================
+   DYNAMIC GLOBAL THEME OVERRIDES
+   =================================================== */
+
+/* --- RED THEME OVERRIDES --- */
+:root[data-theme="red"] [class*="bg-[#005691]"],
+:root[data-theme="red"] [class*="bg-[#004270]"],
+:root[data-theme="red"] [class*="bg-blue-600"],
+:root[data-theme="red"] [class*="bg-blue-700"],
+:root[data-theme="red"] [class*="bg-indigo-600"],
+:root[data-theme="red"] [class*="bg-indigo-700"] {
+  background-color: #9b1c1c !important;
+}
+
+:root[data-theme="red"] [class*="hover:bg-[#005691]"]:hover,
+:root[data-theme="red"] [class*="hover:bg-[#004270]"]:hover,
+:root[data-theme="red"] [class*="hover:bg-blue-700"]:hover,
+:root[data-theme="red"] [class*="hover:bg-indigo-700"]:hover {
+  background-color: #7f1d1d !important;
+}
+
+:root[data-theme="red"] [class*="text-[#005691]"],
+:root[data-theme="red"] [class*="text-[#004270]"],
+:root[data-theme="red"] [class*="text-blue-600"],
+:root[data-theme="red"] [class*="text-blue-700"],
+:root[data-theme="red"] [class*="text-indigo-600"],
+:root[data-theme="red"] [class*="text-indigo-700"] {
+  color: #9b1c1c !important;
+}
+
+:root[data-theme="red"] [class*="border-[#005691]"],
+:root[data-theme="red"] [class*="border-[#b3d4e8]"],
+:root[data-theme="red"] [class*="border-blue-600"],
+:root[data-theme="red"] [class*="border-indigo-600"] {
+  border-color: #9b1c1c !important;
+}
+
+:root[data-theme="red"] [class*="bg-[#e6f1f8]"],
+:root[data-theme="red"] [class*="bg-blue-50"],
+:root[data-theme="red"] [class*="bg-indigo-50"] {
+  background-color: #fff5f5 !important;
+}
+
+:root[data-theme="red"] [class*="ring-red-500/50"],
+:root[data-theme="red"] [class*="ring-indigo-500"] {
+  --tw-ring-color: rgba(155, 28, 28, 0.4) !important;
+}
+
+/* --- GREEN THEME OVERRIDES --- */
+:root[data-theme="green"] [class*="bg-[#005691]"],
+:root[data-theme="green"] [class*="bg-[#004270]"],
+:root[data-theme="green"] [class*="bg-blue-600"],
+:root[data-theme="green"] [class*="bg-blue-700"],
+:root[data-theme="green"] [class*="bg-indigo-600"],
+:root[data-theme="green"] [class*="bg-indigo-700"] {
+  background-color: #15643a !important;
+}
+
+:root[data-theme="green"] [class*="hover:bg-[#005691]"]:hover,
+:root[data-theme="green"] [class*="hover:bg-[#004270]"]:hover,
+:root[data-theme="green"] [class*="hover:bg-blue-700"]:hover,
+:root[data-theme="green"] [class*="hover:bg-indigo-700"]:hover {
+  background-color: #064e3b !important;
+}
+
+:root[data-theme="green"] [class*="text-[#005691]"],
+:root[data-theme="green"] [class*="text-[#004270]"],
+:root[data-theme="green"] [class*="text-blue-600"],
+:root[data-theme="green"] [class*="text-blue-700"],
+:root[data-theme="green"] [class*="text-indigo-600"],
+:root[data-theme="green"] [class*="text-indigo-700"] {
+  color: #15643a !important;
+}
+
+:root[data-theme="green"] [class*="border-[#005691]"],
+:root[data-theme="green"] [class*="border-[#b3d4e8]"],
+:root[data-theme="green"] [class*="border-blue-600"],
+:root[data-theme="green"] [class*="border-indigo-600"] {
+  border-color: #15643a !important;
+}
+
+:root[data-theme="green"] [class*="bg-[#e6f1f8]"],
+:root[data-theme="green"] [class*="bg-blue-50"],
+:root[data-theme="green"] [class*="bg-indigo-50"] {
+  background-color: #f0fdf4 !important;
+}
+
+:root[data-theme="green"] [class*="ring-red-500/50"],
+:root[data-theme="green"] [class*="ring-indigo-500"] {
+  --tw-ring-color: rgba(21, 100, 58, 0.4) !important;
+}
+
+/* --- THEME PICKER SWATCHES (항상 고유 색상 유지) --- */
+.theme-dot-blue,
+:root[data-theme] .theme-dot-blue,
+:root[data-theme="red"] .theme-dot-blue,
+:root[data-theme="green"] .theme-dot-blue {
+  background-color: #005691 !important;
+}
+
+.theme-dot-red,
+:root[data-theme] .theme-dot-red,
+:root[data-theme="blue"] .theme-dot-red,
+:root[data-theme="green"] .theme-dot-red {
+  background-color: #9b1c1c !important;
+}
+
+.theme-dot-green,
+:root[data-theme] .theme-dot-green,
+:root[data-theme="blue"] .theme-dot-green,
+:root[data-theme="red"] .theme-dot-green {
+  background-color: #15643a !important;
+}
+

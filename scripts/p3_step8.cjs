@@ -1,0 +1,263 @@
+const fs = require('fs');
+const content = `import React, { useState, useMemo } from 'react';
+import { useAppStore } from '../store/appStore';
+import { StageHeader } from '../components/StageHeader';
+import { ConfirmModal } from '../components/ConfirmModal';
+import { AlertModal } from '../components/AlertModal';
+import { MSG } from '../domain/messages';
+import { exportAttendanceToExcel } from '../utils/excelExport';
+import { Shuffle, ArrowDown10, Download, Search } from 'lucide-react';
+
+export const Step8Attendance: React.FC = () => {
+  const {
+    attendance,
+    stages,
+    updateAttendanceSeat,
+    setAttendanceBySeq,
+    setAttendanceRandom,
+    confirmStage5,
+    cancelStage5,
+  } = useAppStore();
+
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filterRoom, setFilterRoom] = useState('');
+  const [filterDay, setFilterDay] = useState('');
+
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void } | null>(null);
+  const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string; isError?: boolean } | null>(null);
+
+  const handleSeatSeq = () => {
+    if (stages.stage5) {
+      setAlertModal({ isOpen: true, message: MSG.S8_LOCKED, isError: true });
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      message: MSG.S8_SEAT_SEQ,
+      onConfirm: () => {
+        setAttendanceBySeq();
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const handleSeatRandom = () => {
+    if (stages.stage5) {
+      setAlertModal({ isOpen: true, message: MSG.S8_LOCKED, isError: true });
+      return;
+    }
+    setConfirmModal({
+      isOpen: true,
+      message: MSG.S8_SEAT_RAND,
+      onConfirm: () => {
+        setAttendanceRandom();
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const handleConfirm = () => {
+    try {
+      confirmStage5();
+      setAlertModal({ isOpen: true, message: MSG.S8_DONE });
+    } catch (err: any) {
+      setAlertModal({ isOpen: true, message: err.message, isError: true });
+    }
+  };
+
+  const handleCancel = () => {
+    setConfirmModal({
+      isOpen: true,
+      message: MSG.S8_CANCEL,
+      onConfirm: () => {
+        cancelStage5();
+        setConfirmModal(null);
+      },
+    });
+  };
+
+  const uniqueRooms = useMemo(() => Array.from(new Set(attendance.map(r => r.examRoom))), [attendance]);
+  const uniqueDays = useMemo(() => Array.from(new Set(attendance.map(r => r.day))), [attendance]);
+
+  const filteredAttendance = useMemo(() => {
+    return attendance.filter(r => {
+      if (filterRoom && r.examRoom !== filterRoom) return false;
+      if (filterDay && r.day !== filterDay) return false;
+      if (searchTerm) {
+        const t = searchTerm.toLowerCase();
+        return r.name.toLowerCase().includes(t) || r.ban.toLowerCase().includes(t) || r.subject.toLowerCase().includes(t);
+      }
+      return true;
+    });
+  }, [attendance, filterRoom, filterDay, searchTerm]);
+
+  const unassignedSeats = attendance.filter(r => r.seat === null || r.seat <= 0).length;
+
+  const guideMsg = stages.stage5
+    ? MSG.S8_GUIDE_DONE
+    : unassignedSeats > 0
+    ? MSG.S8_GUIDE_ENTER_SEAT
+    : MSG.S8_GUIDE_READY;
+
+  return (
+    <div className="flex flex-col h-full bg-white overflow-hidden">
+      <StageHeader
+        stageNumber={8}
+        stageTitle="응시현황 및 좌석번호 부여"
+        isConfirmed={stages.stage5}
+        confirmLabel="응시현황 확정"
+        cancelLabel="응시현황 확정 취소"
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        guideMessage={guideMsg}
+        actions={
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSeatSeq}
+              disabled={stages.stage5 || attendance.length === 0}
+              className="px-3 py-1.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-40 transition"
+            >
+              <ArrowDown10 className="w-4 h-4" /> 좌석 학번순
+            </button>
+            <button
+              onClick={handleSeatRandom}
+              disabled={stages.stage5 || attendance.length === 0}
+              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 border border-indigo-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-40 transition"
+            >
+              <Shuffle className="w-4 h-4" /> 좌석 랜덤 (대기실 제외)
+            </button>
+            <button
+              onClick={() => exportAttendanceToExcel(attendance)}
+              disabled={attendance.length === 0}
+              className="px-3 py-1.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-lg text-xs font-semibold flex items-center gap-1.5 disabled:opacity-40 transition"
+            >
+              <Download className="w-4 h-4" /> 엑셀 내보내기
+            </button>
+          </div>
+        }
+      />
+
+      <div className="p-6 flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+          <div className="flex items-center gap-3">
+            <select
+              value={filterDay}
+              onChange={e => setFilterDay(e.target.value)}
+              className="px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg focus:outline-none"
+            >
+              <option value="">모든 일차</option>
+              {uniqueDays.map(d => (
+                <option key={d} value={d}>{d}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterRoom}
+              onChange={e => setFilterRoom(e.target.value)}
+              className="px-2.5 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg focus:outline-none"
+            >
+              <option value="">모든 고사실</option>
+              {uniqueRooms.map(r => (
+                <option key={r} value={r}>{r}</option>
+              ))}
+            </select>
+
+            <span className="text-xs text-gray-500 font-medium">
+              총 {filteredAttendance.length.toLocaleString()}건
+            </span>
+          </div>
+
+          <div className="relative w-64">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+            <input
+              type="text"
+              placeholder="성명, 반, 과목 검색..."
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              className="w-full pl-9 pr-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+          </div>
+        </div>
+
+        <div className="flex-1 border border-gray-200 rounded-xl overflow-auto bg-white shadow-inner">
+          <table className="w-full text-xs text-left border-collapse">
+            <thead className="bg-gray-100 text-gray-700 sticky top-0 font-semibold border-b border-gray-200 z-10 shadow-xs">
+              <tr className="divide-x divide-gray-200">
+                <th className="py-2.5 px-3">일차</th>
+                <th className="py-2.5 px-3">교시</th>
+                <th className="py-2.5 px-3">고사실</th>
+                <th className="py-2.5 px-3">과목명</th>
+                <th className="py-2.5 px-3">학년</th>
+                <th className="py-2.5 px-3">반</th>
+                <th className="py-2.5 px-3 text-center">번호</th>
+                <th className="py-2.5 px-3">성명</th>
+                <th className="py-2.5 px-3">분반(강의실)</th>
+                <th className="py-2.5 px-3 text-center">학번순</th>
+                <th className="py-2.5 px-3 text-center w-24">좌석번호</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {filteredAttendance.length === 0 ? (
+                <tr>
+                  <td colSpan={11} className="py-12 text-center text-gray-400">
+                    배치를 확정하면 응시현황 및 좌석번호가 생성됩니다.
+                  </td>
+                </tr>
+              ) : (
+                filteredAttendance.map(r => {
+                  const isWait = r.subject === '미응시';
+                  return (
+                    <tr key={r.key1} className="divide-x divide-gray-100 hover:bg-gray-50">
+                      <td className="py-2 px-3 font-medium">{r.day}</td>
+                      <td className="py-2 px-3">{r.period}</td>
+                      <td className="py-2 px-3 font-bold text-gray-900">{r.examRoom}</td>
+                      <td className={\`py-2 px-3 font-semibold \${isWait ? 'text-amber-700' : 'text-blue-900'}\`}>
+                        {r.subject}
+                      </td>
+                      <td className="py-2 px-3">{r.grade}</td>
+                      <td className="py-2 px-3 font-semibold">{r.ban}</td>
+                      <td className="py-2 px-3 text-center">{r.num}</td>
+                      <td className="py-2 px-3 font-bold text-gray-900">{r.name}</td>
+                      <td className="py-2 px-3 text-gray-500">{r.classRoom || '-'}</td>
+                      <td className="py-2 px-3 text-center text-gray-400">{r.seq}</td>
+                      <td className="py-1 px-2 text-center">
+                        <input
+                          type="number"
+                          disabled={stages.stage5}
+                          value={r.seat ?? ''}
+                          onChange={e => updateAttendanceSeat(r.key1, Number(e.target.value) || null)}
+                          className="w-16 px-1.5 py-0.5 border border-gray-300 rounded text-center font-bold text-blue-800 disabled:bg-gray-100"
+                        />
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {confirmModal && (
+        <ConfirmModal
+          isOpen={confirmModal.isOpen}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal(null)}
+        />
+      )}
+
+      {alertModal && (
+        <AlertModal
+          isOpen={alertModal.isOpen}
+          message={alertModal.message}
+          isError={alertModal.isError}
+          onClose={() => setAlertModal(null)}
+        />
+      )}
+    </div>
+  );
+};
+`;
+fs.writeFileSync('src/pages/Step8Attendance.tsx', content, 'utf8');
+console.log('Step8 written');
