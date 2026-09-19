@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/appStore';
+import { ReportGate } from './ReportGate';
 import { buildRoomTimetableReport } from '../../domain/reports/roomTimetable';
 import { Printer, Download} from 'lucide-react';
 import { exportMultipleDOMTablesToExcel } from '../../utils/excelExport';
@@ -46,9 +47,7 @@ export const Report3RoomTimetable: React.FC = () => {
       </div>
 
       {!report || !stages.stage5 ? (
-        <div className="p-12 text-center text-gray-400 border border-gray-200 rounded-xl bg-gray-50">
-          응시현황이 확정되면 고사실 시험시간표가 생성됩니다.
-        </div>
+        <ReportGate what="고사실 시험시간표" />
       ) : (
         <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs max-w-4xl mx-auto">
           <div className="flex justify-between items-center mb-6">

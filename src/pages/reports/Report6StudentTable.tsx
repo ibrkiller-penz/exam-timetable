@@ -3,6 +3,7 @@ import { displayName } from '../../domain/privacy';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
 import { useAppStore } from '../../store/appStore';
+import { ReportGate } from './ReportGate';
 import { selPlacementSlots } from '../../store/selectors';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
 import { Printer, AlertTriangle, LayoutGrid, Square, Users, User, Building, FileDown, Loader2 } from 'lucide-react';
@@ -392,12 +393,7 @@ export const Report6StudentTable: React.FC = () => {
       `}</style>
 
       {!stages.stage5 ? (
-        <div className="p-12 text-center text-[#8C867A] border border-slate-200 rounded-xl bg-white flex flex-col items-center justify-center">
-          <div className="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mb-3">
-            <AlertTriangle className="w-6 h-6 text-[#8C867A]" />
-          </div>
-          <p className="font-bold">8단계 응시현황이 확정되면 개별 수험표가 생성됩니다.</p>
-        </div>
+        <ReportGate what="개별 수험표" />
       ) : reports.length === 0 ? (
         <div className="p-12 text-center text-[#8C867A] border border-slate-200 rounded-xl bg-white">
           선택된 대상이 없거나 선택과목이 없는 학생입니다.

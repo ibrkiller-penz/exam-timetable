@@ -172,7 +172,8 @@ export function confirmStage4(state: AppState): { state: AppState; notices: stri
 
   const placementSlots = buildPlacementInfo(state.timetable, state.students, state.evalSubjects);
   const entries = subjectBanEntries(state.subjectBans);
-  hasErrorBaechi(state.placement, placementSlots, state.rooms, entries, state.studentPlacements, state.students);
+  // 아래 두 검사(정원 초과 / 미배치)가 먼저입니다.
+  // 어느 교시 누구인지 짚어 주므로, 두루뭉술한 안내보다 손볼 곳을 찾기 쉽습니다.
 
   // 정원을 넘긴 고사실이 있으면 확정하지 않습니다.
   // 분반을 통째로 유지하느라 좌석을 넘길 수 있으므로, 확정 전에 손으로 정리해야 합니다.
@@ -205,6 +206,42 @@ export function confirmStage4(state: AppState): { state: AppState; notices: stri
       '\n\n정원을 올리거나, 칸을 더블클릭해 학생을 다른 고사실로 옮겨 주세요.'
     );
   }
+
+  // 어느 고사실에도 앉지 못한 학생이 있으면 확정하지 않습니다.
+  //
+  // 응시현황은 '고사실에 앉은 학생'만으로 만들어집니다. 미배치 학생은
+  // 명단에도 수험표에도 좌석배치도에도 나오지 않습니다. 그대로 확정하면
+  // 시험 당일 갈 곳이 없는 학생이 생기고, 인쇄물만 보면 알 길이 없습니다.
+  const unplaced: string[] = [];
+  for (const ps of placementSlots) {
+    const row = state.placement?.[ps.index] ?? {};
+    const sp = state.studentPlacements?.[ps.index];
+    if (!sp) continue;
+
+    const missing = state.students.filter(st => {
+      const rId = sp[`${st.ban}-${st.num}`];
+      return !rId || !row[rId] || row[rId] === '배치금지';
+    });
+    if (missing.length > 0) {
+      const who = missing.slice(0, 3).map(st => `${st.ban} ${st.num}번`).join(', ');
+      const rest = missing.length > 3 ? ` 외 ${missing.length - 3}명` : '';
+      unplaced.push(`${ps.title}: ${missing.length}명 (${who}${rest})`);
+    }
+  }
+
+  if (unplaced.length > 0) {
+    const shown = unplaced.slice(0, 8).join('\n');
+    const more = unplaced.length > 8 ? `\n… 외 ${unplaced.length - 8}교시` : '';
+    throw new Error(
+      `아직 자리를 받지 못한 학생이 있어 확정할 수 없습니다.\n\n` +
+      shown + more +
+      '\n\n교시 칸의 [미배치] 버튼을 눌러 남은 학생을 고사실에 넣어 주세요.\n' +
+      '자리가 모자라면 7. 고사장 배치에서 고사실을 늘리거나 정원을 올리면 됩니다.'
+    );
+  }
+
+  // 위 검사에 걸리지 않은 나머지 이상(칸은 있는데 분반이 비었다든지)을 봅니다.
+  hasErrorBaechi(state.placement, placementSlots, state.rooms, entries, state.studentPlacements, state.students);
 
   const { rows: attendance, notices } = buildAttendance(
     state.neis,

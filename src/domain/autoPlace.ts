@@ -856,37 +856,18 @@ export function initSlotStudentPlacements(
         return assigned < cap;
       });
 
-      // 2. Try finding an empty room or extra room with capacity
-      if (!targetRoom) {
-        targetRoom = rooms.find(r => {
-          const val = placementRow[r.id];
-          if (val === '배치금지') return false;
-          if (val && !isWaitCell(val)) return false;
-          const cap = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
-          const assigned = Object.values(result).filter(id => id === r.id).length;
-          return assigned < cap;
-        });
-      }
-
-      // 3. Fallback: if no exam room has space, look for a wait room with remaining capacity
-      if (!targetRoom) {
-        targetRoom = rooms.find(r => {
-          const val = placementRow[r.id];
-          if (val === '배치금지') return false;
-          if (!val || !isWaitCell(val)) return false;
-          const cap = r.capacity && r.capacity > 0 ? r.capacity : (r.maxClassSize && r.maxClassSize > 0 ? r.maxClassSize : 28);
-          const assigned = Object.values(result).filter(id => id === r.id).length;
-          return assigned < cap;
-        });
-      }
-
-      // If a room with capacity was found, assign to it.
-      // Otherwise, leave as unassigned wait student (result[k] = '') so room capacity is NEVER exceeded!
+      // 같은 과목 고사장에 자리가 없으면 여기서 멈춥니다.
+      //
+      // 예전에는 빈 교실이나 대기실에라도 앉혔습니다. 그러면 시험을 보는 학생이
+      // 대기실 명단에 올라가, 인쇄물에는 대기로 찍히고 고사실 응시현황표에서는
+      // 빠집니다. 고사장에 자리가 없다는 사실 자체를 감추는 셈입니다.
+      //
+      // 이제 미배치로 둡니다. 배치 패널에 뜨고 8단계 확정도 막히므로,
+      // 담당자가 어느 고사실로 보낼지 직접 정하게 됩니다.
       if (targetRoom) {
         result[k] = targetRoom.id;
         assignedStudentKeys.add(k);
       } else {
-        // Explicitly unassigned wait student - NEVER exceed room capacity!
         result[k] = '';
       }
     }

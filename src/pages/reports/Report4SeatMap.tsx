@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { displayName } from '../../domain/privacy';
 import { useAppStore } from '../../store/appStore';
+import { ReportGate } from './ReportGate';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
@@ -135,9 +136,7 @@ export const Report4SeatMap: React.FC = () => {
       </div>
 
       {!report || !stages.stage5 ? (
-        <div className="p-12 text-center text-gray-400 border border-gray-200 rounded-xl bg-gray-50">
-          응시현황이 없거나 선택한 교시에 해당 고사실 배치가 없습니다.
-        </div>
+        <ReportGate what="좌석배치도" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />
       ) : (
         <div className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs max-w-4xl mx-auto">
           <h1 className="text-center font-extrabold text-2xl mb-6 text-[#005691]">
