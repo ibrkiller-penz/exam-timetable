@@ -1634,13 +1634,37 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     });
   };
 
+  /**
+   * 초기화는 그 단계가 만든 것만 지웁니다.
+   *  - 8. 학생 배치: 학생만 비웁니다. 7번에서 정한 고사장·대기실 구성은 그대로 둡니다.
+   *  - 7. 고사장 배치: 고사장 구성까지 비웁니다.
+   */
   const handleResetStep7 = () => {
     if (isStageLocked) return;
+
+    if (stepMode !== 7) {
+      setConfirmModal({
+        isOpen: true,
+        message: '⚠️ 학생 배치를 초기화하시겠습니까?\n\n• 모든 교시의 학생이 고사실에서 빠집니다.\n• 7. 고사장 배치에서 정한 고사장·대기실과 정원은 그대로 남습니다.\n• 실행 취소(Undo)로 되돌릴 수 있습니다.',
+        onConfirm: () => {
+          pushHistory('학생 배치 초기화');
+          setAllStudentPlacements({});
+          setSelectedPlacementCell(null);
+          setConfirmModal(null);
+          setAlertModal({
+            isOpen: true,
+            message: '✅ 학생 배치를 초기화했습니다.\n\n고사장 구성은 그대로입니다. [전체 자동배치]로 학생만 다시 앉히면 됩니다.'
+          });
+        },
+      });
+      return;
+    }
+
     setConfirmModal({
       isOpen: true,
-      message: '⚠️ 학생 및 고사실 배치를 모두 초기화하시겠습니까?\n\n• 모든 교시의 고사실 및 대기 배치가 깨끗하게 비워집니다.\n• 초기화 후 [전체 자동배치]를 다시 실행할 수 있습니다.\n• 작업 후에도 실행 취소(Undo)로 언제든 되돌릴 수 있습니다.',
+      message: '⚠️ 고사장 배치를 모두 초기화하시겠습니까?\n\n• 모든 교시의 고사실 및 대기 배치가 깨끗하게 비워집니다.\n• 초기화 후 [전체 자동배치]를 다시 실행할 수 있습니다.\n• 작업 후에도 실행 취소(Undo)로 언제든 되돌릴 수 있습니다.',
       onConfirm: () => {
-        pushHistory('배치 전체 초기화');
+        pushHistory('고사장 배치 전체 초기화');
         clearAllPlacement();
         setPlacementGrid({});
         setAllStudentPlacements({});
@@ -1648,7 +1672,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         setConfirmModal(null);
         setAlertModal({
           isOpen: true,
-          message: '✅ 학생 및 고사실 배치가 깨끗하게 초기화되었습니다.\n\n[전체 자동배치] 버튼을 눌러 처음부터 다시 배치를 진행할 수 있습니다.'
+          message: '✅ 고사장 배치가 깨끗하게 초기화되었습니다.\n\n[전체 자동배치] 버튼을 눌러 처음부터 다시 배치를 진행할 수 있습니다.'
         });
       },
     });
@@ -1856,10 +1880,12 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
               onClick={handleResetStep7}
               disabled={isStageLocked}
               className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-red-700 border border-red-300 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed shadow-2xs active:scale-95"
-              title="학생 및 고사실 배치를 모두 초기화합니다."
+              title={stepMode === 7
+                ? '모든 교시의 고사장·대기실 구성을 비웁니다.'
+                : '학생만 비웁니다. 7번에서 정한 고사장 구성은 그대로 남습니다.'}
             >
               <RotateCcw className="w-4 h-4 text-red-600" />
-              <span>배치 초기화</span>
+              <span>{stepMode === 7 ? '고사장 초기화' : '학생 배치 초기화'}</span>
             </button>
           </div>
         }
@@ -2160,22 +2186,11 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                           );
                         })()}
 
-                        {stepMode === 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
-                              <div
-                                className={`w-full font-black bg-rose-100 text-rose-800 border border-rose-300 rounded-lg flex items-center justify-center gap-1 ${
-                                  isCompactFit ? 'text-[11.5px] px-1.5 py-0.5 mt-1' : 'text-[13px] px-2 py-1 mt-1.5'
-                                }`}
-                                title={`고사실 정원을 모두 더해도 ${sum.remaining.takers + sum.remaining.nonTakers}명이 들어갈 자리가 없습니다. 정원을 올리거나 대기실을 더 쓰세요.`}
-                              >
-                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                                <span>자리 부족 {sum.remaining.takers + sum.remaining.nonTakers}명</span>
-                              </div>
-                            )}
-
-                            {/* 미배치 학생 명단은 8. 학생 배치에서만 다룹니다. */}
-                            {stepMode !== 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
-                              <button
-                                onClick={() => handleOpenUnplacedModal(ps.index)}
+                        {/* 7. 고사장 배치는 고사장만 정합니다.
+                            미배치는 학생을 실제로 앉혀 봐야 아는 것이라 8. 학생 배치에서만 다룹니다. */}
+                        {stepMode !== 7 && sum.remaining.takers + sum.remaining.nonTakers > 0 && (
+                          <button
+                            onClick={() => handleOpenUnplacedModal(ps.index)}
                                 className={`w-full font-bold bg-red-600 hover:bg-red-700 text-white rounded-lg shadow-xs transition flex items-center justify-center gap-1 active:scale-95 ${
                                   isCompactFit ? 'text-[11px] px-1.5 py-0.5 mt-1' : 'text-[12.5px] px-2 py-1 mt-1.5'
                                 }`}
@@ -3167,7 +3182,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
 
                   <section className="space-y-1.5">
                     <h3 className="font-black text-[#005691] text-[16px]">정원을 고치면</h3>
-                    <p>숫자를 고치고 <strong>칸 밖을 클릭하거나 Enter</strong>를 누르면 그 교시가 새 정원 기준으로 다시 나뉩니다. 정원 총합이 모자라면 교시 칸에 <strong>자리 부족 N명</strong>이 뜹니다.</p>
+                    <p>숫자를 고치고 <strong>칸 밖을 클릭하거나 Enter</strong>를 누르면 그 교시가 새 정원 기준으로 다시 나뉩니다. 여기서는 고사장과 정원만 정합니다. 학생을 실제로 앉히는 것은 <strong>8. 학생 배치</strong>의 일입니다.</p>
                   </section>
 
                   <section className="space-y-1.5">
