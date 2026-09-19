@@ -663,6 +663,35 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
     });
   };
 
+  const [isSaving, setIsSaving] = useState(false);
+
+  /**
+   * 중간 저장 — 확정(단계 잠금)과는 별개로 지금 상태를 저장합니다.
+   * 스냅샷 제목을 함께 남겨 나중에 클라우드 목록에서 이 시점으로 되돌릴 수 있습니다.
+   */
+  const handleSaveProgress = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const state = useAppStore.getState();
+      const stamp = new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      const stepName = stepMode === 7 ? '7. 고사장 배치' : '8. 학생 배치';
+      await saveCloudImmediately(state, `[중간저장] ${stepName} — ${stamp}`);
+      setAlertModal({
+        isOpen: true,
+        message: `💾 지금까지의 작업을 저장했습니다.
+
+[중간저장] ${stepName} — ${stamp}
+
+확정과는 별개이며, 상단 ☁️ 클라우드에서 이 시점으로 되돌릴 수 있습니다.`,
+      });
+    } catch (err: any) {
+      setAlertModal({ isOpen: true, message: `저장 실패: ${err?.message || err}`, isError: true });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveCloud = async () => {
     try {
       const state = useAppStore.getState();
@@ -1527,7 +1556,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
               </>
             )}
 
-            {selectedCell && (
+            {/* 배치금지는 셀의 '사용안함' / '해제' 버튼으로 합니다. 8. 학생 배치에서만 툴바에 남깁니다. */}
+            {selectedCell && stepMode !== 7 && (
               <button
                 onClick={() => handleToggleForbiddenCell()}
                 disabled={stages.stage4}
@@ -1546,6 +1576,14 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                 </span>
               </button>
             )}
+            <button
+              onClick={handleSaveProgress}
+              disabled={isSaving}
+              className="px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs active:scale-95"
+              title="확정하지 않고 지금까지의 작업만 저장합니다 (클라우드에서 이 시점으로 되돌릴 수 있습니다)"
+            >
+              <span>{isSaving ? '저장 중…' : '💾 중간 저장'}</span>
+            </button>
             <button
               onClick={handleResetStep7}
               disabled={stages.stage4}
@@ -1718,16 +1756,16 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
       <div className="p-4 flex-1 flex gap-4 overflow-hidden">
         {/* Placement Table Grid */}
         <div className="flex-1 flex flex-col border border-gray-200 rounded-2xl overflow-auto bg-white shadow-sm">
-          <table className={`w-full text-left border-collapse ${isCompactFit ? 'text-[13.5px]' : 'text-[16px] min-w-[950px]'}`}>
+          <table className={`w-full text-left border-collapse ${isCompactFit ? 'text-[15px]' : 'text-[17px] min-w-[950px]'}`}>
             <thead className="bg-gray-50 text-[#0f172a] sticky top-0 z-20 shadow-xs">
               <tr className="divide-x divide-gray-200 border-b border-gray-200 bg-gray-50">
-                <th rowSpan={2} className={`py-2 px-2 text-center font-bold text-gray-900 ${isCompactFit ? 'w-24 text-[13px]' : 'w-32 text-[16px]'}`}>
+                <th rowSpan={2} className={`py-2 px-2 text-center font-bold text-gray-900 ${isCompactFit ? 'w-24 text-[14.5px]' : 'w-32 text-[17px]'}`}>
                   슬롯 (과목)
                 </th>
-                <th rowSpan={2} className={`py-2 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'w-10 text-[13px]' : 'w-12 text-[16px]'}`}>
+                <th rowSpan={2} className={`py-2 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'w-10 text-[14.5px]' : 'w-12 text-[17px]'}`}>
                   구분
                 </th>
-                <th colSpan={4} className={`py-1.5 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'text-[13px]' : 'text-[16px]'}`}>
+                <th colSpan={4} className={`py-1.5 px-1 text-center font-bold text-gray-900 ${isCompactFit ? 'text-[14.5px]' : 'text-[17px]'}`}>
                   인원 요약 현황
                 </th>
                 {rooms.map(r => {
@@ -1797,10 +1835,13 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
 
               </tr>
               <tr className="divide-x divide-gray-200 border-b border-gray-200 bg-white">
-                <th className={`py-1 px-0.5 text-center font-bold text-gray-700 ${isCompactFit ? 'w-8 text-[12px]' : 'w-12 text-[14px]'}`}>학급</th>
-                <th className={`py-1 px-0.5 text-center font-bold text-gray-700 ${isCompactFit ? 'w-8 text-[12px]' : 'w-12 text-[14px]'}`}>총원</th>
-                <th className={`py-1 px-0.5 text-center font-bold text-gray-700 ${isCompactFit ? 'w-8 text-[12px]' : 'w-12 text-[14px]'}`}>응시</th>
-                <th className={`py-1 px-0.5 text-center font-bold text-gray-700 ${isCompactFit ? 'w-8 text-[12px]' : 'w-12 text-[14px]'}`}>미응시</th>
+                <th className={`py-1 px-0.5 text-center font-bold text-gray-700 ${isCompactFit ? 'w-8 text-[13.5px]' : 'w-12 text-[15px]'}`}>학급</th>
+                <th className={`py-1 px-0.5 text-center font-bold text-gray-700 ${isCompactFit ? 'w-8 text-[13.5px]' : 'w-12 text-[15px]'}`}>총원</th>
+                <th className={`py-1 px-0.5 text-center font-black text-[#005691] ${isCompactFit ? 'w-8 text-[13.5px]' : 'w-12 text-[15px]'}`}>응시</th>
+                {/* 7. 고사장 배치에서는 셀에 쓰는 말과 맞춰 '대기'로 부릅니다. */}
+                <th className={`py-1 px-0.5 text-center font-black text-slate-600 ${isCompactFit ? 'w-8 text-[13.5px]' : 'w-12 text-[15px]'}`}>
+                  {stepMode === 7 ? '대기' : '미응시'}
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y-2 divide-gray-200 font-normal">
@@ -1812,8 +1853,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                   <React.Fragment key={ps.index}>
                     <tr className="divide-x divide-gray-200 bg-white">
                       <td rowSpan={stepMode === 7 ? 1 : 3} className={`py-2 px-2 font-bold text-center bg-white ${isCompactFit ? 'w-24' : 'w-32'}`}>
-                        <div className={`text-gray-900 font-bold ${isCompactFit ? 'text-[13.5px]' : 'text-[16px]'}`}>{ps.title}</div>
-                        <div className={`text-[#005691] font-bold mt-0.5 ${isCompactFit ? 'text-[12.5px]' : 'text-[14.5px]'}`}>{ps.subjects.join(', ')}</div>
+                        <div className={`text-gray-900 font-black ${isCompactFit ? 'text-[15px]' : 'text-[17.5px]'}`}>{ps.title}</div>
+                        <div className={`text-[#005691] font-bold mt-0.5 ${isCompactFit ? 'text-[14px]' : 'text-[16px]'}`}>{ps.subjects.join(', ')}</div>
                         {!stages.stage4 && (
                           <div className="flex items-center justify-center gap-1 mt-1.5 flex-wrap">
                             {/* 7. 고사장 배치에서는 뺍니다 — +고사장/-축소는 셀의 '고사장 변환'·'대기실 변환'과 겹치고,
@@ -1867,11 +1908,11 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                           </div>
                         )}
                       </td>
-                      <td className={`py-1 px-1 text-center bg-white text-slate-700 font-medium ${isCompactFit ? 'w-10 text-[12.5px]' : 'w-14 text-[15px]'}`}>계</td>
-                      <td className={`py-1 px-0.5 text-center font-medium text-[#005691] ${isCompactFit ? 'w-8 text-[13px]' : 'w-12 text-[16px]'}`}>{sum.total.ban}</td>
-                      <td className={`py-1 px-0.5 text-center font-medium text-gray-900 ${isCompactFit ? 'w-8 text-[13px]' : 'w-12 text-[16px]'}`}>{sum.total.takers + sum.total.nonTakers}</td>
-                      <td className={`py-1 px-0.5 text-center font-medium text-red-800 ${isCompactFit ? 'w-8 text-[13px]' : 'w-12 text-[16px]'}`}>{sum.total.takers}</td>
-                      <td className={`py-1 px-0.5 text-center font-medium text-amber-900 ${isCompactFit ? 'w-8 text-[13px]' : 'w-12 text-[16px]'}`}>{sum.total.nonTakers}</td>
+                      <td className={`py-1 px-1 text-center bg-white text-slate-700 font-medium ${isCompactFit ? 'w-10 text-[14px]' : 'w-14 text-[16px]'}`}>계</td>
+                      <td className={`py-1 px-0.5 text-center font-medium text-[#005691] ${isCompactFit ? 'w-8 text-[14.5px]' : 'w-12 text-[17px]'}`}>{sum.total.ban}</td>
+                      <td className={`py-1 px-0.5 text-center font-medium text-gray-900 ${isCompactFit ? 'w-8 text-[14.5px]' : 'w-12 text-[17px]'}`}>{sum.total.takers + sum.total.nonTakers}</td>
+                      <td className={`py-1 px-0.5 text-center font-bold ${stepMode === 7 ? 'text-[#005691]' : 'text-red-800'} ${isCompactFit ? 'w-8 text-[14.5px]' : 'w-12 text-[17px]'}`}>{sum.total.takers}</td>
+                      <td className={`py-1 px-0.5 text-center font-bold ${stepMode === 7 ? 'text-slate-600' : 'text-amber-900'} ${isCompactFit ? 'w-8 text-[14.5px]' : 'w-12 text-[17px]'}`}>{sum.total.nonTakers}</td>
 
                       {rooms.map(r => {
                         const cellVal = placement[ps.index]?.[r.id] ?? '';
@@ -1935,10 +1976,13 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                               ) :
                               isOverCapacity ? 'bg-orange-100 hover:bg-orange-200/90 border-2 border-orange-400 text-orange-950 shadow-xs' :
                               isLocked ? 'bg-gray-50 border-b border-gray-200' :
-                              isWait ? 'bg-[#e6f1f8]/80 hover:bg-[#e6f1f8]/80 border-b border-gray-200' :
+                              // 대기실은 무채색 + 왼쪽 회색 띠. 과목 팔레트가 모두 옅은 유채색이라
+                              // 색을 '종류'부터 갈라야 시험 보는 반과 한눈에 구분됩니다.
+                              isWait ? 'bg-slate-100 hover:bg-slate-200/80 border-b border-slate-200' :
                               cellVal ? `${color.bg} ${color.hoverBg} border-b ${color.border}/50` :
                               'hover:bg-white'
                             }`}
+                            data-accent={isWait ? 'wait' : cellVal && !isForbidden ? 'exam' : 'none'}
                             title={
                               isForbidden
                                 ? '배치금지 설정된 고사실 (클릭하여 선택 또는 해제)'
@@ -1993,15 +2037,23 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                               </div>
                             ) : cellVal ? (
                               <div
-                                className={`space-y-0.5 hover:scale-105 transition-transform group ${isLocked ? 'opacity-70' : ''}`}
+                                className={`relative space-y-0.5 hover:scale-105 transition-transform group ${isLocked ? 'opacity-70' : ''}`}
                                 onClick={e => {
                                   e.stopPropagation();
                                   handleCellClick(ps.index, r.id);
                                   if (stepMode !== 7) handleCellDoubleClick(ps.index, r.id);
                                 }}
                               >
+                                {/* 시험 보는 반과 대기 반을 색으로 가르는 띠. 표의 divide-x가 border-left를
+                                    덮어쓰기 때문에 테두리 대신 별도 요소로 그립니다. */}
+                                <span
+                                  className={`absolute -left-1 top-0 bottom-0 w-1.5 rounded-full ${
+                                    isWait ? 'bg-slate-400' : color.badgeBg
+                                  }`}
+                                  aria-hidden="true"
+                                />
                                 <div className="flex flex-col items-center justify-center gap-0.5">
-                                  <div className={`font-bold break-keep leading-tight ${isCompactFit ? 'text-[12px]' : 'text-[14.5px]'} ${isOverCapacity ? 'text-orange-950 font-black' : isWait ? 'text-amber-950 hover:underline' : `${color.text} hover:underline`}`}>
+                                  <div className={`font-black break-keep leading-tight ${isCompactFit ? 'text-[13.5px]' : 'text-[16.5px]'} ${isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-600' : `${color.text} hover:underline`}`}>
                                     {stepMode === 7 && isWait
                                       ? '대기' /* 인원은 바로 아래 정원/배치 줄에 나오므로 라벨에서는 뺍니다 */
                                       : cellVal.split('-').map((part, i) => (
@@ -2034,7 +2086,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                         setSlotRoomCapacity(ps.index, r.id, v > 0 ? v : null);
                                       }}
                                       className={`px-1 py-0.5 border rounded-md text-center font-black disabled:bg-gray-100 disabled:text-gray-400 focus:outline-none focus:ring-2 focus:ring-[#005691] ${
-                                        isCompactFit ? 'w-11 text-[11px]' : 'w-14 text-[13px]'
+                                        isCompactFit ? 'w-12 text-[12.5px]' : 'w-16 text-[15px]'
                                       } ${
                                         hasCapOverride
                                           ? 'border-emerald-400 bg-emerald-50 text-emerald-800'
@@ -2048,11 +2100,11 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                           : '고사실 기본 정원 — 고치면 이 교시에만 적용됩니다'
                                       }
                                     />
-                                    <span className={isCompactFit ? 'text-[10px] text-slate-500' : 'text-[12px] text-slate-500'}>석</span>
-                                    <span className={`text-slate-300 ${isCompactFit ? 'text-[10px]' : 'text-[12px]'}`}>|</span>
+                                    <span className={`text-slate-500 font-bold ${isCompactFit ? 'text-[11.5px]' : 'text-[13.5px]'}`}>석</span>
+                                    <span className={`text-slate-300 ${isCompactFit ? 'text-[11.5px]' : 'text-[13.5px]'}`}>|</span>
                                     <span
-                                      className={`font-black whitespace-nowrap ${isCompactFit ? 'text-[10.5px]' : 'text-[12.5px]'} ${
-                                        isOverCapacity ? 'text-rose-700' : 'text-slate-700'
+                                      className={`font-black whitespace-nowrap ${isCompactFit ? 'text-[12.5px]' : 'text-[14.5px]'} ${
+                                        isOverCapacity ? 'text-rose-700' : 'text-slate-800'
                                       }`}
                                       title={`정원 ${roomCap}석에 ${actualCount}명 배치`}
                                     >
@@ -2079,7 +2131,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                     <span>{actualCount}명 (강제배정)</span>
                                   </div>
                                 ) : (
-                                  <div className={`font-bold hover:underline ${isCompactFit ? 'text-[11.5px] text-slate-800' : 'text-[14px] text-[#0f172a]'}`}>
+                                  <div className={`font-black hover:underline ${isCompactFit ? 'text-[13.5px] text-slate-800' : 'text-[16px] text-[#0f172a]'}`}>
                                     {actualCount}명
                                   </div>
                                 )}
@@ -2094,7 +2146,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                           handleAddExamRoomFromWait(ps.index, undefined, r.id);
                                         }}
                                         className={`px-2 py-0.5 bg-rose-900 hover:bg-rose-950 text-white rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 whitespace-nowrap ${
-                                          isCompactFit ? 'text-[10px]' : 'text-[11.5px]'
+                                          isCompactFit ? 'text-[11.5px]' : 'text-[13px]'
                                         }`}
                                         title="이 대기실을 시험 고사장으로 변환"
                                       >
@@ -2107,7 +2159,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                           handleToggleForbiddenCell(ps.index, r.id);
                                         }}
                                         className={`px-1.5 py-0.5 bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-700 border border-gray-300 hover:border-rose-300 rounded-md font-bold inline-flex items-center justify-center shadow-2xs transition active:scale-95 whitespace-nowrap ${
-                                          isCompactFit ? 'text-[10px]' : 'text-[11.5px]'
+                                          isCompactFit ? 'text-[11.5px]' : 'text-[13px]'
                                         }`}
                                         title="이 교시에는 이 고사실을 쓰지 않습니다 (대기 인원은 남은 실에 다시 나눕니다)"
                                       >
@@ -2121,7 +2173,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8, on
                                         handleShrinkExamRoomToWait(ps.index, subjectName, r.id);
                                       }}
                                       className={`mt-1.5 px-2 py-0.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-300 rounded-md font-bold inline-flex items-center justify-center gap-1 shadow-2xs transition active:scale-95 mx-auto whitespace-nowrap ${
-                                        isCompactFit ? 'text-[10px]' : 'text-[11.5px]'
+                                        isCompactFit ? 'text-[11.5px]' : 'text-[13px]'
                                       }`}
                                       title="이 고사장을 대기실로 변환"
                                     >
