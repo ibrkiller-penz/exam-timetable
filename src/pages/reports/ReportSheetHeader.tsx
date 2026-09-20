@@ -1,4 +1,5 @@
 import React from 'react';
+import { useAppStore } from '../../store/appStore';
 
 /**
  * 인쇄물 한 장의 머리글.
@@ -22,8 +23,16 @@ export const ReportSheetHeader: React.FC<{
   pageLabel?: string;
   /** 값 칸에서 크게 보여 줄 항목의 번호 (0부터). */
   emphasize?: number[];
-}> = ({ title, subtitle, info, infoColumns, pageLabel, emphasize = [] }) => (
+}> = ({ title, subtitle, info, infoColumns, pageLabel, emphasize = [] }) => {
+  // 어느 고사의 서류인지 종이만 보고 알아야 합니다. 화면 맨 위에 적은 고사 제목을 그대로 씁니다.
+  const meta = useAppStore(s => s.meta);
+
+  return (
   <div className="shrink-0">
+    {/* 11-1 처럼 큰 제목 자체가 고사 제목인 종이에서는 두 번 쓰지 않습니다. */}
+    {meta?.title && title !== meta.title && (
+      <p className="text-center text-[17px] font-bold text-slate-500 tracking-tight mb-0.5">{meta.title}</p>
+    )}
     <div className="flex items-center justify-center gap-3 mb-1">
       <h1 className="text-center font-black text-[46px] leading-[1.15] pt-0.5 text-[#005691] tracking-tight break-keep">
         {title}
@@ -67,4 +76,5 @@ export const ReportSheetHeader: React.FC<{
       </div>
     )}
   </div>
-);
+  );
+};

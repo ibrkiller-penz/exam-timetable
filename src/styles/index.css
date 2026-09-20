@@ -170,9 +170,17 @@
    아래가 통째로 빕니다. 높이를 풀면 그림이 내용 크기가 되고, A4 에 앉힐 때
    위아래 여백이 똑같이 나뉘어 '세로 가운데'가 됩니다.
    다만 수험표·봉투 라벨은 칸이 종이 높이를 기준으로 짜여 있어 제외합니다. */
-.capturing .print-page:not(.ticket-print-page):not(.envelope-print-page) {
+.capturing .print-page:not(.ticket-print-page):not(.envelope-print-page):not(.page-fill) {
   min-height: 0 !important;
 }
+
+/* page-fill: 표가 종이 끝까지 늘어나는 장(명단·명렬).
+   줄 수가 정해져 있어, 남는 높이를 줄마다 나눠 가지면 종이가 꽉 찹니다.
+   가운데로 모으는 대신 아예 빈자리를 없애는 쪽이 보기에 낫습니다. */
+.print-page.page-fill { display: flex; flex-direction: column; }
+.print-page.page-fill .fill-rest { flex: 1 1 auto; min-height: 0; }
+.print-page.page-fill .fill-rest > table,
+.print-page.page-fill table.fill-rest { height: 100%; }
 
 
 /* ── 인쇄물 표의 공통 모양 ───────────────────────────────────────────────
@@ -185,9 +193,21 @@
 
    Tailwind 의 border/divide 유틸리티가 이미 붙어 있는 표가 많아,
    여기서는 !important 로 확실히 이깁니다. */
-.sheet-table { border-collapse: collapse !important; border: 3px solid #0f172a !important; }
+.sheet-table {
+  border-collapse: collapse !important;
+  border: 3px solid #0f172a !important;
+  /* 표 글자 크기를 한 곳에서 정합니다. 종이마다 15px, 15.5px, 16px 로
+     조금씩 달라 같은 고사에서 나온 서류로 보이지 않았습니다.
+     칸마다 따로 키운 글자(성명·좌석 등)는 그 칸의 값이 이깁니다. */
+  font-size: 16px;
+}
 .sheet-table th,
-.sheet-table td { border: 1px solid #334155 !important; }
+.sheet-table td {
+  border: 1px solid #334155 !important;
+  /* 칸 안에서 글자는 늘 세로 가운데. 줄 높이를 키우면 글자가 위로 붙었습니다. */
+  vertical-align: middle !important;
+}
+.sheet-table thead th { font-size: 15px; }
 
 /* 제목 줄(머리글)이 여러 줄이면 마지막 줄 아래에 긋습니다. */
 .sheet-table thead tr:last-child > * { border-bottom: 4px double #0f172a !important; }

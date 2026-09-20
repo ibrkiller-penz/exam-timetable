@@ -456,7 +456,7 @@ export const Report8SeparateRoom: React.FC = () => {
                 ))}
               </div>
 
-              <table className="sheet-table sheet-rows-5 w-full text-[16px] text-center">
+              <table className="sheet-table sheet-rows-5 w-full text-center">
                 <thead className="bg-gray-100 border-b border-gray-800">
                   <tr className="divide-x divide-gray-800">
                     <th className="py-2 px-2 w-12">연번</th>

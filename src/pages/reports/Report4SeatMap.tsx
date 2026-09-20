@@ -244,7 +244,7 @@ export const Report4SeatMap: React.FC = () => {
                 {col.map(cell => {
                   // 앉는 사람이 없는 자리도 칸은 그립니다. 교실의 실제 자리 모양과 같아야
                   // 학생이 제 자리를 세어 찾을 수 있습니다.
-                  const empty = !cell.name;
+                  const empty = !cell.occupied;
                   return (
                     <div
                       key={cell.seat}

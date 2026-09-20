@@ -92,7 +92,7 @@ export const Report3RoomTimetable: React.FC = () => {
         const rep = rm.id === room.id ? report : buildRoomTimetableReport(rm, attendance, days, times);
         if (!rep) return null;
         return (
-        <div key={rm.id} className="print-page page-landscape bg-white border border-gray-300 p-8 print:p-4 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
+        <div key={rm.id} className="print-page page-landscape page-fill bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <ReportSheetHeader
             title={`고사실 시험시간표 (${rm.roomName})`}
             emphasize={[0, 2]}
@@ -104,7 +104,7 @@ export const Report3RoomTimetable: React.FC = () => {
             ]}
           />
 
-          <table className="w-full text-[15px] print:text-[14px] text-center border-collapse">
+          <table className="fill-rest w-full text-[16px] text-center border-collapse border-2 border-[#005691]">
             <thead>
               <tr className="bg-[#eef4f9] text-[#00426e] border-b-2 border-[#005691]">
                 <th className="py-2.5 px-2 w-20 text-[15px] font-black border-r border-[#cfe0ed]">교시</th>
@@ -124,18 +124,18 @@ export const Report3RoomTimetable: React.FC = () => {
                     <td rowSpan={3} className="py-2 font-black text-[19px] bg-[#f4f7fa] align-middle border-t-2 border-[#005691] border-r border-[#e2e8f0]">
                       {p}교시
                     </td>
-                    <td className="py-2 bg-[#f8fafc] font-bold text-[13px] text-slate-500 border-t-2 border-[#005691] border-r border-[#e2e8f0]">과목</td>
+                    <td className="py-2 bg-[#f8fafc] font-bold text-[13.5px] text-slate-500 border-t-2 border-[#005691] border-b border-[#e8eef5] border-r border-[#e2e8f0]">과목</td>
                     {rep.activeDays.map(d => (
-                      <td key={d.day} className="py-2.5 font-black text-[17px] text-gray-900 break-keep leading-tight border-t-2 border-[#005691] border-r border-[#e2e8f0] last:border-r-0">
+                      <td key={d.day} className="py-2.5 font-black text-[18px] text-gray-900 break-keep leading-tight border-t-2 border-[#005691] border-b border-[#e8eef5] border-r border-[#e2e8f0] last:border-r-0">
                         {rep.grid[p][d.day]?.subject || '-'}
                       </td>
                     ))}
                   </tr>
 
                   <tr>
-                    <td className="py-2 bg-[#f8fafc] font-bold text-[13px] text-slate-500 border-r border-[#e2e8f0]">응시자수</td>
+                    <td className="py-2 bg-[#f8fafc] font-bold text-[13.5px] text-slate-500 border-b border-[#e8eef5] border-r border-[#e2e8f0]">응시자수</td>
                     {rep.activeDays.map(d => (
-                      <td key={d.day} className="py-2 font-black text-[17px] text-[#b91c1c] border-r border-[#e2e8f0] last:border-r-0">
+                      <td key={d.day} className="py-2 font-black text-[18px] text-[#b91c1c] border-b border-[#e8eef5] border-r border-[#e2e8f0] last:border-r-0">
                         {rep.grid[p][d.day]?.stuCount ? `${rep.grid[p][d.day].stuCount}명` : '-'}
                         {/* 별도 고사실로 간 학생은 이 교실에 없습니다.
                             감독 선생님이 인원을 맞출 때 그만큼이 빈 것을 알아야 합니다. */}
@@ -149,9 +149,9 @@ export const Report3RoomTimetable: React.FC = () => {
                   </tr>
 
                   <tr>
-                    <td className="py-1.5 bg-[#f8fafc] text-[12px] text-slate-400 font-bold border-r border-[#e2e8f0]">시험시간</td>
+                    <td className="py-1.5 bg-[#f8fafc] text-[12.5px] text-slate-400 font-bold border-r border-[#e2e8f0]">시험시간</td>
                     {rep.activeDays.map(d => (
-                      <td key={d.day} className="py-1.5 text-[13px] text-slate-500 font-semibold border-r border-[#e2e8f0] last:border-r-0">
+                      <td key={d.day} className="py-1.5 text-[13.5px] text-slate-500 font-semibold border-r border-[#e2e8f0] last:border-r-0">
                         {rep.grid[p][d.day]?.timeStr || '-'}
                       </td>
                     ))}

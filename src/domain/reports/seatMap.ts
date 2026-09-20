@@ -6,6 +6,8 @@ export interface SeatCell {
   physicalSeatNum: number;
   hakbun: string;
   name: string;
+  /** 이 자리에 앉는 사람이 있는지. 이름이 비어 있어도 사람은 있을 수 있습니다. */
+  occupied: boolean;
 }
 
 export interface SeatMapReportData {
@@ -93,6 +95,7 @@ export function buildSeatMapReport(
         physicalSeatNum: physicalSeatNum,
         hakbun: rowData ? hakbun(rowData.grade, rowData.ban, rowData.num) : '',
         name: rowData ? rowData.name : '',
+        occupied: Boolean(rowData),
       });
     }
     grid.push(colCells);

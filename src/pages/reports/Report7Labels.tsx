@@ -7,32 +7,10 @@ import { onlySubject } from '../../domain/util/text';
 import { PrintPageSize } from './PrintPageSize';
 import { ReportActions } from './ReportActions';
 import { ReportHeader } from './ReportHeader';
+import { FitText } from './FitText';
 import { beginCapture, printAsImage } from './printAsImage';
 import { fitOnA4 } from './pdfFit';
 import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react';
-
-/**
- * 봉투 라벨의 과목명 글자 크기.
- *
- * 봉투는 멀리서 집어 들기 때문에 과목명이 클수록 좋습니다.
- * 다만 '심화 영어 독해Ⅰ'처럼 긴 이름은 그대로 키우면 칸을 넘칩니다.
- * 한글은 영문·숫자보다 두 배쯤 넓으므로, 글자 수가 아니라 차지하는 폭으로 셉니다.
- */
-const subjectFontSize = (name: string): number => {
-  const width = [...(name ?? '')].reduce(
-    (w, ch) => w + (/[\x00-\x7F]/.test(ch) ? 0.55 : 1),
-    0
-  );
-  if (width <= 3) return 66;
-  if (width <= 4) return 58;
-  if (width <= 5) return 50;
-  if (width <= 6) return 44;
-  if (width <= 7) return 39;
-  if (width <= 9) return 33;
-  if (width <= 11) return 28;
-  if (width <= 14) return 23;
-  return 19;
-};
 
 export const Report7Labels: React.FC = () => {
   const { rooms, days, times, placement, evalSubjects, subjectCodes, setSubjectCode, stages, meta, settings, slotBanLabels, slotBanLabelStyle,
@@ -286,12 +264,16 @@ export const Report7Labels: React.FC = () => {
                         {/* 중앙 메인: 과목명을 칸에 가득 채웁니다.
                             멀리서도 읽혀야 봉투를 빨리 고를 수 있습니다. */}
                         <div className="flex-1 my-1 py-2 px-2 text-center border-y-2 border-slate-900 bg-slate-50/50 rounded flex flex-col items-center justify-center gap-1 overflow-hidden">
-                          <span
-                            className="font-black text-slate-900 tracking-tight leading-[1.1] break-keep"
-                            style={{ fontSize: `${subjectFontSize(cleanSubj)}px` }}
-                          >
-                            {cleanSubj}
-                          </span>
+                          {/* 과목명은 글자 수와 상관없이 칸 너비의 80% 를 채웁니다.
+                              봉투를 멀리서 집어 들기 때문에, 과목마다 크기가 달라 보이면 안 됩니다. */}
+                          <FitText
+                            text={cleanSubj}
+                            ratio={0.8}
+                            heightRatio={0.62}
+                            max={110}
+                            min={16}
+                            className="font-black text-slate-900 tracking-tight leading-[1.1]"
+                          />
                           {code && (
                             <span className="text-base font-black px-2 py-0.5 bg-blue-50 text-[#005691] border border-blue-200 rounded font-mono">
                               【 {code} 】

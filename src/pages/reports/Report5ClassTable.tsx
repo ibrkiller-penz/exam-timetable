@@ -147,7 +147,7 @@ export const Report5ClassTable: React.FC = () => {
             return sheets.map((pageStudents, pageIdx) => (
               <div
                 key={`${report.ban}-${report.day}-${pageIdx}`}
-                className="print-page page-portrait bg-white border border-gray-300 p-8 print:p-3 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
+                className="print-page page-portrait page-fill bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
                 <ReportSheetHeader
                   title={`${report.ban} 시험시간표`}
@@ -162,7 +162,7 @@ export const Report5ClassTable: React.FC = () => {
                   ]}
                 />
 
-                <table className="sheet-table sheet-rows-5 w-full table-fixed text-[15.5px] text-center">
+                <table className="sheet-table sheet-rows-5 fill-rest w-full table-fixed text-center">
                   {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}
                   <colgroup>
                     <col style={{ width: '7%' }} />

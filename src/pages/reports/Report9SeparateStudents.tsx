@@ -221,7 +221,7 @@ export const Report9SeparateStudents: React.FC = () => {
                   ))}
                 </div>
 
-                <table className="sheet-table sheet-rows-5 w-full text-[16px] text-center">
+                <table className="sheet-table sheet-rows-5 w-full text-center">
                   <thead className="bg-gray-100">
                     <tr>
                       <th className="py-2 px-2 w-12 font-black">연번</th>
