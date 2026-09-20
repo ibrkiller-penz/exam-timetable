@@ -149,8 +149,14 @@ export const Report5ClassTable: React.FC = () => {
                 key={`${report.ban}-${report.day}-${pageIdx}`}
                 className="print-page page-portrait page-fill bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
+                {/* 소속 고사실을 바꾸면 제목도 따라갑니다.
+                    학급과 고사실이 같은 보통의 경우에는 군더더기라 붙이지 않습니다. */}
                 <ReportSheetHeader
-                  title={`${report.ban} 시험시간표`}
+                  title={
+                    actualRoomName && actualRoomName !== report.ban
+                      ? `${report.ban} 시험시간표 (고사실 ${actualRoomName})`
+                      : `${report.ban} 시험시간표`
+                  }
                   subtitle={`${report.day}일차 · ${dateFormatted}`}
                   pageLabel={cnt > 1 ? `#${pageIdx + 1} / ${cnt}` : undefined}
                   emphasize={[1, 3]}
