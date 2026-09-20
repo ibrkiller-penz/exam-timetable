@@ -235,6 +235,9 @@
   /* 줄바꿈 금지. 두 줄로 접히면 줄 높이가 배가 되어 한 장에 실리는 줄 수가
      달라집니다. 긴 글자는 접지 말고 그 칸만 줄입니다(FitCell). */
   white-space: nowrap;
+  /* 줄 간격을 못 박습니다. 글꼴이 기본으로 잡는 줄 상자에는 아래쪽 여유가
+     더 많아, 칸 가운데에 두어도 글자가 3px 쯤 내려앉아 보였습니다. */
+  line-height: 1.2;
 }
 .sheet-table thead th { font-size: var(--sheet-fs-head); }
 
@@ -424,7 +427,9 @@
   align-items: center;
   justify-content: center;
   min-width: 2.2em;
-  padding: 0.1em 0.45em;
+  /* 배지가 줄 높이를 밀어 올리면 그 줄만 커집니다. 한 줄 안에 들어가게 둡니다. */
+  line-height: 1.1;
+  padding: 0.05em 0.45em;
   border-radius: 0.4rem;
   background: #f4f1ef;
   color: #8a2b2b;

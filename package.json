@@ -69,7 +69,8 @@
     ],
     "win": {
       "target": "nsis",
-      "artifactName": "${productName}_설치파일.${ext}"
+      "artifactName": "${productName}_설치파일.${ext}",
+      "icon": "build/icon.png"
     },
     "nsis": {
       "oneClick": true,
@@ -78,6 +79,7 @@
       "createStartMenuShortcut": true,
       "shortcutName": "시험시간표"
     },
-    "forceCodeSigning": false
+    "forceCodeSigning": false,
+    "icon": "build/icon.png"
   }
 }

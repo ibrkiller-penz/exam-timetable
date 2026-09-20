@@ -82,7 +82,7 @@ export const FitText: React.FC<{
   });
 
   return (
-    <span ref={ref} className={className} style={{ whiteSpace: 'nowrap', display: 'inline-block' }}>
+    <span ref={ref} className={className} style={{ whiteSpace: 'nowrap', display: 'inline-block', verticalAlign: 'middle' }}>
       {text}
     </span>
   );

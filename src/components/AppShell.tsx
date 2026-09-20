@@ -6,11 +6,12 @@ import { CloudModal } from './CloudModal';
 import { onSyncStatusChange, CloudSyncStatus, saveCloudImmediately } from '../domain/firebase';
 import { downloadJson } from '../utils/download';
 import { electronBridge, isElectron, isLocal } from '../utils/electronBridge';
+import { watchForNewVersion } from '../utils/versionCheck';
 import { AppTheme } from '../domain/types';
 import {
   FileSpreadsheet, Settings, Calendar, Layers, CheckSquare, Users,
   Clock, Grid, ClipboardList, Printer, Download, Upload, RotateCcw,
-  Sparkles, CheckCircle2, Cloud, FolderOpen, Save, Palette, UserCheck
+  Sparkles, CheckCircle2, Cloud, FolderOpen, Save, Palette, UserCheck, X
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -42,6 +43,15 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
   const [showSettings, setShowSettings] = useState(false);
   const [showCloud, setShowCloud] = useState(false);
   const [showTheme, setShowTheme] = useState(false);
+
+  /*
+   * 창을 열어 둔 채로 새 버전이 올라오면 옛 화면이 그대로 돕니다.
+   * 고친 것을 올렸는데 "그대로인데요" 하는 일이 생기므로, 새 버전이
+   * 보이면 알려 주고 새로고침을 고르게 합니다. 저절로 새로고치지는
+   * 않습니다 — 작업 중일 수 있습니다.
+   */
+  const [newVersion, setNewVersion] = useState(false);
+  useEffect(() => watchForNewVersion(() => setNewVersion(true)), []);
   const [showFileManager, setShowFileManager] = useState(false);
   const [confirmReset, setConfirmReset] = useState(false);
   const [syncStatus, setSyncStatus] = useState<CloudSyncStatus>('saved');
@@ -196,6 +206,24 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white">
+      {newVersion && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 no-print flex items-center gap-3 px-5 py-3 rounded-2xl bg-[#005691] text-white shadow-2xl">
+          <span className="font-bold text-[15px]">새 버전이 올라왔습니다.</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-3.5 py-1.5 bg-white text-[#005691] rounded-lg font-black text-[14px] hover:bg-blue-50 transition"
+          >
+            새로고침
+          </button>
+          <button
+            onClick={() => setNewVersion(false)}
+            className="p-1 hover:bg-white/20 rounded-lg transition"
+            aria-label="닫기"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
       <aside className="w-[320px] bg-white text-gray-900 flex flex-col shrink-0 no-print border-r border-gray-200 shadow-xl">
         {/* Brand Header */}
         <div className="p-5 border-b border-gray-200/80 bg-white flex items-center justify-between">

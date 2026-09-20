@@ -24,6 +24,23 @@ function getSaveDir() {
 
 let mainWindow = null;
 
+/**
+ * 창 아이콘 자리.
+ * 개발 중에는 저장소의 build/, 포장한 뒤에는 dist 옆에 들어갑니다.
+ * 없으면 그냥 기본 아이콘으로 둡니다(없다고 창이 안 뜨면 안 되니까).
+ */
+function resolveIconPath() {
+  const candidates = [
+    path.join(__dirname, '..', 'dist', 'favicon.ico'),
+    path.join(__dirname, 'favicon.ico'),
+    path.join(__dirname, '..', 'build', 'icon.png'),
+  ];
+  for (const p of candidates) {
+    try { if (fs.existsSync(p)) return p; } catch (e) { /* 무시 */ }
+  }
+  return undefined;
+}
+
 function createWindow() {
   // dist 위치는 포장 방식마다 다릅니다.
   //  - 로컬 배포(deploy-local): electron.cjs 와 dist 가 같은 폴더에 나란히
@@ -35,6 +52,8 @@ function createWindow() {
   const htmlPath = htmlCandidates.find(p => fs.existsSync(p)) || htmlCandidates[0];
 
   mainWindow = new BrowserWindow({
+    // 작업 표시줄·창 모서리에 뜨는 아이콘. 포장하면 dist 안에 같이 들어갑니다.
+    icon: resolveIconPath(),
     width: 1440,
     height: 920,
     minWidth: 1024,

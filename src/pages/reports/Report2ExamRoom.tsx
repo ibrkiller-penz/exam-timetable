@@ -124,14 +124,14 @@ export const Report2ExamRoom: React.FC = () => {
               const oneColumn = pageStudents.length <= PER_COL;
               const cols = oneColumn ? [0] : [0, 1];
               /*
-               * 두 칸으로 나눌 때는 인원을 반으로 갈라 양쪽 줄 수를 같게 합니다.
-               * 스물넷이면 열둘씩. 예전처럼 왼쪽을 스물까지 채우면 오른쪽에
-               * 빈 줄이 열여섯 개 남아 종이가 무너져 보였습니다.
+               * 한 칸은 스무 줄. 사람이 적어도 칸 수는 그대로 둡니다.
+               * 빈 칸은 감독 선생님이 결시·특이사항을 적는 자리라, 종이 모양이
+               * 늘 같아야 합니다. (예전에 인원에 맞춰 줄을 줄여 봤지만,
+               * 쓰는 자리가 사라져 못 쓰는 종이가 됐습니다.)
                */
-              const rowsPerCol = oneColumn ? pageStudents.length : Math.ceil(pageStudents.length / 2);
+              const rowsPerCol = PER_COL;
               /*
-               * 줄 높이는 남는 자리에 맞춰 정합니다. 줄이 적으면 조금 넉넉하게,
-               * 많으면 한 장에 다 들어가도록 좁게. 종이를 넘기지 않는 것이 먼저입니다.
+               * 줄 높이는 남는 자리에 맞춰 정합니다. 종이를 넘기지 않는 것이 먼저입니다.
                */
               const rowH = Math.min(60, Math.max(34, Math.floor(770 / Math.max(1, rowsPerCol))));
               const isLastPage = pageIdx === sheets.length - 1;
@@ -156,7 +156,9 @@ export const Report2ExamRoom: React.FC = () => {
                   ]}
                 />
 
-                <div className={`grid gap-3 ${oneColumn ? 'grid-cols-1 max-w-[62%] mx-auto' : 'grid-cols-2'}`}>
+                {/* items-start: 두 표가 서로 다른 높이로 늘어나지 않게 합니다.
+                    늘어나면 줄 높이가 한쪽만 커져 좌우가 어긋나 보입니다. */}
+                <div className={`grid items-start gap-3 ${oneColumn ? 'grid-cols-1 max-w-[62%] mx-auto' : 'grid-cols-2'}`}>
                   {cols.map(colIdx => (
                     <table key={colIdx} className="sheet-table sheet-rows-5 w-full table-fixed text-center">
                       {/* 칸 너비를 못 박아 둡니다. 안 그러면 인쇄할 때 성명이 두 줄로 접혀
