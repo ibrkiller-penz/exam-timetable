@@ -48,3 +48,6 @@ release-*.log
 
 # 오프라인 배포판 zip — 빌드 산출물이라 저장소에 넣지 않습니다.
 release/ExamTimetable-Offline.zip
+
+# 작업 공간 키가 들어 있습니다(옮기기 기록). 저장소에 올리지 않습니다.
+.workspace-migration.json

@@ -6,9 +6,12 @@ import {
   listCloudSnapshots,
   loadSnapshotFromCloud,
   deleteCloudSnapshot,
+  getWorkspaceKey,
+  setWorkspaceKey,
+  workspaceLink,
   CloudSnapshotMeta
 } from '../domain/firebase';
-import { Cloud, Download, Trash2, Plus, RefreshCw, X, Check, Clock, Save } from 'lucide-react';
+import { Cloud, Download, Trash2, Plus, RefreshCw, X, Check, Clock, Save, KeyRound, Copy, Link2 } from 'lucide-react';
 
 interface CloudModalProps {
   isOpen: boolean;
@@ -24,6 +27,50 @@ export const CloudModal: React.FC<CloudModalProps> = ({ isOpen, onClose }) => {
   const [loading, setLoading] = useState(false);
   const [snapshotTitle, setSnapshotTitle] = useState('');
   const [statusMsg, setStatusMsg] = useState<string | null>(null);
+  // 다른 컴퓨터의 키를 붙여 넣는 칸.
+  const [keyInput, setKeyInput] = useState('');
+  const [copied, setCopied] = useState<'key' | 'link' | null>(null);
+
+  const flash = (msg: string) => {
+    setStatusMsg(msg);
+    setTimeout(() => setStatusMsg(null), 3000);
+  };
+
+  const copyText = async (text: string, what: 'key' | 'link') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(what);
+      setTimeout(() => setCopied(null), 2000);
+    } catch {
+      window.prompt('복사해 주세요:', text);
+    }
+  };
+
+  /**
+   * 다른 컴퓨터의 키로 바꿉니다. 바꾸는 순간부터 그 공간에 저장되므로,
+   * 먼저 그 공간의 최신 저장본을 불러와 지금 화면을 맞춥니다.
+   */
+  const handleSwitchKey = async () => {
+    const k = keyInput.trim().toLowerCase();
+    if (!/^[a-f0-9]{32}$/.test(k)) { alert('키는 영문 소문자와 숫자 32자리입니다. 다시 확인해 주세요.'); return; }
+    if (k === getWorkspaceKey()) { flash('이미 이 키를 쓰고 있습니다.'); return; }
+    if (!window.confirm('이 컴퓨터를 붙여 넣은 키의 작업 공간으로 바꿉니다.\n그 공간의 최신 저장본을 불러오고, 지금 화면의 내용은 그 공간에 저장되기 시작합니다.\n계속할까요?')) return;
+    setLoading(true);
+    try {
+      setWorkspaceKey(k);
+      setKeyInput('');
+      const latest = await loadLatestStateFromCloud();
+      if (latest && latest.state) {
+        await loadSavedState(latest.state);
+        flash('키를 바꾸고 그 공간의 최신 저장본을 불러왔습니다.');
+      } else {
+        flash('키를 바꿨습니다. 이 공간에는 아직 저장본이 없어, 지금 내용이 첫 저장본이 됩니다.');
+      }
+      await fetchCloudData();
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchCloudData = async () => {
     setLoading(true);
@@ -149,6 +196,54 @@ export const CloudModal: React.FC<CloudModalProps> = ({ isOpen, onClose }) => {
               <span>{statusMsg}</span>
             </div>
           )}
+
+          {/* 작업 공간 키 — 이 브라우저가 서버 어디에 저장하는지. 키를 아는 컴퓨터끼리 같은 작업을 이어 갑니다. */}
+          <div className="border border-gray-200 rounded-xl p-4 bg-slate-50/60">
+            <div className="flex items-center gap-2 text-gray-900 font-extrabold text-[17px] mb-1">
+              <KeyRound className="w-4 h-4 text-[#005691]" />
+              <span>작업 공간 키</span>
+            </div>
+            <p className="text-[14px] text-slate-600 mb-3 leading-relaxed">
+              이 키를 아는 컴퓨터만 이 작업을 읽고 씁니다. 다른 컴퓨터에서 이어 가려면 <strong>링크를 열거나 키를 붙여 넣으세요.</strong>
+              키가 새면 남이 자료를 볼 수 있으니 메신저에 올려 두지 마세요.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="px-3 py-1.5 bg-white border border-gray-200 rounded-lg text-[14px] font-mono tracking-wider text-slate-800 select-all">
+                {getWorkspaceKey()}
+              </code>
+              <button
+                onClick={() => copyText(getWorkspaceKey(), 'key')}
+                className="px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-[14px] font-bold text-slate-700 flex items-center gap-1.5 transition"
+              >
+                {copied === 'key' ? <Check className="w-3.5 h-3.5 text-[#00A651]" /> : <Copy className="w-3.5 h-3.5" />}
+                키 복사
+              </button>
+              <button
+                onClick={() => copyText(workspaceLink(), 'link')}
+                className="px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg text-[14px] font-bold text-slate-700 flex items-center gap-1.5 transition"
+                title="다른 컴퓨터에서 이 링크를 한 번 열면 같은 작업 공간이 됩니다."
+              >
+                {copied === 'link' ? <Check className="w-3.5 h-3.5 text-[#00A651]" /> : <Link2 className="w-3.5 h-3.5" />}
+                링크 복사
+              </button>
+            </div>
+            <div className="flex gap-2 mt-3">
+              <input
+                type="text"
+                placeholder="다른 컴퓨터의 키 32자리를 붙여 넣기"
+                value={keyInput}
+                onChange={e => setKeyInput(e.target.value)}
+                className="flex-1 px-3.5 py-2 border border-gray-200 rounded-xl text-[15px] font-mono focus:outline-none focus:ring-2 focus:ring-[#005691]/40"
+              />
+              <button
+                onClick={handleSwitchKey}
+                disabled={loading || !keyInput.trim()}
+                className="px-4 py-2 bg-[#005691] hover:bg-[#00426e] disabled:bg-gray-100 disabled:text-gray-400 text-white font-bold text-[15px] rounded-xl transition shrink-0"
+              >
+                이 키로 바꾸기
+              </button>
+            </div>
+          </div>
 
           {/* Latest Auto-Save Section */}
           <div className="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between">

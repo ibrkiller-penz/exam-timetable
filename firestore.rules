@@ -1,8 +1,41 @@
 rules_version = '2';
+
+// 작업 공간마다 아무도 짐작할 수 없는 비밀 키(32자리)가 있고, 그 키를 아는
+// 사람만 그 공간을 읽고 씁니다. 로그인 없이 쓰는 앱이라 이 방식을 씁니다.
+//
+//   · 키를 모르면 아무것도 읽을 수 없습니다. 목록 조회(list)는 막아 두어
+//     키를 훑어볼 수 없습니다.
+//   · 예전의 exam_saves / exam_snapshots 는 누구나 읽고 쓸 수 있었습니다.
+//     그 자료는 workspaces/{키} 아래로 옮겼고, 옛 경로는 닫습니다.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function okKey(key) {
+      return key.size() == 32 && key.matches('^[a-f0-9]+$');
+    }
+
+    // 저장본은 이 네 가지 필드만 갖습니다. 다른 것을 끼워 넣지 못하게 합니다.
+    function okSave() {
+      return request.resource.data.keys().hasOnly(['id', 'title', 'updatedAt', 'stateJsonLz'])
+        && request.resource.data.stateJsonLz is string
+        && request.resource.data.updatedAt is string;
+    }
+
+    match /workspaces/{key} {
+      allow get: if okKey(key);
+      allow list: if false;
+      allow create, update: if okKey(key) && okSave();
+      allow delete: if okKey(key);
+
+      match /snapshots/{id} {
+        allow get, list: if okKey(key);
+        allow create, update: if okKey(key) && okSave();
+        allow delete: if okKey(key);
+      }
+    }
+
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if false;
     }
   }
 }
