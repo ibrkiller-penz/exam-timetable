@@ -61,7 +61,7 @@ describe('timetable', () => {
     for (const f of realFiles) {
       if (!fs.existsSync(f)) continue;
       const buf = fs.readFileSync(f);
-      const { rows } = parseNeisFile(new Uint8Array(buf));
+      const { rows } = await parseNeisFile(new Uint8Array(buf));
       const { subjectSummary } = buildSubjectTables(rows, 1);
       const takers = buildTakers(rows, subjectSummary);
       const students = buildStudents(rows, subjectSummary);
@@ -121,5 +121,6 @@ describe('timetable', () => {
         }
       }
     }
-  });
+    // 실제 학교 자료 두 건을 3·4·5일치로 모두 돌려 보므로 기본 5초로는 모자란다.
+  }, 120_000);
 });
