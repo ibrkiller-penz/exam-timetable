@@ -5,6 +5,8 @@ import { buildLabels } from '../../domain/reports/labels';
 import { downloadWorkbook } from '../../utils/excelStyled';
 import { onlySubject } from '../../domain/util/text';
 import { PrintPageSize } from './PrintPageSize';
+import { ReportActions } from './ReportActions';
+import { ReportHeader } from './ReportHeader';
 import { beginCapture, printAsImage } from './printAsImage';
 import { fitOnA4 } from './pdfFit';
 import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react';
@@ -102,59 +104,17 @@ export const Report7Labels: React.FC = () => {
     printAsImage({ selector: '.envelope-print-page', landscape: true });
   };
 
-  // PDF 파일로 즉시 다운로드/저장
-  const handleExportPdf = async () => {
-    const pages = document.querySelectorAll<HTMLElement>('.envelope-print-page');
-    if (!pages || pages.length === 0) {
-      alert('인쇄할 봉투 라벨 데이터가 없습니다.');
-      return;
-    }
 
-    setIsGeneratingPdf(true);
-    setPdfProgress({ current: 1, total: pages.length });
-    // 인쇄와 같은 조건에서 뜹니다(창 폭에 따라 달라지지 않도록).
-    const endCapture = beginCapture();
-
-    try {
-      // 무거운 라이브러리라 여기서 불러옵니다. 라벨을 안 뽑는 사람은 받지 않습니다.
-      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([import('jspdf'), import('html2canvas')]);
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      for (let i = 0; i < pages.length; i++) {
-        setPdfProgress({ current: i + 1, total: pages.length });
-        const pageEl = pages[i];
-
-        const canvas = await html2canvas(pageEl, {
-          scale: 2.5,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        });
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.92);
-        if (i > 0) {
-          pdf.addPage('a4', 'landscape');
-        }
-        // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
-        const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, true);
-        pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
-      }
-
-      const filename = `문제지_봉투라벨_${meta.title || '시험시간표'}.pdf`;
-      pdf.save(filename);
-    } catch (err) {
-      console.error('PDF 생성 실패:', err);
-      alert('PDF 생성 중 오류가 발생했습니다.');
-    } finally {
-      endCapture();
-      setIsGeneratingPdf(false);
-    }
-  };
+  /** 봉투 라벨을 엑셀 한 시트로. 붙일 순서 그대로입니다. */
+  const exportExcel = () => downloadWorkbook([{
+    name: '봉투 라벨',
+    title: `${meta?.title || '고사'} 문제지 봉투 라벨`,
+    subtitle: '봉투에 붙일 순서대로입니다.',
+    headers: [['연번', '일차', '교시', '날짜', '시간', '과목', '과목코드', '고사실', '응시분반', '응시인원', '별도']],
+    rows: labels.map(l => [l.seq, l.day, l.period, l.date, l.time, onlySubject(l.subject), getSubjectCode(l.subject), l.examRoom, l.classRoom || '전체', l.stuCount, l.separateCount || '']),
+    widths: [7, 8, 8, 13, 15, 22, 11, 11, 12, 10, 8],
+    numericCols: [0, 9, 10],
+  }], `${meta?.title || '고사'} 봉투 라벨.xlsx`);
 
   return (
     <div className="flex flex-col h-full bg-slate-100 overflow-auto p-4 md:p-6 print:overflow-visible print:h-auto print:p-0 print:m-0 print:bg-white print:block">
@@ -218,67 +178,23 @@ export const Report7Labels: React.FC = () => {
       `}</style>
 
       {/* PDF 생성 중 진행 모달 */}
-      {isGeneratingPdf && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-sm w-full mx-4 border border-slate-100">
-            <Loader2 className="w-10 h-10 text-[var(--c-primary,#005691)] animate-spin" />
-            <div className="text-center">
-              <h3 className="text-base font-black text-slate-900 mb-1">라벨 PDF 파일 생성 중...</h3>
-              <p className="text-sm font-bold text-slate-600">
-                페이지 처리 중: <span className="text-[var(--c-primary,#005691)] font-black">{pdfProgress.current}</span> / {pdfProgress.total} 페이지
-              </p>
-              <div className="w-48 h-2 bg-slate-100 rounded-full mt-3 overflow-hidden">
-                <div
-                  className="h-full bg-[var(--c-primary,#005691)] transition-all duration-200"
-                  style={{ width: `${(pdfProgress.current / (pdfProgress.total || 1)) * 100}%` }}
-                />
-              </div>
-            </div>
-            <span className="text-xs text-[#8C867A]">잠시만 기다려주세요. 완료 시 자동 저장됩니다.</span>
-          </div>
-        </div>
-      )}
 
-      {/* 헤더 컨트롤 바 */}
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6 no-print bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-        <h2 className="text-xl font-black text-[#005691] flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm">7</span>
-          문제지 봉투 라벨 (A4 가로 2×2 출력)
-        </h2>
-
-        <div className="flex items-center gap-2.5 flex-wrap">
-          <button
-            onClick={() => downloadWorkbook([{
-              name: '봉투 라벨',
-              title: `${meta?.title || '고사'} 문제지 봉투 라벨`,
-              subtitle: '봉투에 붙일 순서대로입니다.',
-              headers: [['연번', '일차', '교시', '날짜', '시간', '과목', '과목코드', '고사실', '응시분반', '응시인원', '별도']],
-              rows: labels.map(l => [l.seq, l.day, l.period, l.date, l.time, onlySubject(l.subject), getSubjectCode(l.subject), l.examRoom, l.classRoom || '전체', l.stuCount, l.separateCount || '']),
-              widths: [7, 8, 8, 13, 15, 22, 11, 11, 12, 10, 8],
-              numericCols: [0, 9, 10],
-            }], `${meta?.title || '고사'} 봉투 라벨.xlsx`)}
-            disabled={labels.length === 0}
-            className="px-3.5 py-2 bg-[#e5f6ec] hover:bg-emerald-100 text-emerald-800 border border-[#00A651]/30 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-          >
-            <Download className="w-4 h-4" /> 엑셀 내보내기
-          </button>
-          <button
-            onClick={handleExportPdf}
-            disabled={!stages.stage5 || labels.length === 0 || isGeneratingPdf}
-            className="px-4 py-2 bg-[#007a3c] hover:bg-[#005f2f] text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-            title="인쇄 대화상자 없이 바로 PDF 파일로 저장합니다"
-          >
-            <FileDown className="w-4 h-4" /> PDF 바로 저장 ({labels.length}개)
-          </button>
-          <button
-            onClick={handlePrintAllPages}
+      <ReportHeader
+        num="11-7"
+        title="문제지 봉투 라벨 (A4 가로 2×2)"
+        actions={
+          <ReportActions
             disabled={!stages.stage5 || labels.length === 0}
-            className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-xl text-xs font-black flex items-center gap-1.5 shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-          >
-            <Printer className="w-4 h-4" /> 라벨 인쇄 (2×2 가로 4칸)
-          </button>
-        </div>
-      </div>
+            onExcel={exportExcel}
+            pdfFilename={`${meta?.title || '고사'} 봉투 라벨.pdf`}
+            onPrint={() => printAsImage({ selector: '.envelope-print-page', landscape: true })}
+          />
+        }
+      >
+        <span className="text-[13.5px] text-slate-500">
+          라벨 <strong className="text-[#005691]">{labels.length}개</strong> · 한 장에 4칸
+        </span>
+      </ReportHeader>
 
       {!stages.stage5 ? (
         <div className="p-12 text-center text-[#8C867A] border border-slate-200 rounded-xl bg-white flex flex-col items-center justify-center">

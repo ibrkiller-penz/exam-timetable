@@ -7,7 +7,8 @@ import { selPlacementSlots } from '../../store/selectors';
 import { displayName } from '../../domain/privacy';
 import { separateRoomFor, SeparateExaminer } from '../../domain/types';
 import { ReportGate } from './ReportGate';
-import { PdfSaveButton } from './PdfSaveButton';
+import { ReportActions } from './ReportActions';
+import { ReportHeader, HeaderDivider, HeaderLabel } from './ReportHeader';
 import { PrintPageSize } from './PrintPageSize';
 import { SeparateNoticeSheet } from './SeparateNoticeSheet';
 import { buildSeparateDetail, buildSeparateRosters } from '../../domain/reports/separateReport';
@@ -101,134 +102,125 @@ export const Report8SeparateRoom: React.FC = () => {
     [attendance, examSlots, roomCount],
   );
 
+  /** 명렬을 엑셀로. 교시·별도실마다 시트 하나입니다. */
+  const exportExcel = () => downloadWorkbook(
+    rosters.map(r => ({
+      name: `${r.day.replace('일차', '일')}${r.period.replace('교시', '교')} ${r.room}실`,
+      title: '별도 고사실 명렬',
+      subtitle: `${r.day} ${r.period} · 별도 ${r.room}실 · ${r.rows.length}명 — 시험이 끝나면 답안지를 원고사실 것과 합칩니다.`,
+      headers: [['연번', '학번', '성명', '과목', '원고사실', '답안지']],
+      rows: r.rows.map((x, i) => [i + 1, x.hakbun, displayName(x.name), x.subject, x.homeRoom, '']),
+      widths: [7, 11, 12, 22, 11, 10],
+      numericCols: [0],
+    })),
+    '별도 고사실 명렬.xlsx',
+  );
+
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize />
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">9. 별도 고사실</h2>
-          <StepHelp title="9. 별도 고사실">
-            <div>
-              <h3>이 단계가 하는 일</h3>
-              <p>틱이나 장애 등으로 <strong>제 교실이 아닌 별도 고사실에서 시험을 보는 학생</strong>을 지정하는 단계입니다. 해당하는 학생이 없으면 그냥 넘어가도 됩니다.</p>
-            </div>
-            <div>
-              <h3>지정하면 무엇이 달라지나</h3>
-              <ul>
-                <li><strong>고사실 명단</strong>에는 그대로 남고, 비고에 '별도'로 표시됩니다. 소속은 원래 교실이기 때문입니다.</li>
-                <li><strong>좌석배치도</strong>에서는 빠지고, 남은 학생들의 좌석번호가 1번부터 다시 매겨집니다.</li>
-                <li><strong>고사실 시간표·학급 시간표·개별 수험표</strong>에는 그 교시만 '(별)'이 붙습니다.</li>
-                <li><strong>봉투 라벨</strong>의 응시인원에서 별도로 나가는 인원만큼 빠집니다.</li>
-              </ul>
-            </div>
-            <div>
-              <h3>종일인지, 그 교시만인지</h3>
-              <p>학생을 체크하면 <strong>전체 적용</strong>인지 <strong>이 시험만</strong>인지 물어봅니다. 전체로 하면 모든 시험을 별도실에서 봅니다.</p>
-              <p>대기 시간까지 별도실에 머무는지는 <strong>설정</strong>에서 정합니다. '종일'로 두면 대기실 좌석배치도에서도 빠집니다.</p>
-            </div>
-            <div>
-              <h3>몇 실로 나누나</h3>
-              <p>설정의 <strong>별도 고사실 운영 수</strong>(기본 2실)만큼 나눕니다. 한 교시에 지정된 학생을 학번 순으로 1실·2실… 로 번갈아 넣습니다.</p>
-            </div>
-            <div>
-              <h3>순서</h3>
-              <p><strong>8. 학생 배치</strong>를 확정해야 응시현황이 만들어지고, 그 위에 별도 지정을 입힙니다. 지정을 마치면 <strong>10. 응시현황</strong>으로 가서 좌석번호를 확정하세요.</p>
-            </div>
-          </StepHelp>
-          <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-            {([['manage', '명단 체크'], ['print', '명렬 출력']] as const).map(([id, label]) => (
-              <button
-                key={id}
-                onClick={() => setTab(id)}
-                className={`px-3 py-1.5 text-[13px] font-bold transition ${
-                  tab === id ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-gray-50'
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </span>
-          <span className="text-[13px] text-slate-500">
-            지정된 학생 <strong className="text-[#005691]">{checkedCount}명</strong> · 별도실 {roomCount}실
-          </span>
-
-          {/* 시험만 따로 보고 대기는 제 교실에서 하는 학생도, 하루 종일 별도실에
-              있는 학생도 있습니다. 설정에 숨겨 두지 않고 여기서 바로 고릅니다. */}
-          <span className="flex items-center gap-1.5">
-            <span className="text-[13px] font-bold text-slate-500">대기 시간</span>
-            <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-              {([[false, '대기실로'], [true, '별도실에 계속']] as const).map(([value, label]) => (
-                <button
-                  key={String(value)}
-                  type="button"
-                  onClick={() => updateSettings({ separateRoomAllDay: value })}
-                  className={`px-3 py-1.5 text-[13px] font-bold transition ${
-                    (settings.separateRoomAllDay ?? false) === value
-                      ? 'bg-[#005691] text-white'
-                      : 'bg-white text-slate-600 hover:bg-gray-50'
-                  }`}
-                  title={
-                    value
-                      ? '대기 시간에도 별도 고사실에 머뭅니다. 대기실 좌석배치도에서도 빠집니다.'
-                      : '시험 보는 교시에만 별도 고사실에 가고, 대기 시간에는 제 교실(대기실)로 갑니다.'
-                  }
-                >
-                  {label}
-                </button>
-              ))}
-            </span>
-          </span>
-          {/* 지정은 누를 때마다 바로 반영됩니다.
-              이 버튼은 이 기능이 생기기 전에 지정해 둔 자료를 맞출 때 씁니다. */}
-          {tab === 'manage' && (
-            <button
-              onClick={() => {
-                const n = syncSeparateExaminers();
-                setSyncMsg(n > 0 ? `응시현황 ${n}줄을 다시 맞춰 놓았습니다.` : '이미 모두 맞춰져 있습니다.');
-                setTimeout(() => setSyncMsg(null), 3000);
-              }}
-              className="px-3 py-1.5 bg-white hover:bg-blue-50 text-slate-600 hover:text-[#005691] border border-gray-300 hover:border-[#005691] rounded-lg text-[13px] font-bold transition"
-              title="지금 지정된 별도 응시자를 응시현황·명단·좌석배치도에 다시 반영합니다."
-            >
-              응시현황에 반영
-            </button>
-          )}
-          {syncMsg && <span className="text-[13px] font-bold text-emerald-700">{syncMsg}</span>}
-        </div>
-
-        {tab === 'print' && (
-          <div className="flex items-center gap-2">
-          <button
-            onClick={() => downloadWorkbook(
-              rosters.map(r => ({
-                name: `${r.day.replace('일차', '일')}${r.period.replace('교시', '교')} ${r.room}실`,
-                title: '별도 고사실 명렬',
-                subtitle: `${r.day} ${r.period} · 별도 ${r.room}실 · ${r.rows.length}명 — 시험이 끝나면 답안지를 원고사실 것과 합칩니다.`,
-                headers: [['연번', '학번', '성명', '과목', '원고사실', '답안지']],
-                rows: r.rows.map((x, i) => [i + 1, x.hakbun, displayName(x.name), x.subject, x.homeRoom, '']),
-                widths: [7, 11, 12, 22, 11, 10],
-                numericCols: [0],
-              })),
-              '별도 고사실 명렬.xlsx'
-            )}
+      <ReportHeader
+        num="9"
+        title="별도 고사실"
+        actions={
+          <ReportActions
             disabled={rosters.length === 0}
-            className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[14px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-200 disabled:text-gray-400"
-          >
-            <Download className="w-4 h-4" />
-            엑셀
-          </button>
-          <PdfSaveButton filename="별도 고사실 명렬.pdf" disabled={rosters.length === 0} />
-          <button
-            onClick={() => printAsImage()}
-            disabled={rosters.length === 0}
-            className="px-3.5 py-2 bg-[#005691] hover:bg-[#00426e] text-white rounded-xl text-[14px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-200 disabled:text-gray-400"
-          >
-            <Printer className="w-4 h-4" />
-            인쇄
-          </button>
+            onExcel={tab === 'print' ? exportExcel : undefined}
+            pdfFilename={tab === 'print' ? '별도 고사실 명렬.pdf' : undefined}
+            onPrint={tab === 'print' ? () => printAsImage() : undefined}
+          />
+        }
+      >
+        <StepHelp title="9. 별도 고사실">
+          <div>
+            <h3>이 단계가 하는 일</h3>
+            <p>틱이나 장애 등으로 <strong>제 교실이 아닌 별도 고사실에서 시험을 보는 학생</strong>을 지정하는 단계입니다. 해당하는 학생이 없으면 그냥 넘어가도 됩니다.</p>
           </div>
+          <div>
+            <h3>지정하면 무엇이 달라지나</h3>
+            <ul>
+              <li><strong>고사실 명단</strong>에는 그대로 남고, 비고에 '별도'로 표시됩니다. 소속은 원래 교실이기 때문입니다.</li>
+              <li><strong>좌석배치도</strong>에서는 빠지고, 남은 학생들의 좌석번호가 1번부터 다시 매겨집니다.</li>
+              <li><strong>고사실 시간표·학급 시간표·개별 수험표</strong>에는 그 교시만 '(별)'이 붙습니다.</li>
+              <li><strong>봉투 라벨</strong>의 응시인원에서 별도로 나가는 인원만큼 빠집니다.</li>
+            </ul>
+          </div>
+          <div>
+            <h3>종일인지, 그 교시만인지</h3>
+            <p>학생을 체크하면 <strong>전체 적용</strong>인지 <strong>이 시험만</strong>인지 물어봅니다. 대기 시간에 어디 있을지는 위의 <strong>대기 시간</strong>에서 고릅니다.</p>
+          </div>
+          <div>
+            <h3>몇 실로 나누나</h3>
+            <p>설정의 <strong>별도 고사실 운영 수</strong>(기본 2실)만큼 나눕니다. 한 교시에 지정된 학생을 학번 순으로 1실·2실… 로 번갈아 넣습니다.</p>
+          </div>
+          <div>
+            <h3>순서</h3>
+            <p><strong>8. 학생 배치</strong>를 확정해야 응시현황이 만들어지고, 그 위에 별도 지정을 입힙니다. 지정을 마치면 <strong>10. 응시현황</strong>으로 가서 좌석번호를 확정하세요. 나눠 줄 종이는 <strong>11-8 별도 수험생</strong>에서 뽑습니다.</p>
+          </div>
+        </StepHelp>
+
+        <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+          {([['manage', '명단 체크'], ['print', '명렬 출력']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`px-3 py-1.5 text-[13.5px] font-bold transition ${
+                tab === id ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-gray-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+
+        <span className="text-[13.5px] text-slate-500">
+          지정된 학생 <strong className="text-[#005691]">{checkedCount}명</strong> · 별도실 {roomCount}실
+        </span>
+
+        <HeaderDivider />
+
+        {/* 시험만 따로 보고 대기는 제 교실에서 하는 학생도, 하루 종일 별도실에
+            있는 학생도 있습니다. 설정에 숨겨 두지 않고 여기서 바로 고릅니다. */}
+        <HeaderLabel>대기 시간</HeaderLabel>
+        <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+          {([[false, '대기실로'], [true, '별도실에 계속']] as const).map(([value, label]) => (
+            <button
+              key={String(value)}
+              type="button"
+              onClick={() => updateSettings({ separateRoomAllDay: value })}
+              className={`px-3 py-1.5 text-[13.5px] font-bold transition ${
+                (settings.separateRoomAllDay ?? false) === value
+                  ? 'bg-[#005691] text-white'
+                  : 'bg-white text-slate-600 hover:bg-gray-50'
+              }`}
+              title={
+                value
+                  ? '대기 시간에도 별도 고사실에 머뭅니다. 대기실 좌석배치도에서도 빠집니다.'
+                  : '시험 보는 교시에만 별도 고사실에 가고, 대기 시간에는 제 교실(대기실)로 갑니다.'
+              }
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+
+        {/* 지정은 누를 때마다 바로 반영됩니다.
+            이 버튼은 이 기능이 생기기 전에 지정해 둔 자료를 맞출 때 씁니다. */}
+        {tab === 'manage' && (
+          <button
+            onClick={() => {
+              const n = syncSeparateExaminers();
+              setSyncMsg(n > 0 ? `응시현황 ${n}줄을 다시 맞춰 놓았습니다.` : '이미 모두 맞춰져 있습니다.');
+              setTimeout(() => setSyncMsg(null), 3000);
+            }}
+            className="report-select"
+            title="지금 지정된 별도 응시자를 응시현황·명단·좌석배치도에 다시 반영합니다."
+          >
+            응시현황에 반영
+          </button>
         )}
-      </div>
+        {syncMsg && <span className="text-[13.5px] font-bold text-emerald-700">{syncMsg}</span>}
+      </ReportHeader>
 
       <div className="no-print mb-4 px-4 py-3 rounded-xl bg-blue-50/70 border border-blue-100 text-[14px] text-slate-700 leading-relaxed">
         별도 고사실에서 시험을 보는 학생을 지정합니다. 지정한 학생은 <strong>고사실 명단에는 그대로 남고 비고에 '별도'</strong>로 표시되며,
@@ -464,7 +456,7 @@ export const Report8SeparateRoom: React.FC = () => {
                 ))}
               </div>
 
-              <table className="w-full text-sm text-center border-collapse border border-gray-800">
+              <table className="sheet-table sheet-rows-5 w-full text-[16px] text-center">
                 <thead className="bg-gray-100 border-b border-gray-800">
                   <tr className="divide-x divide-gray-800">
                     <th className="py-2 px-2 w-12">연번</th>

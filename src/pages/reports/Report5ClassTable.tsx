@@ -6,7 +6,8 @@ import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
 import { printAsImage } from './printAsImage';
-import { PdfSaveButton } from './PdfSaveButton';
+import { ReportActions } from './ReportActions';
+import { ReportHeader, HeaderDivider, HeaderLabel } from './ReportHeader';
 import { usePrintAll } from './usePrintAll';
 import { buildClassTableReport } from '../../domain/reports/classTable';
 import { DayIdx } from '../../domain/types';
@@ -57,99 +58,81 @@ export const Report5ClassTable: React.FC = () => {
       )
     : [current];
 
+  /** 엑셀 내보내기. 지금 고른 반·일차를 한 시트로 씁니다. */
+  const exportExcel = () => {
+        // 교시마다 과목/고사실 두 칸이라, 머리글을 두 줄로 겹쳐 씁니다.
+        const header: (string | number)[] = ['번호', '성명'];
+        report.activePeriods.forEach(p => header.push(`${p}교시
+과목명`, `${p}교시
+고사실`));
+        downloadWorkbook([{
+          name: `${report.ban} ${report.day}일차`,
+          title: `${report.ban} 시험시간표`,
+          subtitle: `${report.day}일차 ${dateFormatted} · 소속 고사실 ${actualRoomName || '없음'}`,
+          headers: [header],
+          rows: report.students.map(s => [
+            s.num,
+            displayName(s.name),
+            ...report.activePeriods.flatMap(p => [s.periods[p]?.subject || '-', s.periods[p]?.room || '-']),
+          ]),
+          widths: [7, 12, ...report.activePeriods.flatMap(() => [18, 11])],
+          numericCols: [0],
+          landscape: report.activePeriods.length >= 3,
+        }], `${report.ban} 시험시간표 ${report.day}일차.xlsx`);
+  };
+
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize />
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">11-5. 학급 시험시간표</h2>
-          <select
-            value={curBan}
-            onChange={e => setSelectedBan(e.target.value)}
-            className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg"
-          >
-            {uniqueBans.map(b => (
-              <option key={b} value={b}>{b}</option>
-            ))}
-          </select>
-          <select
-            value={selectedDay}
-            onChange={e => setSelectedDay(Number(e.target.value) as DayIdx)}
-            className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg"
-          >
-            {[1, 2, 3, 4, 5].map(d => (
-              <option key={d} value={d}>{d}일차</option>
-            ))}
-          </select>
-          <div className="flex items-center text-xs font-bold text-slate-800 bg-slate-100 rounded-lg border border-slate-300 ml-2">
-            <span className="pl-2 pr-1 py-1.5 whitespace-nowrap">소속 고사실:</span>
-            <select
-              className="bg-transparent pr-4 py-1.5 pl-1 focus:outline-none border-none cursor-pointer w-auto text-slate-900 font-extrabold"
-              value={actualRoomName}
-              onChange={e => setRoomOverrides({...roomOverrides, [curBan]: e.target.value})}
-            >
-              <option value="">-- 없음 --</option>
-              {rooms.filter(r => r.roomName).map(r => (
-                <option key={r.id} value={r.roomName}>{r.roomName}</option>
-              ))}
-              {report.roomName && !rooms.some(r => r.roomName === report.roomName) && (
-                <option value={report.roomName}>{report.roomName}</option>
-              )}
-            </select>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* PDF 는 늘 전체를 한 파일로 담습니다. 반마다 따로 저장하면 파일이 흩어집니다. */}
-          <PdfSaveButton
-            filename={`${meta?.title || '고사'} 학급 시험시간표.pdf`}
+      <ReportHeader
+        num="11-5"
+        title="학급 시험시간표"
+        actions={
+          <ReportActions
             disabled={!stages.stage5}
-            prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }}
+            onExcel={exportExcel}
+            pdfFilename={`${report.ban} 시험시간표 ${report.day}일차.pdf`}
+            pdfAllFilename={`${meta?.title || '고사'} 학급 시험시간표 전체.pdf`}
+            prepareAll={() => { setPrintingAll(true); return () => setPrintingAll(false); }}
+            onPrint={() => printAsImage()}
+            onPrintAll={printAll}
           />
-        <button
-          onClick={printAll}
-          disabled={!stages.stage5}
-          className="px-4 py-2 bg-white hover:bg-blue-50 text-[#005691] border border-[#005691] rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-          title="모든 반의 모든 일차를 한 번에 인쇄합니다."
+        }
+      >
+        <select
+          value={curBan}
+          onChange={e => setSelectedBan(e.target.value)}
+          className="report-select"
         >
-          <Printer className="w-4 h-4" /> 전체 출력
-        </button>
-        <button
-          onClick={() => printAsImage()}
-          disabled={!stages.stage5}
-          className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
+          {uniqueBans.map(b => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+        <select
+          value={selectedDay}
+          onChange={e => setSelectedDay(Number(e.target.value) as DayIdx)}
+          className="report-select"
         >
-          <Printer className="w-4 h-4" /> 이 장만 인쇄
-        </button>
-        <button
-          onClick={() => {
-            // 교시마다 과목/고사실 두 칸이라, 머리글을 두 줄로 겹쳐 씁니다.
-            const header: (string | number)[] = ['번호', '성명'];
-            report.activePeriods.forEach(p => header.push(`${p}교시
-과목명`, `${p}교시
-고사실`));
-            downloadWorkbook([{
-              name: `${report.ban} ${report.day}일차`,
-              title: `${report.ban} 시험시간표`,
-              subtitle: `${report.day}일차 ${dateFormatted} · 소속 고사실 ${actualRoomName || '없음'}`,
-              headers: [header],
-              rows: report.students.map(s => [
-                s.num,
-                displayName(s.name),
-                ...report.activePeriods.flatMap(p => [s.periods[p]?.subject || '-', s.periods[p]?.room || '-']),
-              ]),
-              widths: [7, 12, ...report.activePeriods.flatMap(() => [18, 11])],
-              numericCols: [0],
-              landscape: report.activePeriods.length >= 3,
-            }], `${report.ban} 시험시간표 ${report.day}일차.xlsx`);
-          }}
-          disabled={!stages.stage5}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
+          {[1, 2, 3, 4, 5].map(d => (
+            <option key={d} value={d}>{d}일차</option>
+          ))}
+        </select>
+        <HeaderDivider />
+        <HeaderLabel>소속 고사실</HeaderLabel>
+        <select
+          className="report-select"
+          value={actualRoomName}
+          onChange={e => setRoomOverrides({ ...roomOverrides, [curBan]: e.target.value })}
         >
-          <Download className="w-4 h-4" /> 엑셀 내보내기
-        </button>
-        </div>
-      </div>
+          <option value="">-- 없음 --</option>
+          {rooms.filter(r => r.roomName).map(r => (
+            <option key={r.id} value={r.roomName}>{r.roomName}</option>
+          ))}
+          {report.roomName && !rooms.some(r => r.roomName === report.roomName) && (
+            <option value={report.roomName}>{report.roomName}</option>
+          )}
+        </select>
+      </ReportHeader>
 
       {!report || !stages.stage5 ? (
         <ReportGate what="학급 시험시간표" />
@@ -179,7 +162,7 @@ export const Report5ClassTable: React.FC = () => {
                   ]}
                 />
 
-                <table className="w-full table-fixed text-[14px] print:text-[13px] text-center border-collapse border-2 border-gray-800">
+                <table className="sheet-table sheet-rows-5 w-full table-fixed text-[15.5px] text-center">
                   {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}
                   <colgroup>
                     <col style={{ width: '7%' }} />

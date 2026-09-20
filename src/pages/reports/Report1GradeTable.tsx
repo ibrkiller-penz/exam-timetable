@@ -5,7 +5,8 @@ import { buildGradeTable } from '../../domain/reports/gradeTable';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
 import { printAsImage } from './printAsImage';
-import { PdfSaveButton } from './PdfSaveButton';
+import { ReportActions } from './ReportActions';
+import { ReportHeader } from './ReportHeader';
 import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
@@ -38,46 +39,44 @@ export const Report1GradeTable: React.FC = () => {
           dayBlocks.slice(i * DAYS_PER_PAGE, (i + 1) * DAYS_PER_PAGE).flat()
         );
 
+  /** 엑셀 내보내기. 화면의 표를 긁지 않고 자료에서 바로 만듭니다. */
+  const exportExcel = () => {
+      // 화면의 표를 긁지 않고 자료에서 바로 만듭니다.
+      // 한 교시가 두 줄(과목 / 인원)이라 엑셀에서도 그대로 두 줄로 씁니다.
+      const headers = [['날짜', '구분', ...columns.map(c => c.roomName), '인원계']];
+      const body: (string | number)[][] = [];
+      for (const r of rows) {
+        body.push([r.isFirstOfDate ? r.dateText.replace(/\s+/g, ' ') : '', r.periodLabel, ...r.cells.map(c => c.subject), '']);
+        body.push(['', r.timeRange, ...r.cells.map(c => (c.stuCount === '·' ? '' : c.stuCount)), r.totalStuCount > 0 ? r.totalStuCount : '']);
+      }
+      downloadWorkbook([{
+        name: '전체 시험시간표',
+        title: meta.title,
+        subtitle: '고사실별 시험시간표 — 윗줄은 과목, 아랫줄은 응시 인원입니다.',
+        headers,
+        rows: body,
+        widths: [12, 13, ...columns.map(() => 15), 9],
+        landscape: true,
+        numericCols: columns.map((_, i) => i + 2).concat([columns.length + 2]),
+      }], `${meta.title || '고사'} 전체 시험시간표.xlsx`);
+  };
+
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6 print:overflow-visible print:h-auto print:p-0">
       <PrintPageSize landscape={true} />
-      <div className="flex items-center justify-between mb-4 no-print">
-        <h2 className="text-xl font-bold text-[#005691]">11-1. 전체 시험시간표</h2>
-        <PdfSaveButton filename={`${meta.title || '고사'} 전체 시험시간표.pdf`} disabled={!hasPlacement} />
-        <button
-          onClick={() => printAsImage()}
-          disabled={!hasPlacement}
-          className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-        >
-          <Printer className="w-4 h-4" /> 인쇄하기
-        </button>
-        <button
-          onClick={() => {
-            // 화면의 표를 긁지 않고 자료에서 바로 만듭니다.
-            // 한 교시가 두 줄(과목 / 인원)이라 엑셀에서도 그대로 두 줄로 씁니다.
-            const headers = [['날짜', '구분', ...columns.map(c => c.roomName), '인원계']];
-            const body: (string | number)[][] = [];
-            for (const r of rows) {
-              body.push([r.isFirstOfDate ? r.dateText.replace(/\s+/g, ' ') : '', r.periodLabel, ...r.cells.map(c => c.subject), '']);
-              body.push(['', r.timeRange, ...r.cells.map(c => (c.stuCount === '·' ? '' : c.stuCount)), r.totalStuCount > 0 ? r.totalStuCount : '']);
-            }
-            downloadWorkbook([{
-              name: '전체 시험시간표',
-              title: meta.title,
-              subtitle: '고사실별 시험시간표 — 윗줄은 과목, 아랫줄은 응시 인원입니다.',
-              headers,
-              rows: body,
-              widths: [12, 13, ...columns.map(() => 15), 9],
-              landscape: true,
-              numericCols: columns.map((_, i) => i + 2).concat([columns.length + 2]),
-            }], `${meta.title || '고사'} 전체 시험시간표.xlsx`);
-          }}
-          disabled={!hasPlacement}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-        >
-          <Download className="w-4 h-4" /> 엑셀 내보내기
-        </button>
-      </div>
+      <ReportHeader
+        num="11-1"
+        title="전체 시험시간표"
+        actions={
+          <ReportActions
+            disabled={!hasPlacement}
+            onExcel={exportExcel}
+            pdfFilename={`${meta.title || '고사'} 전체 시험시간표.pdf`}
+            onPrint={() => printAsImage()}
+          />
+        }
+      >
+      </ReportHeader>
 
       {!hasPlacement ? (
         <div className="p-12 text-center text-gray-400 border border-gray-200 rounded-xl bg-gray-50">

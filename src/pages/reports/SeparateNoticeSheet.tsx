@@ -62,7 +62,7 @@ export const SeparateNoticeSheet: React.FC<{
       {rows.length === 0 ? (
         <p className="text-center text-slate-400 py-10">아직 배치된 교시가 없습니다.</p>
       ) : (
-        <table className="w-full text-[15px] text-center border-collapse border-2 border-gray-800">
+        <table className="sheet-table sheet-rows-5 w-full text-[16px] text-center">
           <thead className="bg-gray-100">
             <tr className="divide-x divide-gray-800 border-b border-gray-800">
               <th className="py-2 px-2 w-16 font-black">연번</th>
@@ -99,7 +99,7 @@ export const SeparateNoticeSheet: React.FC<{
           <p className="text-center text-[14px] font-bold text-slate-600 mb-4">
             {st.grade}학년 {st.ban} {st.num}번 {displayName(st.name)} · 학번 {ticket.hakbun}
           </p>
-          <table className="w-full text-[13.5px] text-center border-collapse border-2 border-gray-800">
+          <table className="sheet-table w-full text-[14.5px] text-center">
             <thead className="bg-gray-100">
               <tr className="divide-x divide-gray-800 border-b border-gray-800">
                 <th className="py-2 px-1 w-16 font-black">교시</th>

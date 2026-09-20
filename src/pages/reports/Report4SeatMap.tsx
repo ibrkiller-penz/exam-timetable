@@ -5,7 +5,8 @@ import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
-import { PdfSaveButton } from './PdfSaveButton';
+import { ReportActions } from './ReportActions';
+import { ReportHeader } from './ReportHeader';
 import { usePrintAll } from './usePrintAll';
 import { printAsImage } from './printAsImage';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
@@ -72,141 +73,130 @@ export const Report4SeatMap: React.FC = () => {
   );
   const dayDate = days[Number(selectedDay.replace('일차', '')) - 1]?.date ?? '';
 
+  /** 엑셀 내보내기. 화면의 표를 긁지 않고 자료에서 바로 만듭니다. */
+  const exportExcel = () => {
+      // 자리 모양 그대로 옮깁니다. 한 칸이 세 줄(좌석번호 / 학번 / 성명)입니다.
+      const specs = uniqueRooms.map(rn => {
+        const ro = rooms.find(x => x.roomName === rn);
+        const c = ro?.cols ?? settings.seatColumns;
+        const rws = ro?.rows ?? settings.seatsPerColumn;
+        const rep = buildSeatMapReport(attendance, selectedDay, selectedPeriod, rn, c, ro?.layoutDirection ?? 'col', rws);
+        if (!rep) return null;
+        const rowCount = Math.max(...rep.grid.map(col => col.length), 0);
+        const body: (string | number)[][] = [];
+        for (let i = 0; i < rowCount; i++) {
+          body.push(rep.grid.map(col => col[i]?.physicalSeatNum ?? ''));
+          body.push(rep.grid.map(col => col[i]?.hakbun ?? ''));
+          body.push(rep.grid.map(col => (col[i]?.name ? displayName(col[i].name) : '')));
+        }
+        return {
+          name: rn,
+          title: rep.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도',
+          subtitle: `${dayDate || ''} ${rep.period} · ${rep.examRoom} · ${rep.subject} · ${rep.totalStudents}명 — 위쪽이 교탁입니다.`,
+          headers: [rep.grid.map((_, i) => `${i + 1}열`)],
+          rows: body,
+          widths: rep.grid.map(() => 15),
+          big: true,
+          landscape: rep.columns >= 6,
+        };
+      }).filter((x): x is NonNullable<typeof x> => Boolean(x));
+      if (specs.length === 0) return;
+      downloadWorkbook(specs, `좌석배치도 ${selectedDay} ${selectedPeriod}.xlsx`);
+  };
+
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize landscape={anyWide} />
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">11-4. 고사실 좌석배치도</h2>
-          <select
-            value={selectedDay}
-            onChange={e => setReportSelection({ day: e.target.value as any })}
-            className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg"
-          >
-            {[1, 2, 3, 4, 5].map(d => (
-              <option key={d} value={`${d}일차`}>{`${d}일차`}</option>
-            ))}
-          </select>
-          <select
-            value={selectedPeriod}
-            onChange={e => setReportSelection({ period: e.target.value as any })}
-            className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg"
-          >
-            {[1, 2, 3, 4, 5].map(p => (
-              <option key={p} value={`${p}교시`}>{`${p}교시`}</option>
-            ))}
-          </select>
-          <select
-            value={curRoom}
-            onChange={e => setReportSelection({ room: e.target.value })}
-            className="px-3 py-1.5 text-xs bg-gray-50 border border-gray-300 rounded-lg"
-          >
-            {uniqueRooms.map(r => (
-              <option key={r} value={r}>{r}</option>
-            ))}
-          </select>
+      <ReportHeader
+        num="11-4"
+        title="고사실 좌석배치도"
+        actions={
+          <ReportActions
+            disabled={!stages.stage5}
+            onExcel={exportExcel}
+            pdfFilename={`좌석배치도 ${selectedDay} ${selectedPeriod}.pdf`}
+            pdfAllFilename={`좌석배치도 ${selectedDay} ${selectedPeriod} 전체.pdf`}
+            prepareAll={() => { setPrintingAll(true); return () => setPrintingAll(false); }}
+            onPrint={() => printAsImage()}
+            onPrintAll={printAll}
+          />
+        }
+      >
+        <select
+          value={selectedDay}
+          onChange={e => setReportSelection({ day: e.target.value as any })}
+          className="report-select"
+        >
+          {[1, 2, 3, 4, 5].map(d => (
+            <option key={d} value={`${d}일차`}>{`${d}일차`}</option>
+          ))}
+        </select>
+        <select
+          value={selectedPeriod}
+          onChange={e => setReportSelection({ period: e.target.value as any })}
+          className="report-select"
+        >
+          {[1, 2, 3, 4, 5].map(p => (
+            <option key={p} value={`${p}교시`}>{`${p}교시`}</option>
+          ))}
+        </select>
+        <select
+          value={curRoom}
+          onChange={e => setReportSelection({ room: e.target.value })}
+          className="report-select"
+        >
+          {uniqueRooms.map(r => (
+            <option key={r} value={r}>{r}</option>
+          ))}
+        </select>
 
-          <div className="flex items-center gap-1.5 text-xs">
-            <span className="font-semibold text-gray-600">열수(가로):</span>
-            <input
-              type="number"
-              min={3}
-              max={10}
-              value={curCols}
-              onChange={e => roomObj && updateRoom(roomObj.id, { cols: Number(e.target.value) || 5 })}
-              className="w-12 px-1.5 py-1 border border-gray-300 rounded text-center text-xs"
-            />
-          </div>
-          
-          <div className="flex items-center gap-1.5 text-xs ml-2">
-            <span className="font-semibold text-gray-600">행수(세로):</span>
-            <input
-              type="number"
-              min={3}
-              max={15}
-              value={curRows}
-              onChange={e => roomObj && updateRoom(roomObj.id, { rows: Number(e.target.value) || 8 })}
-              className="w-12 px-1.5 py-1 border border-gray-300 rounded text-center text-xs"
-            />
-          </div>
-          
-          <div className="flex items-center gap-1.5 text-xs ml-2">
-            <span className="font-semibold text-gray-600">배치순서:</span>
-            <select
-              value={curLayout}
-              onChange={e => roomObj && updateRoom(roomObj.id, { layoutDirection: e.target.value as 'col' | 'row' })}
-              className="px-2 py-1 bg-white border border-gray-300 rounded text-xs"
-            >
-              <option value="col">세로(한쪽)로 먼저 몰기</option>
-              <option value="row">가로(앞자리)로 먼저 채우기</option>
-            </select>
-          </div>
-          
-          {/* 교실 구조가 같은 고사실끼리만 묶어 적용할 수 있어야 합니다.
-              세미나실과 일반 교실은 열·행이 다릅니다. */}
-          <button
-            onClick={() => { setApplyTargets(rooms.filter(r => r.id !== roomObj?.id).map(r => r.id)); setApplyOpen(true); }}
-            disabled={!roomObj}
-            className="ml-2 px-3 py-1 bg-[#005691] hover:bg-[#004270] text-white rounded font-bold shadow-sm transition flex items-center gap-1 text-[13px] disabled:bg-gray-200 disabled:text-gray-400"
-            title="지금 열·행·배치순서를 다른 고사실에도 적용합니다."
-          >
-            💾 다른 고사실에도 적용
-          </button>
+        <div className="flex items-center gap-1.5 text-xs">
+          <span className="font-semibold text-gray-600">열수(가로):</span>
+          <input
+            type="number"
+            min={3}
+            max={10}
+            value={curCols}
+            onChange={e => roomObj && updateRoom(roomObj.id, { cols: Number(e.target.value) || 5 })}
+            className="w-12 px-1.5 py-1 border border-gray-300 rounded text-center text-xs"
+          />
         </div>
-
+        
+        <div className="flex items-center gap-1.5 text-xs ml-2">
+          <span className="font-semibold text-gray-600">행수(세로):</span>
+          <input
+            type="number"
+            min={3}
+            max={15}
+            value={curRows}
+            onChange={e => roomObj && updateRoom(roomObj.id, { rows: Number(e.target.value) || 8 })}
+            className="w-12 px-1.5 py-1 border border-gray-300 rounded text-center text-xs"
+          />
+        </div>
+        
+        <div className="flex items-center gap-1.5 text-xs ml-2">
+          <span className="font-semibold text-gray-600">배치순서:</span>
+          <select
+            value={curLayout}
+            onChange={e => roomObj && updateRoom(roomObj.id, { layoutDirection: e.target.value as 'col' | 'row' })}
+            className="px-2 py-1 bg-white border border-gray-300 rounded text-xs"
+          >
+            <option value="col">세로(한쪽)로 먼저 몰기</option>
+            <option value="row">가로(앞자리)로 먼저 채우기</option>
+          </select>
+        </div>
+        
+        {/* 교실 구조가 같은 고사실끼리만 묶어 적용할 수 있어야 합니다.
+            세미나실과 일반 교실은 열·행이 다릅니다. */}
         <button
-          onClick={printAll}
-          disabled={!stages.stage5}
-          className="px-4 py-2 bg-[#00426e] hover:bg-[#003356] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:shadow-none disabled:cursor-not-allowed"
-          title="이 교시의 모든 고사실을 한 번에 인쇄합니다."
+          onClick={() => { setApplyTargets(rooms.filter(r => r.id !== roomObj?.id).map(r => r.id)); setApplyOpen(true); }}
+          disabled={!roomObj}
+          className="ml-2 px-3 py-1 bg-[#005691] hover:bg-[#004270] text-white rounded font-bold shadow-sm transition flex items-center gap-1 text-[13px] disabled:bg-gray-200 disabled:text-gray-400"
+          title="지금 열·행·배치순서를 다른 고사실에도 적용합니다."
         >
-          <Printer className="w-4 h-4" /> 전체 출력
+          💾 다른 고사실에도 적용
         </button>
-        <PdfSaveButton filename={`좌석배치도 ${selectedDay} ${selectedPeriod}.pdf`} disabled={!stages.stage5}
-          prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }} />
-        <button
-          onClick={() => printAsImage()}
-          disabled={!stages.stage5}
-          className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-        >
-          <Printer className="w-4 h-4" /> 인쇄하기
-        </button>
-        <button
-          onClick={() => {
-            // 자리 모양 그대로 옮깁니다. 한 칸이 세 줄(좌석번호 / 학번 / 성명)입니다.
-            const specs = uniqueRooms.map(rn => {
-              const ro = rooms.find(x => x.roomName === rn);
-              const c = ro?.cols ?? settings.seatColumns;
-              const rws = ro?.rows ?? settings.seatsPerColumn;
-              const rep = buildSeatMapReport(attendance, selectedDay, selectedPeriod, rn, c, ro?.layoutDirection ?? 'col', rws);
-              if (!rep) return null;
-              const rowCount = Math.max(...rep.grid.map(col => col.length), 0);
-              const body: (string | number)[][] = [];
-              for (let i = 0; i < rowCount; i++) {
-                body.push(rep.grid.map(col => col[i]?.physicalSeatNum ?? ''));
-                body.push(rep.grid.map(col => col[i]?.hakbun ?? ''));
-                body.push(rep.grid.map(col => (col[i]?.name ? displayName(col[i].name) : '')));
-              }
-              return {
-                name: rn,
-                title: rep.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도',
-                subtitle: `${dayDate || ''} ${rep.period} · ${rep.examRoom} · ${rep.subject} · ${rep.totalStudents}명 — 위쪽이 교탁입니다.`,
-                headers: [rep.grid.map((_, i) => `${i + 1}열`)],
-                rows: body,
-                widths: rep.grid.map(() => 15),
-                big: true,
-                landscape: rep.columns >= 6,
-              };
-            }).filter((x): x is NonNullable<typeof x> => Boolean(x));
-            if (specs.length === 0) return;
-            downloadWorkbook(specs, `좌석배치도 ${selectedDay} ${selectedPeriod}.xlsx`);
-          }}
-          disabled={!stages.stage5}
-          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-        >
-          <Download className="w-4 h-4" /> 엑셀 내보내기
-        </button>
-      </div>
+      </ReportHeader>
 
       {!report || !stages.stage5 ? (
         <ReportGate what="좌석배치도" emptyHint="그 날짜·교시에 이 고사실을 쓰지 않습니다. 위에서 다른 고사실을 골라 보세요." />

@@ -6,7 +6,7 @@
  */
 
 /** 종이 가장자리 여백. 프린터가 물리적으로 못 찍는 자리를 피합니다. */
-export const PAGE_MARGIN_MM = 6;
+export const PAGE_MARGIN_MM = 5;
 
 export interface A4Fit {
   pageW: number; pageH: number;

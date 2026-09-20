@@ -6,9 +6,14 @@ import { ReportGate } from './ReportGate';
 import { PrintPageSize } from './PrintPageSize';
 import { selPlacementSlots } from '../../store/selectors';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
-import { beginCapture, printAsImage } from './printAsImage';
-import { fitOnA4 } from './pdfFit';
-import { Printer, AlertTriangle, LayoutGrid, Square, Users, User, Building, FileDown, Loader2 } from 'lucide-react';
+import { printAsImage } from './printAsImage';
+import { ReportActions } from './ReportActions';
+import { ReportHeader, HeaderDivider } from './ReportHeader';
+import { AlertTriangle, Pencil, X } from 'lucide-react';
+
+/** 수험표 아래에 찍히는 기본 안내. 학교마다 고쳐 쓰므로 설정에 담습니다. */
+export const DEFAULT_TICKET_NOTICE =
+  '미응시자는 원반 또는 별도로 지정된 대기실에서 자습합니다.\n고사실과 좌석번호를 반드시 확인하고 지정된 자리에 앉으세요.';
 
 export const Report6StudentTable: React.FC = () => {
   const { students,  days, times, rooms, stages, settings, meta, updateSettings } = useAppStore();
@@ -21,9 +26,13 @@ export const Report6StudentTable: React.FC = () => {
   const [printScope, setPrintScope] = useState<'student' | 'class' | 'all'>('class');
   const [layoutMode, setLayoutMode] = useState<'grid4' | 'single'>('grid4');
 
-  // PDF 생성 진행 상태
-  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-  const [pdfProgress, setPdfProgress] = useState({ current: 0, total: 0 });
+  // 유의사항 입력 창.
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  /**
+   * '전체'를 누른 동안만 모든 학생을 그려 놓습니다.
+   * 고른 범위(개별·반별)는 그대로 두고, 뽑고 나면 보던 화면으로 돌아옵니다.
+   */
+  const [forceAll, setForceAll] = useState(false);
 
   const uniqueBans = Array.from(new Set(students.map(s => s.ban))).filter(Boolean);
   const curBan = selectedBan || uniqueBans[0] || '01반';
@@ -32,19 +41,21 @@ export const Report6StudentTable: React.FC = () => {
     return students.filter(s => s.ban === curBan).sort((a, b) => a.num - b.num);
   }, [students, curBan]);
 
+  const effScope = forceAll ? 'all' : printScope;
+
   const studentsToRender = useMemo(() => {
-    if (printScope === 'student') {
+    if (effScope === 'student') {
       const s = banStudents.find(s => s.num === selectedNum) ?? banStudents[0];
       return s ? [s] : [];
     }
-    if (printScope === 'class') {
+    if (effScope === 'class') {
       return banStudents;
     }
     return students.filter(s => s.subjects && s.subjects.length > 0).sort((a, b) => {
       if (a.ban !== b.ban) return a.ban.localeCompare(b.ban, 'ko');
       return a.num - b.num;
     });
-  }, [printScope, banStudents, selectedNum, students]);
+  }, [effScope, banStudents, selectedNum, students]);
 
   const reports = useMemo(() => {
     return studentsToRender.map(s => buildStudentTableReport(s, attendance, days, times, rooms, placementSlots, settings.showSeatOnStudentTable));
@@ -66,204 +77,156 @@ export const Report6StudentTable: React.FC = () => {
    * 브라우저가 인쇄용으로 다시 그리면서 표가 잘리거나 한 줄이 다음 장으로
    * 넘어갔습니다. 지금은 화면에 보이는 장을 그대로 그림으로 떠서 A4 에 얹습니다.
    */
-  const handlePrintAllPages = () => {
-    printAsImage({ selector: '.ticket-print-page', landscape: false });
-  };
-
-  // PDF 파일로 즉시 다운로드/저장
-  const handleExportPdf = async () => {
-    const pages = document.querySelectorAll<HTMLElement>('.ticket-print-page');
-    if (!pages || pages.length === 0) {
-      alert('인쇄할 수험표 데이터가 없습니다.');
-      return;
-    }
-
-    setIsGeneratingPdf(true);
-    setPdfProgress({ current: 1, total: pages.length });
-    // 인쇄와 같은 조건에서 뜹니다(창 폭에 따라 달라지지 않도록).
-    const endCapture = beginCapture();
-
-    try {
-      // 무거운 라이브러리라 여기서 불러옵니다. 수험표를 안 뽑는 사람은 받지 않습니다.
-      const [{ jsPDF }, { default: html2canvas }] = await Promise.all([import('jspdf'), import('html2canvas')]);
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      });
-
-      for (let i = 0; i < pages.length; i++) {
-        setPdfProgress({ current: i + 1, total: pages.length });
-        const pageEl = pages[i];
-        
-        const canvas = await html2canvas(pageEl, {
-          scale: 2.5,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        });
-
-        const imgData = canvas.toDataURL('image/jpeg', 0.92);
-        if (i > 0) {
-          pdf.addPage('a4', 'portrait');
+  const printAllStudents = () => {
+    setForceAll(true);
+    // 모든 학생이 화면에 그려진 뒤에 떠야 합니다.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(async () => {
+        try {
+          await printAsImage({ selector: '.ticket-print-page', landscape: false });
+        } finally {
+          setForceAll(false);
         }
-        // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
-        const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, false);
-        pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
-      }
-
-      const scopeName = printScope === 'student' ? `${banStudents.find(s => s.num === selectedNum)?.name ?? '학생'}` : printScope === 'class' ? `${curBan}` : '전체';
-      const filename = `수험표_${scopeName}_${meta.title || '시험시간표'}.pdf`;
-      pdf.save(filename);
-    } catch (err) {
-      console.error('PDF 생성 실패:', err);
-      alert('PDF 생성 중 오류가 발생했습니다.');
-    } finally {
-      endCapture();
-      setIsGeneratingPdf(false);
-    }
+      });
+    });
   };
+
+  /** 파일 이름에 쓸, 지금 무엇을 뽑는지. */
+  const scopeName =
+    effScope === 'student'
+      ? `${curBan} ${banStudents.find(s => s.num === selectedNum)?.num ?? ''}번`
+      : effScope === 'class'
+        ? curBan
+        : '전체';
+
 
   return (
     <div className="flex flex-col h-full bg-slate-100 overflow-auto p-4 md:p-6 print:overflow-visible print:h-auto print:p-0 print:m-0 print:bg-white print:block">
       <PrintPageSize />
       {/* PDF 생성 중 진행 모달 */}
-      {isGeneratingPdf && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs">
-          <div className="bg-white rounded-2xl p-6 shadow-2xl flex flex-col items-center gap-4 max-w-sm w-full mx-4 border border-slate-100">
-            <Loader2 className="w-10 h-10 text-[var(--c-primary,#005691)] animate-spin" />
-            <div className="text-center">
-              <h3 className="text-base font-black text-slate-900 mb-1">PDF 파일 생성 중...</h3>
-              <p className="text-sm font-bold text-slate-600">
-                페이지 처리 중: <span className="text-[var(--c-primary,#005691)] font-black">{pdfProgress.current}</span> / {pdfProgress.total} 페이지
-              </p>
-              <div className="w-48 h-2 bg-slate-100 rounded-full mt-3 overflow-hidden">
-                <div
-                  className="h-full bg-[var(--c-primary,#005691)] transition-all duration-200"
-                  style={{ width: `${(pdfProgress.current / pdfProgress.total) * 100}%` }}
-                />
-              </div>
+
+      <ReportHeader
+        num="11-6"
+        title="개별 수험표 출력"
+        actions={
+          <ReportActions
+            disabled={!stages.stage5 || reports.length === 0}
+            pdfFilename={`수험표 ${scopeName}.pdf`}
+            pdfAllFilename={printScope === 'all' ? undefined : `${meta.title || '고사'} 수험표 전체.pdf`}
+            prepareAll={printScope === 'all' ? undefined : () => { setForceAll(true); return () => setForceAll(false); }}
+            onPrint={() => printAsImage({ selector: '.ticket-print-page', landscape: false })}
+            onPrintAll={printScope === 'all' ? undefined : printAllStudents}
+          />
+        }
+      >
+        <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+          {([['student', '개별 선택'], ['class', '반별 출력'], ['all', '전체 출력']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => { setPrintScope(id); if (id === 'student') setLayoutMode('single'); }}
+              className={`px-3 py-1.5 text-[13.5px] font-bold transition ${
+                printScope === id ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-gray-50'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+
+        <select
+          value={curBan}
+          onChange={e => { setSelectedBan(e.target.value); setSelectedNum(1); }}
+          disabled={printScope === 'all'}
+          className="report-select"
+        >
+          {uniqueBans.map(b => (
+            <option key={b} value={b}>{b}</option>
+          ))}
+        </select>
+
+        {printScope === 'student' && (
+          <select
+            value={selectedNum}
+            onChange={e => setSelectedNum(Number(e.target.value))}
+            className="report-select"
+          >
+            {banStudents.map(s => (
+              <option key={s.num} value={s.num}>
+                {s.num}번 {displayName(s.name)}
+              </option>
+            ))}
+          </select>
+        )}
+
+        <HeaderDivider />
+
+        <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+          {([['grid4', 'A4 4분할'], ['single', '1명 크게']] as const).map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setLayoutMode(id)}
+              className={`px-3 py-1.5 text-[13.5px] font-bold transition ${
+                layoutMode === id ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-gray-50'
+              }`}
+              title={id === 'grid4' ? 'A4 한 장에 4명씩' : 'A4 한 장에 1명씩 크게'}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+
+        <HeaderDivider />
+
+        {/* 수험표 아래에 찍히는 안내 문구. 머리줄에 작은 칸으로 두었더니
+            글씨가 너무 작아 무엇을 쓰는지 보이지 않았습니다. 창을 열어 크게 씁니다. */}
+        <button
+          onClick={() => setNoticeOpen(true)}
+          className="report-select flex items-center gap-1.5"
+          title="수험표 아래에 찍히는 유의사항을 고칩니다."
+        >
+          <Pencil className="w-3.5 h-3.5" /> 하단 유의사항
+        </button>
+      </ReportHeader>
+
+      {/* 유의사항 입력 창 */}
+      {noticeOpen && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6 no-print" onClick={() => setNoticeOpen(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#005691] text-white px-5 py-3 flex items-center justify-between">
+              <span className="font-black text-[16px]">수험표 하단 유의사항</span>
+              <button onClick={() => setNoticeOpen(false)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
+                <X className="w-5 h-5" />
+              </button>
             </div>
-            <span className="text-xs text-[#8C867A]">잠시만 기다려주세요. 완료 시 자동 저장됩니다.</span>
+            <div className="p-6">
+              <p className="text-[14px] text-slate-600 mb-3">
+                모든 수험표 아래에 그대로 찍힙니다. 줄을 바꾸면 종이에서도 줄이 바뀝니다.
+              </p>
+              <textarea
+                autoFocus
+                value={settings.studentTicketNotice ?? DEFAULT_TICKET_NOTICE}
+                onChange={e => updateSettings({ studentTicketNotice: e.target.value })}
+                rows={6}
+                className="w-full px-4 py-3 text-[16px] leading-relaxed border border-slate-300 rounded-xl focus:outline-none focus:border-[#005691] resize-y"
+              />
+            </div>
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-between items-center">
+              <button
+                onClick={() => updateSettings({ studentTicketNotice: DEFAULT_TICKET_NOTICE })}
+                className="px-4 py-2 text-[14px] font-bold text-slate-600 hover:text-slate-900 transition"
+              >
+                기본 문구로 되돌리기
+              </button>
+              <button
+                onClick={() => setNoticeOpen(false)}
+                className="px-5 py-2 bg-[#005691] hover:bg-[#00426e] text-white rounded-lg font-bold text-[14px] transition"
+              >
+                확인
+              </button>
+            </div>
           </div>
         </div>
       )}
-
-      <div className="flex flex-col xl:flex-row items-start xl:items-center justify-between gap-4 mb-6 no-print bg-white p-4 rounded-xl shadow-xs border border-slate-200">
-        <div className="flex flex-col gap-3 w-full">
-          <h2 className="text-xl font-black text-[#005691] flex items-center gap-2">
-            <span className="w-7 h-7 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center text-sm">6</span>
-            학생별 시험시간표 (수험표 출력)
-          </h2>
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-              <button
-                onClick={() => {
-                  setPrintScope('student');
-                  setLayoutMode('single');
-                }}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition ${printScope === 'student' ? 'bg-white text-[var(--c-primary,#005691)] shadow-sm' : 'text-[#8C867A] hover:text-slate-700'}`}
-              >
-                <User className="w-3.5 h-3.5" /> 개별 선택
-              </button>
-              <button
-                onClick={() => setPrintScope('class')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition ${printScope === 'class' ? 'bg-white text-[var(--c-primary,#005691)] shadow-sm' : 'text-[#8C867A] hover:text-slate-700'}`}
-              >
-                <Building className="w-3.5 h-3.5" /> 반별 출력
-              </button>
-              <button
-                onClick={() => setPrintScope('all')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition ${printScope === 'all' ? 'bg-white text-[var(--c-primary,#005691)] shadow-sm' : 'text-[#8C867A] hover:text-slate-700'}`}
-              >
-                <Users className="w-3.5 h-3.5" /> 전체 출력
-              </button>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <select
-                value={curBan}
-                onChange={e => {
-                  setSelectedBan(e.target.value);
-                  setSelectedNum(1);
-                }}
-                disabled={printScope === 'all'}
-                className="px-3 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500 disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-              >
-                {uniqueBans.map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-              </select>
-              
-              {printScope === 'student' && (
-                <select
-                  value={selectedNum}
-                  onChange={e => setSelectedNum(Number(e.target.value))}
-                  className="px-3 py-1.5 text-xs font-bold bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-indigo-500"
-                >
-                  {banStudents.map(s => (
-                    <option key={s.num} value={s.num}>
-                      {s.num}번 {displayName(s.name)}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            
-            <div className="h-6 w-px bg-slate-200 mx-1"></div>
-            
-            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
-              <button
-                onClick={() => setLayoutMode('grid4')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition ${layoutMode === 'grid4' ? 'bg-white text-[var(--c-primary,#005691)] shadow-sm' : 'text-[#8C867A] hover:text-slate-700'}`}
-                title="A4 1장에 4명씩 출력 (수험표 형태)"
-              >
-                <LayoutGrid className="w-3.5 h-3.5" /> A4 4분할
-              </button>
-              <button
-                onClick={() => setLayoutMode('single')}
-                className={`px-3 py-1.5 text-xs font-bold rounded-md flex items-center gap-1.5 transition ${layoutMode === 'single' ? 'bg-white text-[var(--c-primary,#005691)] shadow-sm' : 'text-[#8C867A] hover:text-slate-700'}`}
-                title="A4 1장에 1명씩 크게 출력"
-              >
-                <Square className="w-3.5 h-3.5" /> 1명 크게
-              </button>
-            </div>
-            
-            <div className="h-6 w-px bg-slate-200 mx-1"></div>
-            
-            <div className="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-lg border border-slate-200 flex-1 min-w-[250px]">
-              <span className="text-xs font-bold text-[#8C867A] px-2 whitespace-nowrap">하단 유의사항</span>
-              <textarea
-                placeholder="여러 줄 입력 가능"
-                value={settings.studentTicketNotice ?? '미응시자는 원반 또는 별도로 지정된 대기실에서 자습합니다.\n고사실과 좌석번호를 반드시 확인하고 지정된 자리에 앉으세요.'}
-                onChange={e => updateSettings({ studentTicketNotice: e.target.value })}
-                rows={2}
-                className="w-full px-2 py-1 text-[11px] bg-white border border-slate-300 rounded focus:outline-none focus:border-indigo-500 resize-none"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* 인쇄 및 PDF 저장 버튼 영역 */}
-        <div className="flex items-center gap-2.5 w-full xl:w-auto shrink-0">
-          <button
-            onClick={handleExportPdf}
-            disabled={!stages.stage5 || reports.length === 0 || isGeneratingPdf}
-            className="px-4 py-2.5 flex-1 xl:flex-none bg-[#007a3c] hover:bg-[#005f2f] text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-            title="인쇄 대화상자 없이 바로 PDF 파일로 저장합니다"
-          >
-            <FileDown className="w-4 h-4" /> PDF 바로 저장 ({reports.length}명)
-          </button>
-          <button
-            onClick={handlePrintAllPages}
-            disabled={!stages.stage5 || reports.length === 0 || isGeneratingPdf}
-            className="px-4 py-2.5 flex-1 xl:flex-none bg-[#005691] hover:bg-[#004270] text-white rounded-xl text-sm font-black flex items-center justify-center gap-2 shadow-md transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
-          >
-            <Printer className="w-4 h-4" /> 인쇄 ({reports.length}명)
-          </button>
-        </div>
-      </div>
 
       {/* 인쇄 시 짤림 방지 및 다중 페이지 인쇄 지원 스타일 */}
       <style>{`
@@ -508,7 +471,7 @@ export const Report6StudentTable: React.FC = () => {
                             ? 'mt-1 gap-0 text-[7.5px] leading-tight'
                             : 'mt-1.5 gap-0.5 text-[8px] leading-tight'
                         }`}>
-                          {(settings.studentTicketNotice ?? '미응시자는 원반 또는 별도로 지정된 대기실에서 자습합니다.\n고사실과 좌석번호를 반드시 확인하고 지정된 자리에 앉으세요.')
+                          {(settings.studentTicketNotice ?? DEFAULT_TICKET_NOTICE)
                             .split('\n')
                             .map((line, i) => (
                               <div key={i} className="flex items-start gap-1">
