@@ -15,8 +15,8 @@
     ],
     "headers": [
       {
-        "comment": "index.html은 항상 서버에 새 버전을 확인합니다. 캐시되면 배포 후에도 최대 1시간 동안 옛 화면이 보입니다.",
-        "source": "/index.html",
+        "comment": "주소창의 / 로 들어오면 요청 경로가 '/index.html' 이 아니라 '/' 라서, /index.html 규칙만 두면 적용되지 않습니다. 그러면 기본값 max-age=3600 이 붙어, 새로 배포한 뒤 최대 1시간 동안 옛 index.html 이 캐시에서 나오고, 그 안에 적힌 옛 assets 파일은 서버에 없어 404 → 화면이 안 뜹니다. 그래서 모든 경로에 먼저 no-cache 를 겁니다.",
+        "source": "**",
         "headers": [
           {
             "key": "Cache-Control",
@@ -25,7 +25,7 @@
         ]
       },
       {
-        "comment": "assets 파일명에는 내용 해시가 붙어 바뀌면 이름도 바뀌므로, 오래 캐시해도 안전합니다.",
+        "comment": "assets 파일명에는 내용 해시가 붙어 내용이 바뀌면 이름도 바뀌므로, 오래 캐시해도 안전합니다. 위 규칙보다 뒤에 두어 이 규칙이 이깁니다.",
         "source": "/assets/**",
         "headers": [
           {

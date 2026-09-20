@@ -5,8 +5,39 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>고사시간표 시스템 - Smart Scheduler</title>
   </head>
-  <body className="bg-white">
+  <body class="bg-white">
     <div id="root"></div>
+    <script>
+      /*
+       * 새로 배포하면 assets 파일 이름(내용 해시)이 바뀝니다.
+       * 브라우저가 옛 index.html 을 캐시에 들고 있으면 이미 없어진 파일을 찾아
+       * 404 가 나고 화면이 하얗게 비어 버립니다.
+       * 그럴 때 한 번만 캐시를 우회해 다시 불러옵니다. (한 번으로 제한해 무한 새로고침을 막습니다.)
+       */
+      (function () {
+        var KEY = 'app-reloaded-for-missing-asset';
+        function recover() {
+          if (sessionStorage.getItem(KEY)) return;
+          sessionStorage.setItem(KEY, '1');
+          location.replace(location.pathname + '?v=' + Date.now());
+        }
+        window.addEventListener(
+          'error',
+          function (e) {
+            var t = e.target;
+            if (t && (t.tagName === 'SCRIPT' || t.tagName === 'LINK')) recover();
+          },
+          true
+        );
+        window.addEventListener('load', function () {
+          // 화면이 그려졌으면 정상이므로 표시를 지워 다음 문제 때 다시 복구할 수 있게 둡니다.
+          setTimeout(function () {
+            var root = document.getElementById('root');
+            if (root && root.childElementCount > 0) sessionStorage.removeItem(KEY);
+          }, 3000);
+        });
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
