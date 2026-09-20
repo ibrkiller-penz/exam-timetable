@@ -457,13 +457,14 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
 
             {!isLocal && (
               <>
-                {/* 오프라인 배포판은 우리 사이트에서 직접 받습니다.
-                    저장소가 비공개라 GitHub 릴리스 링크는 학교에서 404 가 납니다.
-                    zip 은 public/ 에 둡니다. 빌드가 dist 를 비워도 public/ 은 매번
-                    다시 복사되므로, 어떤 방식으로 배포하든 링크가 끊기지 않습니다. */}
+                {/* 오프라인 배포판(260MB)은 GitHub 릴리스에서 받습니다.
+                    호스팅에 함께 올리면 배포할 때마다 저장 용량이 쌓여 한도를 넘깁니다
+                    (실제로 넘겨서 배포가 막혔습니다). 'latest' 라서 새 릴리스를 올리면
+                    자동으로 최신을 가리킵니다. */}
                 <a
-                  href="/ExamTimetable-Offline.zip"
-                  download
+                  href="https://github.com/ibrkiller-penz/exam-timetable/releases/latest/download/ExamTimetable-Offline.zip"
+                  target="_blank"
+                  rel="noreferrer"
                   className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-slate-800 hover:bg-slate-900 text-white border border-slate-700 rounded-full text-xs font-bold shadow-sm transition"
                 >
                   💾 오프라인 로컬 버전 다운로드
