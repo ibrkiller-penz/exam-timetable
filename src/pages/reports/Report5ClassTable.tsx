@@ -169,7 +169,7 @@ export const Report5ClassTable: React.FC = () => {
                   ]}
                 />
 
-                <table className="sheet-table sheet-rows-5 w-full table-fixed text-center">
+                <table className="sheet-table sheet-rows-5 fill-rest w-full table-fixed text-center">
                   {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}
                   <colgroup>
                     <col style={{ width: '7%' }} />
@@ -202,7 +202,7 @@ export const Report5ClassTable: React.FC = () => {
                   </thead>
                   <tbody className="">
                     {pageStudents.map(st => (
-                      <tr key={st.num} className=" h-8 print:h-7">
+                      <tr key={st.num}>
                         <td className="font-bold text-slate-600">{st.num}</td>
                         <td className="font-black text-[16px] print:text-[15px] text-gray-900 whitespace-nowrap">{displayName(st.name)}</td>
                         {report.activePeriods.map(p => {

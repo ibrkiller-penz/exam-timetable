@@ -100,7 +100,7 @@ export const FitCell: React.FC<{
   base?: number;
   min?: number;
   className?: string;
-}> = ({ children, base = 17.5, min = 10.5, className }) => {
+}> = ({ children, base = 19.5, min = 10.5, className }) => {
   // 글자가 아닌 것(빈 칸·요소)은 잴 것이 없으니 그대로 둡니다.
   if (typeof children !== 'string' && typeof children !== 'number') return <>{children}</>;
   const text = String(children);

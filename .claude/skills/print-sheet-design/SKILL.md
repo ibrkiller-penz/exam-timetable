@@ -142,7 +142,7 @@ description: 학교에서 뽑아 쓰는 A4 인쇄물(명단·시간표·좌석�
 **'전체'는 그 화면에 여러 장이 있을 때만** 낸다. 한 장짜리에 전체 버튼을
 두면 같은 것을 두 번 누르게 된다.
 
-## 8. 고치기 전에 재라
+## 8. 고치기 전에 재고, 고친 뒤에는 종이를 본다
 
 눈으로 보고 고치지 말고 **숫자로 확인한다.** 브라우저에서:
 
@@ -151,9 +151,32 @@ document.documentElement.classList.add('capturing');
 const el = document.querySelector('.print-page');
 const r = el.getBoundingClientRect();
 ({ w: r.width, h: r.height, ratio: (r.width / r.height).toFixed(3),  // 0.707 이어야 A4
+   overflow: el.scrollHeight - el.clientHeight,                      // 0 이어야 한다
    topGap: el.firstElementChild.getBoundingClientRect().top - r.top,  // 위아래가
    bottomGap: r.bottom - el.lastElementChild.getBoundingClientRect().bottom }); // 같아야 가운데
 ```
+
+**`overflow` 가 0 이 아니면 아래가 잘린다.** 세로 가운데로 두어도 넘치는 만큼은
+상자 밖으로 나가고, 그림을 뜰 때 잘려 나간다. "가운데 정렬이 안 됐다"는 말이
+나오면 먼저 이것부터 본다 — 대개 가운데가 아니라 **넘친 것**이다.
+
+그리고 **마지막에는 진짜 PDF 를 열어 본다.** 화면에서 멀쩡해 보여도 종이에서
+드러나는 것이 있다. PDF 뷰어가 없으면 PDF 안에 박힌 그림을 꺼내 보면 된다:
+
+```js
+// jsPDF 는 한 장을 JPEG 스트림 하나로 박는다.
+const b = require('fs').readFileSync(pdfPath);
+let i = 0, n = 0;
+for (;;) {
+  const s = b.indexOf(Buffer.from([0xFF,0xD8,0xFF]), i); if (s < 0) break;
+  const e = b.indexOf(Buffer.from([0xFF,0xD9]), s + 3); if (e < 0) break;
+  require('fs').writeFileSync(`page${++n}.jpg`, b.subarray(s, e + 2)); i = e + 2;
+}
+```
+
+다만 **PDF 저장 버튼을 함부로 여러 번 누르지 않는다.** 브라우저가 윈도우의
+'다른 이름으로 저장' 창을 띄워 사용자 화면을 가로막는다. 확인이 꼭 필요할 때
+한 번만 누르고, 나머지는 위의 숫자로 본다.
 
 ## 9. 겪었던 함정
 
@@ -168,3 +191,10 @@ const r = el.getBoundingClientRect();
   않았다. '전체'가 있는 화면은 실제로 여러 장이 그려지는지 세어 본다.
 - **한 번에 인쇄하는 장들은 종이 방향이 같아야 한다**(`@page` 는 하나뿐).
   섞이면 가로가 필요한 장 하나 때문에 모두 눕혀야 한다.
+- **표를 늘려 종이를 채울 때 빈 줄을 조심한다.** 글자가 없는 칸은 높이가 0 이라,
+  표에 `height:100%` 를 주면 남는 높이가 **글자 있는 줄로만** 몰린다. 스무 줄
+  가운데 넷만 찬 표는 그 넷이 150px 씩 되어 옆 표와 줄 높이가 달라진다.
+  줄 수가 정해진 표는 **줄 높이를 못 박는 편**이 안전하다.
+- **글자 크기는 CSS 변수 세 개로만 쓴다.** `--sheet-fs`(본문),
+  `--sheet-fs-head`(머리글), `--sheet-fs-strong`(성명·좌석). 칸마다 18px,
+  19px, 21px 을 따로 적으면 곧 제각각이 된다. 키울 때도 이 셋만 바꾼다.

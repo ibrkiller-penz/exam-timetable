@@ -159,11 +159,11 @@ export const Report2ExamRoom: React.FC = () => {
                       </colgroup>
                       <thead className="bg-gray-100">
                         <tr className="">
-                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>연번</FitCell></th>
-                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>학번</FitCell></th>
-                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>성명</FitCell></th>
-                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>좌석</FitCell></th>
-                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>비고</FitCell></th>
+                          <th className="py-1.5 px-1 font-black"><FitCell base={18}>연번</FitCell></th>
+                          <th className="py-1.5 px-1 font-black"><FitCell base={18}>학번</FitCell></th>
+                          <th className="py-1.5 px-1 font-black"><FitCell base={18}>성명</FitCell></th>
+                          <th className="py-1.5 px-1 font-black"><FitCell base={18}>좌석</FitCell></th>
+                          <th className="py-1.5 px-1 font-black"><FitCell base={18}>비고</FitCell></th>
                         </tr>
                       </thead>
                       <tbody className="">
@@ -171,13 +171,13 @@ export const Report2ExamRoom: React.FC = () => {
                         {Array.from({ length: PER_COL }).map((_, i) => {
                           const st = pageStudents[colIdx * PER_COL + i];
                           return (
-                            <tr key={i} className="h-9 align-middle">
-                              <td className="align-middle text-slate-500">{st ? st.seq : ''}</td>
+                            <tr key={i} className="h-[39px] align-middle">
+                              <td className="align-middle font-semibold text-slate-500">{st ? st.seq : ''}</td>
                               <td className="align-middle font-bold text-slate-700 whitespace-nowrap">{st?.hakbun || ''}</td>
-                              <td className="align-middle font-black text-slate-900">
-                                <FitCell base={20}>{st?.name ? displayName(st.name) : ''}</FitCell>
+                              <td className="align-middle font-black text-slate-900 sheet-strong">
+                                <FitCell base={21.5}>{st?.name ? displayName(st.name) : ''}</FitCell>
                               </td>
-                              <td className="align-middle font-black text-[21px] text-red-700">{st?.seat || ''}</td>
+                              <td className="align-middle font-black text-red-700 sheet-strong">{st?.seat || ''}</td>
                               <td className="align-middle font-bold text-slate-700"><FitCell base={13.5}>{st?.note || ''}</FitCell></td>
                             </tr>
                           );

@@ -37,7 +37,7 @@ export const SheetInfo: React.FC<{
   const total = weights.reduce((a, b) => a + b, 0);
 
   return (
-    <table className={`sheet-table w-full table-fixed text-center ${className ?? 'mb-4'}`}>
+    <table className={`sheet-table w-full table-fixed text-center ${className ?? 'mb-3'}`}>
       <colgroup>
         {weights.map((w, i) => (
           <col key={i} style={{ width: `${(w / total) * 100}%` }} />
@@ -46,8 +46,8 @@ export const SheetInfo: React.FC<{
       <thead className="bg-gray-100">
         <tr>
           {items.map(([label], i) => (
-            <th key={`h-${label}-${i}`} className="py-2 px-2 font-black">
-              <FitCell base={16.5}>{label}</FitCell>
+            <th key={`h-${label}-${i}`} className="py-1.5 px-2 font-black">
+              <FitCell base={18}>{label}</FitCell>
             </th>
           ))}
         </tr>
@@ -57,7 +57,7 @@ export const SheetInfo: React.FC<{
           {items.map(([label, value], i) => (
             <td
               key={`v-${label}-${i}`}
-              className={`py-2.5 px-2 ${emphasize.includes(i) ? 'font-black text-[#005691]' : 'font-bold text-slate-800'}`}
+              className={`py-2 px-2 ${emphasize.includes(i) ? 'font-black text-[#005691]' : 'font-bold text-slate-800'}`}
             >
               <FitCell>{value}</FitCell>
             </td>

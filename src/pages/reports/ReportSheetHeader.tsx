@@ -32,10 +32,10 @@ export const ReportSheetHeader: React.FC<{
   <div className="shrink-0">
     {/* 11-1 처럼 큰 제목 자체가 고사 제목인 종이에서는 두 번 쓰지 않습니다. */}
     {meta?.title && title !== meta.title && (
-      <p className="text-center text-[19px] font-bold text-slate-500 tracking-tight mb-0.5">{meta.title}</p>
+      <p className="text-center text-[18px] font-bold text-slate-500 tracking-tight">{meta.title}</p>
     )}
-    <div className="flex items-center justify-center gap-3 mb-1">
-      <h1 className="text-center font-black text-[50px] leading-[1.15] pt-0.5 text-[#005691] tracking-tight break-keep">
+    <div className="flex items-center justify-center gap-3">
+      <h1 className="text-center font-black text-[44px] leading-[1.1] pt-0.5 text-[#005691] tracking-tight break-keep">
         {title}
       </h1>
       {pageLabel && (
@@ -46,7 +46,7 @@ export const ReportSheetHeader: React.FC<{
     </div>
 
     {subtitle && (
-      <p className="text-center text-[25px] font-black text-slate-800 mb-4">
+      <p className="text-center text-[23px] font-black text-slate-800 mb-3">
         {subtitle}
       </p>
     )}

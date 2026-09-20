@@ -51,3 +51,6 @@ release/ExamTimetable-Offline.zip
 
 # 작업 공간 키가 들어 있습니다(옮기기 기록). 저장소에 올리지 않습니다.
 .workspace-migration.json
+
+# PDF 확인용 임시 폴더
+.tmp-pdf/
