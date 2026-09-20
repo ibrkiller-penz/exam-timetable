@@ -92,7 +92,7 @@ export const Report3RoomTimetable: React.FC = () => {
         const rep = rm.id === room.id ? report : buildRoomTimetableReport(rm, attendance, days, times);
         if (!rep) return null;
         return (
-        <div key={rm.id} className="print-page page-landscape page-fill bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
+        <div key={rm.id} className="print-page page-landscape bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <ReportSheetHeader
             title={`고사실 시험시간표 (${rm.roomName})`}
             emphasize={[0, 2]}

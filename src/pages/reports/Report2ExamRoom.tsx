@@ -127,7 +127,7 @@ export const Report2ExamRoom: React.FC = () => {
               return (
               <div
                 key={`${rn}-${pageIdx}`}
-                className="print-page page-portrait page-fill bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
+                className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
                 <ReportSheetHeader
                   title={rep.isWaitRoom ? '대기실 인원현황표' : '고사실 응시현황표'}
@@ -144,9 +144,9 @@ export const Report2ExamRoom: React.FC = () => {
                   ]}
                 />
 
-                <div className={`fill-rest grid gap-3 ${oneColumn ? 'grid-cols-1 max-w-[62%] mx-auto' : 'grid-cols-2'}`}>
+                <div className={`grid gap-3 ${oneColumn ? 'grid-cols-1 max-w-[62%] mx-auto' : 'grid-cols-2'}`}>
                   {cols.map(colIdx => (
-                    <table key={colIdx} className="sheet-table sheet-rows-5 w-full h-full table-fixed text-center">
+                    <table key={colIdx} className="sheet-table sheet-rows-5 w-full table-fixed text-center">
                       {/* 칸 너비를 못 박아 둡니다. 안 그러면 인쇄할 때 성명이 두 줄로 접혀
                           줄 높이가 배가 되고, 한 장에 실리는 줄 수가 줄어듭니다. */}
                       <colgroup>

@@ -147,7 +147,7 @@ export const Report5ClassTable: React.FC = () => {
             return sheets.map((pageStudents, pageIdx) => (
               <div
                 key={`${report.ban}-${report.day}-${pageIdx}`}
-                className="print-page page-portrait page-fill bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
+                className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
                 {/* 소속 고사실을 바꾸면 제목도 따라갑니다.
                     학급과 고사실이 같은 보통의 경우에는 군더더기라 붙이지 않습니다. */}
@@ -168,7 +168,7 @@ export const Report5ClassTable: React.FC = () => {
                   ]}
                 />
 
-                <table className="sheet-table sheet-rows-5 fill-rest w-full table-fixed text-center">
+                <table className="sheet-table sheet-rows-5 w-full table-fixed text-center">
                   {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}
                   <colgroup>
                     <col style={{ width: '7%' }} />
