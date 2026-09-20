@@ -7,7 +7,9 @@
  *  C. 11-1 ~ 11-8 을 만드는 함수가 응시현황과 어긋나지 않는지
  * 를 봅니다.
  *
- * 실행:  STATE_DUMP=<state_dump.json 경로> npx vitest run src/__tests__/verify_reports.test.ts
+ * 실행:
+ *   node scripts/fetch-state.cjs <저장할 경로>          ← 서버 상태를 내려받습니다
+ *   STATE_DUMP=<그 경로> npx vitest run src/__tests__/verify_reports.test.ts
  * 파일이 없으면 통째로 건너뜁니다(학생 자료는 저장소에 두지 않습니다).
  */
 import { describe, it, expect } from 'vitest';
