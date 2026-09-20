@@ -201,18 +201,23 @@
   border: 2.5px solid #0f172a !important;
   /* 표 글자 크기를 한 곳에서 정합니다. 종이마다 15px, 15.5px, 16px 로
      조금씩 달라 같은 고사에서 나온 서류로 보이지 않았습니다.
-     칸마다 따로 키운 글자(성명·좌석 등)는 그 칸의 값이 이깁니다. */
-  font-size: 16px;
+     칸마다 따로 키운 글자(성명·좌석 등)는 그 칸의 값이 이깁니다.
+     줄 높이는 그대로 두고 글자만 키워 칸이 꽉 차 보이게 합니다. */
+  font-size: 17.5px;
 }
 .sheet-table th,
 .sheet-table td {
-  /* 줄과 줄 사이 — 가는 실선. 눈이 줄을 따라가게만 하고 나서지 않습니다.
-     굵기로만 구분하면 인쇄에서 뭉개지므로, 색을 연하게 해 차이를 냅니다. */
+  /* 칸을 가르는 선 — 가로든 세로든 같은 가는 실선. 눈이 줄을 따라가게만
+     하고 나서지 않습니다. 굵기로만 구분하면 인쇄에서 뭉개지므로, 색을
+     연하게 해 차이를 냅니다. 네 변을 한 번에 정해 가로·세로가 어긋나지
+     않게 합니다(칸마다 Tailwind 로 따로 그으면 곧 제각각이 됩니다). */
   border: 1px solid #b6c0cc !important;
-  /* 칸 안에서 글자는 늘 세로 가운데. 줄 높이를 키우면 글자가 위로 붙었습니다. */
+  /* 글자는 가로·세로 모두 가운데가 기본. 왼쪽으로 붙여야 하는 칸만
+     그 칸에서 text-left 로 뒤집습니다. */
+  text-align: center;
   vertical-align: middle !important;
 }
-.sheet-table thead th { font-size: 15px; }
+.sheet-table thead th { font-size: 16.5px; }
 
 /* 제목 줄과 내용 사이 — 이중선. 세로 칸 나눔도 제목 줄에서는 진하게. */
 .sheet-table thead > tr > * { border-color: #0f172a !important; }

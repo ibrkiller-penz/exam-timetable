@@ -6,6 +6,7 @@ import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
 import { printAsImage } from './printAsImage';
+import { FitCell } from './FitText';
 import { ReportActions } from './ReportActions';
 import { ReportHeader, HeaderDivider, HeaderLabel } from './ReportHeader';
 import { usePrintAll } from './usePrintAll';
@@ -181,7 +182,7 @@ export const Report5ClassTable: React.FC = () => {
                     ))}
                   </colgroup>
                   <thead>
-                    <tr className="bg-gray-100 border-b border-gray-800 divide-x divide-gray-800">
+                    <tr className="bg-gray-100">
                       <th rowSpan={2} className="py-2 px-1 font-black text-[15px]">번호</th>
                       <th rowSpan={2} className="py-2 px-1 font-black text-[15px]">성명</th>
                       {report.activePeriods.map(p => (
@@ -190,7 +191,7 @@ export const Report5ClassTable: React.FC = () => {
                         </th>
                       ))}
                     </tr>
-                    <tr className="bg-gray-50 border-b border-gray-800 divide-x divide-gray-800">
+                    <tr className="bg-gray-50">
                       {report.activePeriods.map(p => (
                         <React.Fragment key={p}>
                           <th className="py-1 px-1 font-bold text-[12.5px] text-slate-500">과목명</th>
@@ -199,9 +200,9 @@ export const Report5ClassTable: React.FC = () => {
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className="">
                     {pageStudents.map(st => (
-                      <tr key={st.num} className="divide-x divide-gray-800 h-8 print:h-7">
+                      <tr key={st.num} className=" h-8 print:h-7">
                         <td className="font-bold text-slate-600">{st.num}</td>
                         <td className="font-black text-[16px] print:text-[15px] text-gray-900 whitespace-nowrap">{displayName(st.name)}</td>
                         {report.activePeriods.map(p => {
@@ -209,7 +210,7 @@ export const Report5ClassTable: React.FC = () => {
                           const sep = room.includes('(별)');
                           return (
                             <React.Fragment key={p}>
-                              <td className="font-bold text-slate-800 break-keep leading-tight px-1">{st.periods[p]?.subject || '-'}</td>
+                              <td className="font-bold text-slate-800 px-1"><FitCell>{st.periods[p]?.subject || '-'}</FitCell></td>
                               <td className={`font-black text-[16px] print:text-[15px] ${sep ? 'text-amber-700' : 'text-red-700'}`}>{room}</td>
                             </React.Fragment>
                           );

@@ -9,6 +9,7 @@ import { ReportActions } from './ReportActions';
 import { ReportHeader } from './ReportHeader';
 import { usePrintAll } from './usePrintAll';
 import { printAsImage } from './printAsImage';
+import { FitCell } from './FitText';
 import { buildExamRoomReport } from '../../domain/reports/examRoom';
 import { DayLabel, PeriodLabel } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
@@ -156,16 +157,16 @@ export const Report2ExamRoom: React.FC = () => {
                         <col style={{ width: '15%' }} />
                         <col style={{ width: '20%' }} />
                       </colgroup>
-                      <thead className="bg-gray-100 border-b border-gray-800">
-                        <tr className="divide-x divide-gray-800">
-                          <th className="py-2 px-1 font-black">연번</th>
-                          <th className="py-2 px-1 font-black">학번</th>
-                          <th className="py-2 px-1 font-black">성명</th>
-                          <th className="py-2 px-1 font-black">좌석</th>
-                          <th className="py-2 px-1 font-black">비고</th>
+                      <thead className="bg-gray-100">
+                        <tr className="">
+                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>연번</FitCell></th>
+                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>학번</FitCell></th>
+                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>성명</FitCell></th>
+                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>좌석</FitCell></th>
+                          <th className="py-2 px-1 font-black"><FitCell base={16.5}>비고</FitCell></th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-800">
+                      <tbody className="">
                         {/* 한 칸을 20줄로 고정합니다. 사람이 적어도 칸 수는 같아 종이 모양이 일정합니다. */}
                         {Array.from({ length: PER_COL }).map((_, i) => {
                           const st = pageStudents[colIdx * PER_COL + i];
@@ -173,11 +174,11 @@ export const Report2ExamRoom: React.FC = () => {
                             <tr key={i} className="h-9 align-middle">
                               <td className="align-middle text-slate-500">{st ? st.seq : ''}</td>
                               <td className="align-middle font-bold text-slate-700 whitespace-nowrap">{st?.hakbun || ''}</td>
-                              <td className="align-middle font-black text-[18px] text-slate-900 whitespace-nowrap">
-                                {st?.name ? displayName(st.name) : ''}
+                              <td className="align-middle font-black text-slate-900">
+                                <FitCell base={20}>{st?.name ? displayName(st.name) : ''}</FitCell>
                               </td>
-                              <td className="align-middle font-black text-[19px] text-red-700">{st?.seat || ''}</td>
-                              <td className="align-middle text-[12.5px] font-bold text-slate-700 whitespace-nowrap">{st?.note || ''}</td>
+                              <td className="align-middle font-black text-[21px] text-red-700">{st?.seat || ''}</td>
+                              <td className="align-middle font-bold text-slate-700"><FitCell base={13.5}>{st?.note || ''}</FitCell></td>
                             </tr>
                           );
                         })}

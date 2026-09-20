@@ -10,8 +10,10 @@ import { ReportGate } from './ReportGate';
 import { ReportActions } from './ReportActions';
 import { ReportHeader } from './ReportHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { SheetInfo } from './SheetInfo';
 import { SeparateNoticeSheet } from './SeparateNoticeSheet';
 import { printAsImage } from './printAsImage';
+import { FitCell } from './FitText';
 import { usePrintAll } from './usePrintAll';
 
 /**
@@ -212,14 +214,16 @@ export const Report9SeparateStudents: React.FC = () => {
                   아래 학생들은 소속 고사실 명단에도 올라 있습니다. 시험이 끝나면 답안지를 원고사실 것과 합쳐 주세요.
                 </p>
 
-                <div className="border-2 border-gray-800 grid grid-cols-4 text-center text-[14px] mb-5">
-                  {[['시행', `${r.day} ${r.period}`], ['별도 고사실', `${r.room}실`], ['인원', `${r.rows.length}명`], ['감독', '']].map(([k, v]) => (
-                    <React.Fragment key={k}>
-                      <div className="border-r border-gray-800 bg-gray-100 py-2 font-black">{k}</div>
-                      <div className="py-2 font-bold border-r border-gray-800 last:border-r-0">{v}</div>
-                    </React.Fragment>
-                  ))}
-                </div>
+                <SheetInfo
+                  className="mb-5"
+                  emphasize={[1, 2]}
+                  items={[
+                    ['시행', `${r.day} ${r.period}`],
+                    ['별도 고사실', `${r.room}실`],
+                    ['인원', `${r.rows.length}명`],
+                    ['감독', ''],
+                  ]}
+                />
 
                 <table className="sheet-table sheet-rows-5 w-full text-center">
                   <thead className="bg-gray-100">
@@ -238,8 +242,8 @@ export const Report9SeparateStudents: React.FC = () => {
                       <tr key={s.hakbun} className="h-9">
                         <td className="text-slate-500">{i + 1}</td>
                         <td className="font-bold">{s.hakbun}</td>
-                        <td className="font-black text-[18px]">{displayName(s.name)}</td>
-                        <td className="font-bold">{s.subject}</td>
+                        <td className="font-black"><FitCell base={18}>{displayName(s.name)}</FitCell></td>
+                        <td className="font-bold"><FitCell>{s.subject}</FitCell></td>
                         <td className="font-black text-[17px] text-[#005691]">{s.homeRoom}</td>
                         <td></td>
                         <td></td>

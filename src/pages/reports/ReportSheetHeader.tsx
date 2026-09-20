@@ -1,5 +1,6 @@
 import React from 'react';
 import { useAppStore } from '../../store/appStore';
+import { SheetInfo } from './SheetInfo';
 
 /**
  * 인쇄물 한 장의 머리글.
@@ -31,49 +32,27 @@ export const ReportSheetHeader: React.FC<{
   <div className="shrink-0">
     {/* 11-1 처럼 큰 제목 자체가 고사 제목인 종이에서는 두 번 쓰지 않습니다. */}
     {meta?.title && title !== meta.title && (
-      <p className="text-center text-[17px] font-bold text-slate-500 tracking-tight mb-0.5">{meta.title}</p>
+      <p className="text-center text-[19px] font-bold text-slate-500 tracking-tight mb-0.5">{meta.title}</p>
     )}
     <div className="flex items-center justify-center gap-3 mb-1">
-      <h1 className="text-center font-black text-[46px] leading-[1.15] pt-0.5 text-[#005691] tracking-tight break-keep">
+      <h1 className="text-center font-black text-[50px] leading-[1.15] pt-0.5 text-[#005691] tracking-tight break-keep">
         {title}
       </h1>
       {pageLabel && (
-        <span className="text-[16px] font-black text-slate-600 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-0.5">
+        <span className="text-[17px] font-black text-slate-600 bg-gray-100 border border-gray-300 rounded-lg px-2.5 py-0.5">
           {pageLabel}
         </span>
       )}
     </div>
 
     {subtitle && (
-      <p className="text-center text-[22px] font-black text-slate-800 mb-4">
+      <p className="text-center text-[25px] font-black text-slate-800 mb-4">
         {subtitle}
       </p>
     )}
 
     {info && info.length > 0 && (
-      <div
-        className="w-full border-2 border-gray-800 grid text-center text-[15px] mb-4"
-        style={{ gridTemplateColumns: infoColumns ?? `repeat(${info.length}, minmax(0, 1fr))` }}
-      >
-        {info.map(([label], i) => (
-          <div
-            key={`h-${label}-${i}`}
-            className={`py-2 bg-gray-100 font-black ${i < info.length - 1 ? 'border-r border-gray-800' : ''}`}
-          >
-            {label}
-          </div>
-        ))}
-        {info.map(([label, value], i) => (
-          <div
-            key={`v-${label}-${i}`}
-            className={`py-2.5 border-t-[3px] border-double border-gray-800 ${i < info.length - 1 ? 'border-r border-gray-800' : ''} ${
-              emphasize.includes(i) ? 'font-black text-[19px]' : 'font-bold'
-            }`}
-          >
-            {value}
-          </div>
-        ))}
-      </div>
+      <SheetInfo items={info} columns={infoColumns} emphasize={emphasize} />
     )}
   </div>
   );

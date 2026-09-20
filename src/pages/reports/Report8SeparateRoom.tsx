@@ -10,6 +10,8 @@ import { ReportGate } from './ReportGate';
 import { ReportActions } from './ReportActions';
 import { ReportHeader, HeaderDivider, HeaderLabel } from './ReportHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { FitCell } from './FitText';
+import { SheetInfo } from './SheetInfo';
 import { SeparateNoticeSheet } from './SeparateNoticeSheet';
 import { buildSeparateDetail, buildSeparateRosters } from '../../domain/reports/separateReport';
 import { printAsImage } from './printAsImage';
@@ -447,18 +449,20 @@ export const Report8SeparateRoom: React.FC = () => {
                 아래 학생들은 소속 고사실 명단에도 올라 있습니다. 시험이 끝나면 답안지를 원고사실 것과 합쳐 주세요.
               </p>
 
-              <div className="border border-gray-800 grid grid-cols-4 text-center text-xs mb-5">
-                {[['시행', `${r.day} ${r.period}`], ['별도 고사실', `${r.room}실`], ['인원', `${r.rows.length}명`], ['감독', '']].map(([k, v]) => (
-                  <React.Fragment key={k}>
-                    <div className="border-r border-gray-800 bg-gray-100 py-2 font-bold">{k}</div>
-                    <div className="py-2 font-bold border-r border-gray-800 last:border-r-0">{v}</div>
-                  </React.Fragment>
-                ))}
-              </div>
+              <SheetInfo
+                className="mb-5"
+                emphasize={[1, 2]}
+                items={[
+                  ['시행', `${r.day} ${r.period}`],
+                  ['별도 고사실', `${r.room}실`],
+                  ['인원', `${r.rows.length}명`],
+                  ['감독', ''],
+                ]}
+              />
 
               <table className="sheet-table sheet-rows-5 w-full text-center">
-                <thead className="bg-gray-100 border-b border-gray-800">
-                  <tr className="divide-x divide-gray-800">
+                <thead className="bg-gray-100">
+                  <tr className="">
                     <th className="py-2 px-2 w-12">연번</th>
                     <th className="py-2 px-2 w-24">학번</th>
                     <th className="py-2 px-2 w-24">성명</th>
@@ -468,13 +472,13 @@ export const Report8SeparateRoom: React.FC = () => {
                     <th className="py-2 px-2 w-20">답안지</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-800">
+                <tbody className="">
                   {r.rows.map((s, i) => (
-                    <tr key={s.hakbun} className="divide-x divide-gray-800 h-9">
+                    <tr key={s.hakbun} className=" h-9">
                       <td>{i + 1}</td>
                       <td className="font-medium">{s.hakbun}</td>
-                      <td className="font-bold">{displayName(s.name)}</td>
-                      <td>{s.subject}</td>
+                      <td className="font-bold"><FitCell>{displayName(s.name)}</FitCell></td>
+                      <td><FitCell>{s.subject}</FitCell></td>
                       <td className="font-bold text-[#005691]">{s.homeRoom}</td>
                       <td></td>
                       <td></td>

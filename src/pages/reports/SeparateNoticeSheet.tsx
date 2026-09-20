@@ -5,6 +5,8 @@ import { displayName } from '../../domain/privacy';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
 import { SeparateStudentSheet } from '../../domain/reports/separateReport';
 import { AttendanceRow } from '../../domain/types';
+import { SheetInfo } from './SheetInfo';
+import { FitCell } from './FitText';
 
 /**
  * 별도 응시자 한 사람의 안내문 한 장.
@@ -45,26 +47,23 @@ export const SeparateNoticeSheet: React.FC<{
         아래 시간에는 소속 교실이 아니라 별도 고사실에서 시험을 봅니다.
       </p>
 
-      <div className="border-2 border-gray-800 grid grid-cols-4 text-center text-[14px] mb-5">
-        <div className="py-2 bg-gray-100 font-black border-r border-gray-800">학년·반·번호</div>
-        <div className="py-2 bg-gray-100 font-black border-r border-gray-800">성명</div>
-        <div className="py-2 bg-gray-100 font-black border-r border-gray-800">별도 고사실</div>
-        <div className="py-2 bg-gray-100 font-black">해당 교시</div>
-
-        <div className="py-2 border-t border-r border-gray-800 font-bold">{st.grade}학년 {st.ban} {st.num}번</div>
-        <div className="py-2 border-t border-r border-gray-800 font-black text-[16px]">{displayName(st.name)}</div>
-        <div className="py-2 border-t border-r border-gray-800 font-black text-[16px] text-[#005691]">{cur.room}실</div>
-        <div className="py-2 border-t border-gray-800 font-bold">
-          {cur.slots === 'all' ? '모든 시험' : `${rows.length}개 교시`}
-        </div>
-      </div>
+      <SheetInfo
+        className="mb-5"
+        emphasize={[1, 2]}
+        items={[
+          ['학년·반·번호', `${st.grade}학년 ${st.ban} ${st.num}번`],
+          ['성명', displayName(st.name)],
+          ['별도 고사실', `${cur.room}실`],
+          ['해당 교시', cur.slots === 'all' ? '모든 시험' : `${rows.length}개 교시`],
+        ]}
+      />
 
       {rows.length === 0 ? (
         <p className="text-center text-slate-400 py-10">아직 배치된 교시가 없습니다.</p>
       ) : (
         <table className="sheet-table sheet-rows-5 w-full text-center">
           <thead className="bg-gray-100">
-            <tr className="divide-x divide-gray-800 border-b border-gray-800">
+            <tr className="">
               <th className="py-2 px-2 w-16 font-black">연번</th>
               <th className="py-2 px-2 w-32 font-black">교시</th>
               <th className="py-2 px-2 font-black">과목</th>
@@ -72,12 +71,12 @@ export const SeparateNoticeSheet: React.FC<{
               <th className="py-2 px-2 w-24 font-black">답안지</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="">
             {rows.map((d, i) => (
-              <tr key={d.slotIndex} className="divide-x divide-gray-800 h-9">
+              <tr key={d.slotIndex} className=" h-9">
                 <td className="text-slate-500 font-bold">{i + 1}</td>
                 <td className="font-black">{d.title}</td>
-                <td className="font-bold text-slate-800">{d.subject || '-'}</td>
+                <td className="font-bold text-slate-800"><FitCell>{d.subject || '-'}</FitCell></td>
                 <td className="font-black text-[16px] text-red-700">{d.room || '-'}</td>
                 <td></td>
               </tr>
@@ -101,7 +100,7 @@ export const SeparateNoticeSheet: React.FC<{
           </p>
           <table className="sheet-table w-full text-center">
             <thead className="bg-gray-100">
-              <tr className="divide-x divide-gray-800 border-b border-gray-800">
+              <tr className="">
                 <th className="py-2 px-1 w-16 font-black">교시</th>
                 {ticket.activeDays.map(d => (
                   <th key={d.day} className="py-2 px-1 font-black">
@@ -110,9 +109,9 @@ export const SeparateNoticeSheet: React.FC<{
                 ))}
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-800">
+            <tbody className="">
               {ticket.activePeriods.map(p => (
-                <tr key={p} className="divide-x divide-gray-800">
+                <tr key={p} className="">
                   <td className="py-2 font-black bg-gray-50">{p}교시</td>
                   {ticket.activeDays.map(d => {
                     const c = ticket.grid[p][d.day];
