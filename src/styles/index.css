@@ -210,9 +210,13 @@
 
 .sheet-table {
   border-collapse: collapse !important;
-  /* 바깥 테두리 — 표가 어디서 끝나는지. 굵고 진하게. */
-  border: 2.5px solid #0f172a !important;
+  /* 바깥 테두리 — 표가 어디서 끝나는지. 진하되 새까맣지는 않게.
+     검은 격자는 투박해 보입니다. */
+  border: 2px solid #334155 !important;
   font-size: var(--sheet-fs);
+  /* 숫자는 폭이 같아야 위아래 열의 중심축이 흐트러지지 않습니다. */
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
 }
 
 /* 도드라져야 하는 칸. 크기는 한 가지뿐이라 종이마다 같습니다. */
@@ -223,24 +227,28 @@
      하고 나서지 않습니다. 굵기로만 구분하면 인쇄에서 뭉개지므로, 색을
      연하게 해 차이를 냅니다. 네 변을 한 번에 정해 가로·세로가 어긋나지
      않게 합니다(칸마다 Tailwind 로 따로 그으면 곧 제각각이 됩니다). */
-  border: 1px solid #b6c0cc !important;
+  border: 1px solid #e2e8f0 !important;
   /* 글자는 가로·세로 모두 가운데가 기본. 왼쪽으로 붙여야 하는 칸만
      그 칸에서 text-left 로 뒤집습니다. */
   text-align: center;
   vertical-align: middle !important;
+  /* 줄바꿈 금지. 두 줄로 접히면 줄 높이가 배가 되어 한 장에 실리는 줄 수가
+     달라집니다. 긴 글자는 접지 말고 그 칸만 줄입니다(FitCell). */
+  white-space: nowrap;
 }
 .sheet-table thead th { font-size: var(--sheet-fs-head); }
 
 /* 제목 줄과 내용 사이 — 이중선. 세로 칸 나눔도 제목 줄에서는 진하게. */
-.sheet-table thead > tr > * { border-color: #0f172a !important; }
-.sheet-table thead tr:last-child > * { border-bottom: 4px double #0f172a !important; }
+.sheet-table thead > tr > * { border-color: #94a3b8 !important; }
+.sheet-table thead tr:last-child > * { border-bottom: 3px double #334155 !important; }
 
-/* 다섯 줄마다 굵은 실선.
-   5와 6 사이가 확실히 갈려야 감독 선생님이 인원을 셀 때 눈이 미끄러지지
-   않습니다. 마지막 줄은 바깥 테두리가 이미 굵어 따로 긋지 않습니다. */
+/* 다섯 줄마다 — 선 하나와 아주 은은한 띠, 두 가지로 끊어 읽게 합니다.
+   긴 명단에서 눈이 옆줄로 미끄러지지 않도록 다섯 줄이 한 덩어리로 보여야
+   합니다. 선은 검정이 아니라 슬레이트 그레이 — 격자가 투박해지지 않게. */
 .sheet-rows-5 tbody tr:nth-child(5n):not(:last-child) > * {
-  border-bottom: 2px solid #0f172a !important;
+  border-bottom: 2px solid #64748b !important;
 }
+.sheet-rows-5 tbody tr.band > * { background: #f8fafc; }
 
 
 /* ── 인쇄물 머리줄의 고르는 칸 ───────────────────────────────────────────
@@ -406,3 +414,20 @@
   background-color: #15643a !important;
 }
 
+
+
+/* 좌석번호처럼 눈에 먼저 들어와야 하는 값.
+   쨍한 빨강은 종이에서 튀고 눈이 피곤합니다. 차분한 벽돌색을 아주 연한
+   바탕의 둥근 배지에 담아, 튀지 않으면서 먼저 보이게 합니다. */
+.seat-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.2em;
+  padding: 0.1em 0.45em;
+  border-radius: 0.4rem;
+  background: #f4f1ef;
+  color: #8a2b2b;
+  font-weight: 900;
+  letter-spacing: -0.01em;
+}

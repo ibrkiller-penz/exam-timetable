@@ -123,6 +123,17 @@ export const Report2ExamRoom: React.FC = () => {
               // 20명을 넘으면 왼쪽을 20까지 채우고 나머지를 오른쪽에 둡니다.
               const oneColumn = pageStudents.length <= PER_COL;
               const cols = oneColumn ? [0] : [0, 1];
+              /*
+               * 두 칸으로 나눌 때는 인원을 반으로 갈라 양쪽 줄 수를 같게 합니다.
+               * 스물넷이면 열둘씩. 예전처럼 왼쪽을 스물까지 채우면 오른쪽에
+               * 빈 줄이 열여섯 개 남아 종이가 무너져 보였습니다.
+               */
+              const rowsPerCol = oneColumn ? pageStudents.length : Math.ceil(pageStudents.length / 2);
+              /*
+               * 줄 높이는 남는 자리에 맞춰 정합니다. 줄이 적으면 조금 넉넉하게,
+               * 많으면 한 장에 다 들어가도록 좁게. 종이를 넘기지 않는 것이 먼저입니다.
+               */
+              const rowH = Math.min(60, Math.max(34, Math.floor(770 / Math.max(1, rowsPerCol))));
               const isLastPage = pageIdx === sheets.length - 1;
 
               return (
@@ -166,18 +177,21 @@ export const Report2ExamRoom: React.FC = () => {
                           <th className="py-1.5 px-1 font-black"><FitCell base={18}>비고</FitCell></th>
                         </tr>
                       </thead>
-                      <tbody className="">
-                        {/* 한 칸을 20줄로 고정합니다. 사람이 적어도 칸 수는 같아 종이 모양이 일정합니다. */}
-                        {Array.from({ length: PER_COL }).map((_, i) => {
-                          const st = pageStudents[colIdx * PER_COL + i];
+                      <tbody>
+                        {Array.from({ length: rowsPerCol }).map((_, i) => {
+                          const st = pageStudents[colIdx * rowsPerCol + i];
+                          // 다섯 줄씩 한 덩어리로 보이도록 한 블록 걸러 아주 연한 띠를 깝니다.
+                          const band = Math.floor(i / 5) % 2 === 1;
                           return (
-                            <tr key={i} className="h-[39px] align-middle">
+                            <tr key={i} className={`align-middle ${band ? 'band' : ''}`} style={{ height: rowH }}>
                               <td className="align-middle font-semibold text-slate-500">{st ? st.seq : ''}</td>
-                              <td className="align-middle font-bold text-slate-700 whitespace-nowrap">{st?.hakbun || ''}</td>
+                              <td className="align-middle font-bold text-slate-700">{st?.hakbun || ''}</td>
                               <td className="align-middle font-black text-slate-900 sheet-strong">
                                 <FitCell base={21.5}>{st?.name ? displayName(st.name) : ''}</FitCell>
                               </td>
-                              <td className="align-middle font-black text-red-700 sheet-strong">{st?.seat || ''}</td>
+                              <td className="align-middle">
+                                {st?.seat ? <span className="seat-badge sheet-strong">{st.seat}</span> : ''}
+                              </td>
                               <td className="align-middle font-bold text-slate-700"><FitCell base={13.5}>{st?.note || ''}</FitCell></td>
                             </tr>
                           );

@@ -37,6 +37,15 @@ export async function saveStateToIdb(state: AppState, isImmediate: boolean = fal
     return;
   }
 
+  /*
+   * 저장할 때마다 시각을 찍습니다.
+   *
+   * 집과 직장에서 번갈아 쓰면, 어느 쪽이 더 최근 것인지 알아야 합니다.
+   * 이 시각이 없으면 앱을 켤 때 이 컴퓨터에 남은 옛 자료가 서버의 새 자료를
+   * 덮어써 버립니다. 시각을 찍어 두고, 켤 때 새 것을 고릅니다.
+   */
+  state = { ...state, meta: { ...state.meta, updatedAt: new Date().toISOString() } };
+
   // 1. If running in Electron, save directly to local disk JSON file
   if (typeof window !== 'undefined' && window.electronAPI) {
     try {

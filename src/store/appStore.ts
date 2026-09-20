@@ -238,20 +238,41 @@ export const useAppStore = create<AppStore>((set, get) => ({
   ...createInitialState(),
 
   initStore: async () => {
+    /*
+     * 이 컴퓨터에 남은 것과 서버에 있는 것 중 **더 최근 것**을 씁니다.
+     *
+     * 예전에는 이 컴퓨터에 시간표가 하나라도 있으면 그것을 그대로 썼습니다.
+     * 그래서 집에서 작업하고 직장에서 켜면, 직장에 남아 있던 옛 자료가
+     * 화면에 뜨고 곧바로 서버를 덮어썼습니다. 작업 공간 키를 둔 까닭이
+     * 두 컴퓨터를 오가며 쓰려는 것이니, 이 판단이 틀리면 안 됩니다.
+     *
+     * 서버 응답은 자료가 커서(20만 자가 넘습니다) 학교 망에서는 느릴 수
+     * 있습니다. 1.5초 만에 포기하면 늘 이 컴퓨터 것이 이깁니다. 넉넉히 기다립니다.
+     */
+    const hasContent = (st?: AppState | null): boolean =>
+      Boolean(st && ((st.students && st.students.length > 0) ||
+        (st.timetable && Object.values(st.timetable).some(x => x.subjects && x.subjects.length > 0))));
+    const timeOf = (iso?: string | null): number => {
+      const t = iso ? Date.parse(iso) : NaN;
+      return Number.isFinite(t) ? t : 0;
+    };
+
     let saved = await loadStateFromIdb();
-    // Fallback to Cloud Firestore if local storage is missing or timetable is empty
-    if (!saved || !saved.timetable || Object.values(saved.timetable).every(s => !s.subjects || s.subjects.length === 0)) {
-      try {
-        const cloudData = await Promise.race([
-          loadLatestStateFromCloud(),
-          new Promise<null>(resolve => setTimeout(() => resolve(null), 1500))
-        ]);
-        if (cloudData && cloudData.state && cloudData.state.timetable && Object.values(cloudData.state.timetable).some(s => s.subjects && s.subjects.length > 0)) {
+    try {
+      const cloudData = await Promise.race([
+        loadLatestStateFromCloud(),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 8000))
+      ]);
+      if (cloudData && hasContent(cloudData.state)) {
+        const localT = timeOf(saved?.meta?.updatedAt);
+        const cloudT = timeOf(cloudData.updatedAt);
+        // 이 컴퓨터 것이 비었거나, 서버 것이 더 최근이면 서버 것을 씁니다.
+        if (!hasContent(saved) || cloudT > localT) {
           saved = cloudData.state;
         }
-      } catch (e) {
-        console.warn('Cloud restore check failed:', e);
       }
+    } catch (e) {
+      console.warn('Cloud restore check failed:', e);
     }
 
     const defaults = loadBaseInfoDefaults();
