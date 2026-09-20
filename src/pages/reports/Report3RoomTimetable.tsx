@@ -6,6 +6,7 @@ import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
 import { PdfSaveButton } from './PdfSaveButton';
 import { usePrintAll } from './usePrintAll';
+import { printAsImage } from './printAsImage';
 import { buildRoomTimetableReport } from '../../domain/reports/roomTimetable';
 import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
@@ -50,7 +51,7 @@ export const Report3RoomTimetable: React.FC = () => {
         <PdfSaveButton filename={'고사실 시험시간표.pdf'} disabled={!stages.stage5}
           prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }} />
         <button
-          onClick={() => window.print()}
+          onClick={() => printAsImage()}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >

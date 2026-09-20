@@ -1,4 +1,6 @@
 import { useState, useCallback } from 'react';
+import { beginCapture } from './printAsImage';
+import { fitOnA4 } from './pdfFit';
 
 /**
  * 인쇄물을 PDF 파일로 저장합니다.
@@ -21,11 +23,15 @@ export function usePdfSave() {
    */
   const savePdf = useCallback(async (filename: string, prepare?: () => () => void) => {
     const restore = prepare?.();
+    // 창이 좁아 줄어든 페이지를 원래 A4 폭으로 되돌린 뒤에 뜹니다.
+    // 인쇄(printAsImage)와 같은 조건이라, PDF 와 종이가 서로 다르지 않습니다.
+    const endCapture = beginCapture();
     // 화면이 다 그려진 다음에 떠야 합니다.
     await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
 
     const pages = Array.from(document.querySelectorAll<HTMLElement>('.print-page'));
     if (pages.length === 0) {
+      endCapture();
       restore?.();
       alert('저장할 내용이 없습니다.');
       return;
@@ -49,24 +55,16 @@ export function usePdfSave() {
         const landscape = el.classList.contains('page-landscape');
 
         const canvas = await html2canvas(el, {
-          scale: 2,
+          scale: 2.5,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
         });
 
-        const img = canvas.toDataURL('image/jpeg', 0.95);
+        const img = canvas.toDataURL('image/jpeg', 0.92);
 
-        // 찍은 그림을 A4 에 억지로 늘리면 비율이 틀어져 글자가 눌리고
-        // 가장자리가 잘립니다. 비율을 지킨 채 종이 안에 넣고 가운데 놓습니다.
-        const pageW = landscape ? 297 : 210;
-        const pageH = landscape ? 210 : 297;
-        const ratio = canvas.width / canvas.height;
-        let w = pageW;
-        let h = pageW / ratio;
-        if (h > pageH) { h = pageH; w = pageH * ratio; }
-        const x = (pageW - w) / 2;
-        const y = (pageH - h) / 2;
+        // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
+        const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, landscape);
 
         if (!pdf) {
           pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
@@ -81,6 +79,7 @@ export function usePdfSave() {
       console.error('PDF 저장 실패:', err);
       alert('PDF로 저장하지 못했습니다. 다시 시도해 주세요.');
     } finally {
+      endCapture();
       setSaving(false);
       restore?.();
     }

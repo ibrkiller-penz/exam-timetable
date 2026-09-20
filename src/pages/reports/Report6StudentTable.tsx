@@ -6,6 +6,8 @@ import { ReportGate } from './ReportGate';
 import { PrintPageSize } from './PrintPageSize';
 import { selPlacementSlots } from '../../store/selectors';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
+import { beginCapture, printAsImage } from './printAsImage';
+import { fitOnA4 } from './pdfFit';
 import { Printer, AlertTriangle, LayoutGrid, Square, Users, User, Building, FileDown, Loader2 } from 'lucide-react';
 
 export const Report6StudentTable: React.FC = () => {
@@ -57,91 +59,15 @@ export const Report6StudentTable: React.FC = () => {
     return result;
   }, [reports, layoutMode]);
 
-  // 숨김 iframe을 통한 완벽한 다중 페이지 인쇄
+  /**
+   * 전체 인쇄.
+   *
+   * 예전에는 화면의 HTML 을 통째로 iframe 에 옮겨 담아 인쇄했습니다. 그런데
+   * 브라우저가 인쇄용으로 다시 그리면서 표가 잘리거나 한 줄이 다음 장으로
+   * 넘어갔습니다. 지금은 화면에 보이는 장을 그대로 그림으로 떠서 A4 에 얹습니다.
+   */
   const handlePrintAllPages = () => {
-    const printContent = document.getElementById('student-tickets-container');
-    if (!printContent) {
-      window.print();
-      return;
-    }
-
-    let iframe = document.getElementById('print-iframe') as HTMLIFrameElement;
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'print-iframe';
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      document.body.appendChild(iframe);
-    }
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) {
-      window.print();
-      return;
-    }
-
-    const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-      .map(el => el.outerHTML)
-      .join('\n');
-
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>${meta.title || '수험표'} - 인쇄</title>
-          ${styles}
-          <style>
-            @page {
-              size: A4 portrait;
-              margin: 6mm 7mm !important;
-            }
-            html, body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-              overflow: visible !important;
-              height: auto !important;
-            }
-            .ticket-print-page {
-              width: 100% !important;
-              height: 284mm !important;
-              max-height: 284mm !important;
-              min-height: 284mm !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              border: none !important;
-              box-shadow: none !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              display: flex !important;
-              flex-direction: column !important;
-              box-sizing: border-box !important;
-            }
-            .ticket-print-page:last-child {
-              page-break-after: auto !important;
-              break-after: auto !important;
-            }
-            .no-print { display: none !important; }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    doc.close();
-
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    }, 400);
+    printAsImage({ selector: '.ticket-print-page', landscape: false });
   };
 
   // PDF 파일로 즉시 다운로드/저장
@@ -154,6 +80,8 @@ export const Report6StudentTable: React.FC = () => {
 
     setIsGeneratingPdf(true);
     setPdfProgress({ current: 1, total: pages.length });
+    // 인쇄와 같은 조건에서 뜹니다(창 폭에 따라 달라지지 않도록).
+    const endCapture = beginCapture();
 
     try {
       // 무거운 라이브러리라 여기서 불러옵니다. 수험표를 안 뽑는 사람은 받지 않습니다.
@@ -170,21 +98,19 @@ export const Report6StudentTable: React.FC = () => {
         const pageEl = pages[i];
         
         const canvas = await html2canvas(pageEl, {
-          scale: 2,
+          scale: 2.5,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
         if (i > 0) {
           pdf.addPage('a4', 'portrait');
         }
-        // 비율을 지킨 채 A4 안에 넣고 가운데 놓습니다. 늘리면 글자가 눌립니다.
-        const ratio = canvas.width / canvas.height;
-        let w = 210, h = 210 / ratio;
-        if (h > 297) { h = 297; w = 297 * ratio; }
-        pdf.addImage(imgData, 'JPEG', (210 - w) / 2, (297 - h) / 2, w, h, undefined, 'FAST');
+        // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
+        const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, false);
+        pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
       }
 
       const scopeName = printScope === 'student' ? `${banStudents.find(s => s.num === selectedNum)?.name ?? '학생'}` : printScope === 'class' ? `${curBan}` : '전체';
@@ -194,6 +120,7 @@ export const Report6StudentTable: React.FC = () => {
       console.error('PDF 생성 실패:', err);
       alert('PDF 생성 중 오류가 발생했습니다.');
     } finally {
+      endCapture();
       setIsGeneratingPdf(false);
     }
   };

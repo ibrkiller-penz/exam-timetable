@@ -9,8 +9,10 @@ import { separateRoomFor, SeparateExaminer } from '../../domain/types';
 import { ReportGate } from './ReportGate';
 import { PdfSaveButton } from './PdfSaveButton';
 import { PrintPageSize } from './PrintPageSize';
+import { SeparateNoticeSheet } from './SeparateNoticeSheet';
+import { buildSeparateDetail, buildSeparateRosters } from '../../domain/reports/separateReport';
+import { printAsImage } from './printAsImage';
 import { StepHelp } from '../../components/StepHelp';
-import { buildStudentTableReport } from '../../domain/reports/studentTable';
 
 /**
  * 9. 별도 고사실 — 명단 체크와 명렬 출력.
@@ -20,7 +22,7 @@ import { buildStudentTableReport } from '../../domain/reports/studentTable';
  * 시험이 끝나면 답안지를 원고사실 것과 합칩니다.
  */
 export const Report8SeparateRoom: React.FC = () => {
-  const { students, settings, separateExaminers = {}, setSeparateExaminer,  stages,
+  const { students, settings, updateSettings, separateExaminers = {}, setSeparateExaminer,  stages,
           placement, studentPlacements = {}, rooms, syncSeparateExaminers, days, times } = useAppStore();
   // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
   const attendance = useAttendance();
@@ -76,32 +78,11 @@ export const Report8SeparateRoom: React.FC = () => {
   };
 
   /**
-   * 이 학생이 그 교시에 어느 고사실 소속인지.
-   * 별도실에서 보더라도 답안지는 이 고사실 것과 합쳐야 하므로,
-   * 담당자가 여기서 바로 확인할 수 있어야 합니다.
-   */
-  const homeRoomAt = (key: string, slotIndex: number): string => {
-    const roomId = studentPlacements?.[slotIndex]?.[key];
-    if (!roomId) return '';
-    const cell = placement?.[slotIndex]?.[roomId];
-    if (!cell || cell === '배치금지') return '';
-    return rooms.find(r => r.id === roomId)?.roomName ?? '';
-  };
-
-  /**
    * 그 학생이 별도로 보는 교시를 하나하나 펼칩니다.
-   * 과목까지 있어야 감독 선생님이 어느 시험지를 챙길지 압니다.
+   * 계산은 11-8 별도 수험생과 같은 함수를 씁니다. 두 화면이 어긋나지 않게 하려는 것입니다.
    */
   const detailOf = (key: string) =>
-    examSlots
-      .filter(ps => separateRoomFor(key, ps.index, separateExaminers))
-      .map(ps => {
-        const st = students.find(x => `${x.ban}-${x.num}` === key);
-        const subject = ps.subjects.find(sub => st?.subjects.includes(sub)) ?? '';
-        return { title: ps.title, room: homeRoomAt(key, ps.index), subject, slotIndex: ps.index };
-      })
-      // 대기 시간에는 별도실에 가지 않으므로, 실제로 시험을 보는 교시만 남깁니다.
-      .filter(x => x.subject);
+    buildSeparateDetail(key, examSlots, separateExaminers, students, studentPlacements, placement, rooms);
 
   /** 별도로 보는 교시들의 소속 고사실을 간추립니다. */
   const whereText = (key: string) => {
@@ -114,31 +95,11 @@ export const Report8SeparateRoom: React.FC = () => {
     };
   };
 
-  /** 명렬에 실을 줄: 교시 → 별도실 → 학생. 응시현황(attendance)에서 원고사실과 과목을 가져옵니다. */
-  const rosters = useMemo(() => {
-    const out: Array<{
-      slotTitle: string; day: string; period: string; room: number;
-      rows: Array<{ hakbun: string; name: string; subject: string; homeRoom: string }>;
-    }> = [];
-
-    for (const ps of examSlots) {
-      const day = `${ps.day}일차`;
-      const period = `${ps.period}교시`;
-      for (let room = 1; room <= roomCount; room++) {
-        const rows = attendance
-          .filter(r => r.day === day && r.period === period && r.separateRoom === room)
-          .sort((a, b) => (a.ban === b.ban ? a.num - b.num : a.ban.localeCompare(b.ban, 'ko')))
-          .map(r => ({
-            hakbun: `${r.grade}${String(r.ban).replace('반', '').padStart(2, '0')}${String(r.num).padStart(2, '0')}`,
-            name: r.name,
-            subject: r.subject,
-            homeRoom: r.examRoom,
-          }));
-        if (rows.length > 0) out.push({ slotTitle: ps.title, day, period, room, rows });
-      }
-    }
-    return out;
-  }, [attendance, examSlots, roomCount, separateExaminers]);
+  /** 교시·별도실별 명렬. */
+  const rosters = useMemo(
+    () => buildSeparateRosters(attendance, examSlots, roomCount),
+    [attendance, examSlots, roomCount],
+  );
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
@@ -190,6 +151,33 @@ export const Report8SeparateRoom: React.FC = () => {
           <span className="text-[13px] text-slate-500">
             지정된 학생 <strong className="text-[#005691]">{checkedCount}명</strong> · 별도실 {roomCount}실
           </span>
+
+          {/* 시험만 따로 보고 대기는 제 교실에서 하는 학생도, 하루 종일 별도실에
+              있는 학생도 있습니다. 설정에 숨겨 두지 않고 여기서 바로 고릅니다. */}
+          <span className="flex items-center gap-1.5">
+            <span className="text-[13px] font-bold text-slate-500">대기 시간</span>
+            <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+              {([[false, '대기실로'], [true, '별도실에 계속']] as const).map(([value, label]) => (
+                <button
+                  key={String(value)}
+                  type="button"
+                  onClick={() => updateSettings({ separateRoomAllDay: value })}
+                  className={`px-3 py-1.5 text-[13px] font-bold transition ${
+                    (settings.separateRoomAllDay ?? false) === value
+                      ? 'bg-[#005691] text-white'
+                      : 'bg-white text-slate-600 hover:bg-gray-50'
+                  }`}
+                  title={
+                    value
+                      ? '대기 시간에도 별도 고사실에 머뭅니다. 대기실 좌석배치도에서도 빠집니다.'
+                      : '시험 보는 교시에만 별도 고사실에 가고, 대기 시간에는 제 교실(대기실)로 갑니다.'
+                  }
+                >
+                  {label}
+                </button>
+              ))}
+            </span>
+          </span>
           {/* 지정은 누를 때마다 바로 반영됩니다.
               이 버튼은 이 기능이 생기기 전에 지정해 둔 자료를 맞출 때 씁니다. */}
           {tab === 'manage' && (
@@ -231,7 +219,7 @@ export const Report8SeparateRoom: React.FC = () => {
           </button>
           <PdfSaveButton filename="별도 고사실 명렬.pdf" disabled={rosters.length === 0} />
           <button
-            onClick={() => window.print()}
+            onClick={() => printAsImage()}
             disabled={rosters.length === 0}
             className="px-3.5 py-2 bg-[#005691] hover:bg-[#00426e] text-white rounded-xl text-[14px] font-bold flex items-center gap-1.5 transition disabled:bg-gray-200 disabled:text-gray-400"
           >
@@ -264,7 +252,7 @@ export const Report8SeparateRoom: React.FC = () => {
                 <span className="font-black text-[16px]">별도 응시 상세</span>
                 <div className="flex items-center gap-2">
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => printAsImage()}
                     className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-[13.5px] font-bold flex items-center gap-1.5 transition"
                   >
                     <Printer className="w-4 h-4" /> 인쇄
@@ -275,108 +263,16 @@ export const Report8SeparateRoom: React.FC = () => {
                 </div>
               </div>
 
-              <div className="p-8 overflow-auto print-page page-portrait">
-                <h1 className="text-center font-black text-[30px] leading-[1.15] text-[#005691] tracking-tight mb-1">
-                  별도 고사실 응시 안내
-                </h1>
-                <p className="text-center text-[15px] font-bold text-slate-600 mb-5">
-                  아래 시간에는 소속 교실이 아니라 별도 고사실에서 시험을 봅니다.
-                </p>
-
-                <div className="border-2 border-gray-800 grid grid-cols-4 text-center text-[14px] mb-5">
-                  <div className="py-2 bg-gray-100 font-black border-r border-gray-800">학년·반·번호</div>
-                  <div className="py-2 bg-gray-100 font-black border-r border-gray-800">성명</div>
-                  <div className="py-2 bg-gray-100 font-black border-r border-gray-800">별도 고사실</div>
-                  <div className="py-2 bg-gray-100 font-black">해당 교시</div>
-
-                  <div className="py-2 border-t border-r border-gray-800 font-bold">{st.grade}학년 {st.ban} {st.num}번</div>
-                  <div className="py-2 border-t border-r border-gray-800 font-black text-[16px]">{displayName(st.name)}</div>
-                  <div className="py-2 border-t border-r border-gray-800 font-black text-[16px] text-[#005691]">{cur.room}실</div>
-                  <div className="py-2 border-t border-gray-800 font-bold">
-                    {cur.slots === 'all' ? '모든 시험' : `${rows.length}개 교시`}
-                  </div>
-                </div>
-
-                {rows.length === 0 ? (
-                  <p className="text-center text-slate-400 py-10">아직 배치된 교시가 없습니다.</p>
-                ) : (
-                  <table className="w-full text-[15px] text-center border-collapse border-2 border-gray-800">
-                    <thead className="bg-gray-100">
-                      <tr className="divide-x divide-gray-800 border-b border-gray-800">
-                        <th className="py-2 px-2 w-16 font-black">연번</th>
-                        <th className="py-2 px-2 w-32 font-black">교시</th>
-                        <th className="py-2 px-2 font-black">과목</th>
-                        <th className="py-2 px-2 w-28 font-black">원고사실</th>
-                        <th className="py-2 px-2 w-24 font-black">답안지</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-800">
-                      {rows.map((d, i) => (
-                        <tr key={d.slotIndex} className="divide-x divide-gray-800 h-9">
-                          <td className="text-slate-500 font-bold">{i + 1}</td>
-                          <td className="font-black">{d.title}</td>
-                          <td className="font-bold text-slate-800">{d.subject || '-'}</td>
-                          <td className="font-black text-[16px] text-red-700">{d.room || '-'}</td>
-                          <td></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                )}
-
-                <p className="text-[13px] text-slate-500 mt-4 leading-relaxed">
-                  · 이 학생은 <strong>원고사실 명단에도 그대로 올라 있습니다.</strong> 명단 비고에 '별도'로 표시됩니다.<br />
-                  · 좌석배치도에는 나오지 않습니다. 그 교실에 앉지 않기 때문입니다.<br />
-                  · 시험이 끝나면 답안지를 원고사실 것과 합쳐 주세요.
-                </p>
-
-                {/* 이 학생의 개별 수험표. 따로 챙겨 줘야 하는 학생이라
-                    여기서 바로 보고 뽑을 수 있어야 합니다. */}
-                {(() => {
-                  const ticket = buildStudentTableReport(st, attendance, days, times, rooms, placementSlots, true);
-                  if (ticket.activeDays.length === 0) return null;
-                  return (
-                    <div className="mt-8 pt-6 border-t-2 border-dashed border-gray-300">
-                      <h2 className="text-center font-black text-[24px] text-[#005691] mb-1">개별 수험표</h2>
-                      <p className="text-center text-[14px] font-bold text-slate-600 mb-4">
-                        {st.grade}학년 {st.ban} {st.num}번 {displayName(st.name)} · 학번 {ticket.hakbun}
-                      </p>
-                      <table className="w-full text-[13.5px] text-center border-collapse border-2 border-gray-800">
-                        <thead className="bg-gray-100">
-                          <tr className="divide-x divide-gray-800 border-b border-gray-800">
-                            <th className="py-2 px-1 w-16 font-black">교시</th>
-                            {ticket.activeDays.map(d => (
-                              <th key={d.day} className="py-2 px-1 font-black">{d.day}일차<br /><span className="text-[11.5px] text-slate-500">{d.dateText}</span></th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-gray-800">
-                          {ticket.activePeriods.map(p => (
-                            <tr key={p} className="divide-x divide-gray-800">
-                              <td className="py-2 font-black bg-gray-50">{p}교시</td>
-                              {ticket.activeDays.map(d => {
-                                const c = ticket.grid[p][d.day];
-                                const sep = c?.examRoom?.includes('(별)');
-                                return (
-                                  <td key={d.day} className="py-1.5 px-1 leading-tight">
-                                    <div className="font-bold text-slate-800 break-keep">{c?.subject || '-'}</div>
-                                    <div className={`font-black ${sep ? 'text-amber-700' : 'text-red-700'}`}>
-                                      {c?.examRoom || '-'}{c?.seat ? ` · ${c.seat}번` : ''}
-                                    </div>
-                                    {c?.timeStr && <div className="text-[11px] text-slate-400">{c.timeStr}</div>}
-                                  </td>
-                                );
-                              })}
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                      <p className="text-[12.5px] text-slate-500 mt-2">
-                        고사실 뒤에 <strong className="text-amber-700">(별)</strong>이 붙은 교시는 별도 고사실에서 봅니다.
-                      </p>
-                    </div>
-                  );
-                })()}
+              {/* 창이 화면보다 길면 아래가 잘립니다. flex-1 min-h-0 이라야
+                  남는 높이만큼만 차지하고 그 안에서 스크롤됩니다.
+                  print-page 는 안쪽 종이에 붙습니다. 스크롤 상자에 붙이면
+                  min-height:297mm 때문에 상자가 줄어들지 못해 다시 잘립니다. */}
+              <div className="flex-1 min-h-0 overflow-auto p-4 bg-slate-100 print:overflow-visible print:bg-white print:p-0">
+                <SeparateNoticeSheet
+                  sheet={{ key: detailKey, student: st, examiner: cur, rows }}
+                  attendance={attendance}
+                  asPage
+                />
               </div>
             </div>
           </div>

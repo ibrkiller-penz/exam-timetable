@@ -5,7 +5,9 @@ import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
 import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
+import { printAsImage } from './printAsImage';
 import { PdfSaveButton } from './PdfSaveButton';
+import { usePrintAll } from './usePrintAll';
 import { buildClassTableReport } from '../../domain/reports/classTable';
 import { DayIdx } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
@@ -14,7 +16,7 @@ import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 
 export const Report5ClassTable: React.FC = () => {
-  const { students,  days, times, rooms, stages } = useAppStore();
+  const { students,  days, times, rooms, stages, meta } = useAppStore();
   // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
   const attendance = useAttendance();
 
@@ -25,9 +27,35 @@ export const Report5ClassTable: React.FC = () => {
   const uniqueBans = Array.from(new Set(students.map(s => s.ban))).filter(Boolean);
   const curBan = selectedBan || uniqueBans[0] || '01반';
 
-  const report = buildClassTableReport(curBan, selectedDay, students, attendance, days, times, rooms);
-  const dateFormatted = report.dayDateText ? dayjs(report.dayDateText).locale('ko').format('YYYY. M. D.(dd)') : '';
-  const actualRoomName = roomOverrides[curBan] ?? report.roomName;
+  const { printingAll, setPrintingAll, printAll } = usePrintAll();
+
+  /** 한 반·한 일차의 표 한 벌. 날짜 글씨와 소속 고사실도 같이 붙여 둡니다. */
+  const makeSheet = (ban: string, day: DayIdx) => {
+    const rep = buildClassTableReport(ban, day, students, attendance, days, times, rooms);
+    return {
+      report: rep,
+      dateFormatted: rep.dayDateText ? dayjs(rep.dayDateText).locale('ko').format('YYYY. M. D.(dd)') : '',
+      actualRoomName: roomOverrides[ban] ?? rep.roomName,
+    };
+  };
+
+  const current = makeSheet(curBan, selectedDay);
+  const report = current.report;
+  const dateFormatted = current.dateFormatted;
+  const actualRoomName = current.actualRoomName;
+
+  /**
+   * '전체 출력'을 누르면 모든 반 × 모든 일차를 한 번에 그려 놓고 인쇄합니다.
+   * 반이 열 곳이면 반과 일차를 바꿔 가며 수십 번 눌러야 했습니다.
+   * 시험이 없는 일차는 빼서 빈 장이 끼지 않게 합니다.
+   */
+  const reportsToRender = printingAll
+    ? uniqueBans.flatMap(ban =>
+        ([1, 2, 3, 4, 5] as DayIdx[])
+          .map(d => makeSheet(ban, d))
+          .filter(x => x.report.students.length > 0 && x.report.activePeriods.length > 0),
+      )
+    : [current];
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
@@ -72,13 +100,26 @@ export const Report5ClassTable: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-2">
-          <PdfSaveButton filename={`${report?.ban ?? '학급'} 시험시간표.pdf`} disabled={!stages.stage5} />
+          {/* PDF 는 늘 전체를 한 파일로 담습니다. 반마다 따로 저장하면 파일이 흩어집니다. */}
+          <PdfSaveButton
+            filename={`${meta?.title || '고사'} 학급 시험시간표.pdf`}
+            disabled={!stages.stage5}
+            prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }}
+          />
         <button
-          onClick={() => window.print()}
+          onClick={printAll}
+          disabled={!stages.stage5}
+          className="px-4 py-2 bg-white hover:bg-blue-50 text-[#005691] border border-[#005691] rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
+          title="모든 반의 모든 일차를 한 번에 인쇄합니다."
+        >
+          <Printer className="w-4 h-4" /> 전체 출력
+        </button>
+        <button
+          onClick={() => printAsImage()}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >
-          <Printer className="w-4 h-4" /> 인쇄하기
+          <Printer className="w-4 h-4" /> 이 장만 인쇄
         </button>
         <button
           onClick={() => {
@@ -114,7 +155,7 @@ export const Report5ClassTable: React.FC = () => {
         <ReportGate what="학급 시험시간표" />
       ) : (
         <div className="print-pages flex flex-col gap-8">
-          {(() => {
+          {reportsToRender.map(({ report, dateFormatted, actualRoomName }) => (() => {
             // 한 장에 30명까지 싣습니다. 넘으면 장을 나눕니다.
             const PER_PAGE = 30;
             const cnt = Math.max(1, Math.ceil(report.students.length / PER_PAGE));
@@ -122,7 +163,7 @@ export const Report5ClassTable: React.FC = () => {
 
             return sheets.map((pageStudents, pageIdx) => (
               <div
-                key={pageIdx}
+                key={`${report.ban}-${report.day}-${pageIdx}`}
                 className="print-page page-portrait bg-white border border-gray-300 p-8 print:p-3 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
                 <ReportSheetHeader
@@ -190,7 +231,7 @@ export const Report5ClassTable: React.FC = () => {
                 </table>
               </div>
             ));
-          })()}
+          })())}
         </div>
       )}
     </div>

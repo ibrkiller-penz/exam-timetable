@@ -4,6 +4,7 @@ import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { buildGradeTable } from '../domain/reports/gradeTable';
 import { downloadWorkbook } from '../utils/excelStyled';
 import { Printer, Download, X } from 'lucide-react';
+import { printAsImage } from '../pages/reports/printAsImage';
 
 /**
  * 고사 시간표 미리보기.
@@ -28,7 +29,7 @@ export const TimetablePreviewModal: React.FC<{ onClose: () => void }> = ({ onClo
           <span className="font-black text-[17px]">고사 시간표 미리보기</span>
           <div className="flex items-center gap-2">
             <button
-              onClick={() => window.print()}
+              onClick={() => printAsImage({ selector: '#timetable-preview .print-page', landscape: true })}
               className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-[14px] font-bold flex items-center gap-1.5 transition"
             >
               <Printer className="w-4 h-4" /> 인쇄
@@ -62,8 +63,12 @@ export const TimetablePreviewModal: React.FC<{ onClose: () => void }> = ({ onClo
           </div>
         </div>
 
-        <div id="timetable-preview" className="p-5 overflow-auto print:overflow-visible print:p-0">
-          <h1 className="text-center font-extrabold text-xl mb-4 text-[#005691]">{meta.title} 시간표</h1>
+        {/* 창이 화면보다 길면 아래가 잘립니다. flex-1 min-h-0 이라야
+            남는 높이만큼만 차지하고 그 안에서 스크롤됩니다.
+            안쪽 print-page 한 장이 인쇄·PDF 에 그대로 실립니다. */}
+        <div id="timetable-preview" className="flex-1 min-h-0 overflow-auto p-4 bg-slate-100 print:overflow-visible print:bg-white print:p-0">
+          <div className="print-page page-landscape bg-white p-8 rounded-xl shadow-xs mx-auto print:shadow-none print:rounded-none">
+          <h1 className="text-center font-extrabold text-2xl mb-4 text-[#005691]">{meta.title} 시간표</h1>
 
           {rows.length === 0 ? (
             <p className="py-10 text-center text-slate-500">7. 고사장 배치를 하면 시간표가 만들어집니다.</p>
@@ -113,6 +118,7 @@ export const TimetablePreviewModal: React.FC<{ onClose: () => void }> = ({ onClo
               </tbody>
             </table>
           )}
+          </div>
         </div>
       </div>
     </div>

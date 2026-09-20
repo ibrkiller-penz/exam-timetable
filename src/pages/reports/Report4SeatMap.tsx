@@ -7,6 +7,7 @@ import { ReportSheetHeader } from './ReportSheetHeader';
 import { PrintPageSize } from './PrintPageSize';
 import { PdfSaveButton } from './PdfSaveButton';
 import { usePrintAll } from './usePrintAll';
+import { printAsImage } from './printAsImage';
 import { buildSeatMapReport } from '../../domain/reports/seatMap';
 import { DayLabel, PeriodLabel } from '../../domain/types';
 import { Printer, Download} from 'lucide-react';
@@ -164,7 +165,7 @@ export const Report4SeatMap: React.FC = () => {
         <PdfSaveButton filename={`좌석배치도 ${selectedDay} ${selectedPeriod}.pdf`} disabled={!stages.stage5}
           prepare={() => { setPrintingAll(true); return () => setPrintingAll(false); }} />
         <button
-          onClick={() => window.print()}
+          onClick={() => printAsImage()}
           disabled={!stages.stage5}
           className="px-4 py-2 bg-[#005691] hover:bg-[#004270] text-white rounded-lg text-sm font-semibold flex items-center gap-2 shadow-sm transition disabled:bg-gray-100 disabled:text-gray-400 disabled:border-gray-200 disabled:shadow-none disabled:cursor-not-allowed"
         >

@@ -5,6 +5,8 @@ import { buildLabels } from '../../domain/reports/labels';
 import { downloadWorkbook } from '../../utils/excelStyled';
 import { onlySubject } from '../../domain/util/text';
 import { PrintPageSize } from './PrintPageSize';
+import { beginCapture, printAsImage } from './printAsImage';
+import { fitOnA4 } from './pdfFit';
 import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react';
 
 /**
@@ -90,110 +92,14 @@ export const Report7Labels: React.FC = () => {
     setTimeout(() => setSaveToast(false), 2500);
   };
 
-  // 격리된 iframe을 통해 전 페이지 완벽 인쇄 (브라우저 SPA 스크롤 제약 우회)
+  /**
+   * 전체 인쇄.
+   *
+   * 봉투 라벨은 가로 2×2 라 조금만 어긋나도 칸이 밀립니다. 화면에 보이는
+   * 장을 그대로 그림으로 떠서 A4 가로에 얹어, 보이는 대로 찍히게 합니다.
+   */
   const handlePrintAllPages = () => {
-    const printContent = document.getElementById('envelope-labels-container');
-    if (!printContent) {
-      window.print();
-      return;
-    }
-
-    let iframe = document.getElementById('print-iframe') as HTMLIFrameElement;
-    if (!iframe) {
-      iframe = document.createElement('iframe');
-      iframe.id = 'print-iframe';
-      iframe.style.position = 'fixed';
-      iframe.style.right = '0';
-      iframe.style.bottom = '0';
-      iframe.style.width = '0';
-      iframe.style.height = '0';
-      iframe.style.border = '0';
-      document.body.appendChild(iframe);
-    }
-
-    const doc = iframe.contentWindow?.document;
-    if (!doc) return;
-
-    doc.open();
-    doc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>문제지 봉투 라벨 인쇄</title>
-          <link rel="stylesheet" href="/assets/index.css">
-          <style>
-            @page {
-              size: A4 landscape;
-              margin: 7mm 8mm !important;
-            }
-            * {
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-              box-sizing: border-box;
-            }
-            body {
-              margin: 0 !important;
-              padding: 0 !important;
-              background: #ffffff !important;
-              overflow: visible !important;
-              height: auto !important;
-              font-family: Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-            }
-            .envelope-print-page {
-              width: 100% !important;
-              height: 195mm !important;
-              max-height: 195mm !important;
-              min-height: 195mm !important;
-              padding: 0 !important;
-              margin: 0 !important;
-              border: none !important;
-              box-shadow: none !important;
-              page-break-after: always !important;
-              break-after: page !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-              display: flex !important;
-              flex-direction: column !important;
-              box-sizing: border-box !important;
-            }
-            .envelope-print-page:last-child {
-              page-break-after: auto !important;
-              break-after: auto !important;
-            }
-            .envelope-grid-4 {
-              display: grid !important;
-              grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-              grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
-              gap: 8px 10px !important;
-              width: 100% !important;
-              height: 100% !important;
-              box-sizing: border-box !important;
-            }
-            .envelope-card {
-              height: 100% !important;
-              max-height: 93mm !important;
-              padding: 8px 12px !important;
-              box-sizing: border-box !important;
-              display: flex !important;
-              flex-direction: column !important;
-              justify-content: space-between !important;
-              border: 2px solid #0f172a !important;
-              border-radius: 8px !important;
-            }
-            .no-print { display: none !important; }
-          </style>
-        </head>
-        <body>
-          ${printContent.innerHTML}
-        </body>
-      </html>
-    `);
-    doc.close();
-
-    setTimeout(() => {
-      iframe.contentWindow?.focus();
-      iframe.contentWindow?.print();
-    }, 400);
+    printAsImage({ selector: '.envelope-print-page', landscape: true });
   };
 
   // PDF 파일로 즉시 다운로드/저장
@@ -206,6 +112,8 @@ export const Report7Labels: React.FC = () => {
 
     setIsGeneratingPdf(true);
     setPdfProgress({ current: 1, total: pages.length });
+    // 인쇄와 같은 조건에서 뜹니다(창 폭에 따라 달라지지 않도록).
+    const endCapture = beginCapture();
 
     try {
       // 무거운 라이브러리라 여기서 불러옵니다. 라벨을 안 뽑는 사람은 받지 않습니다.
@@ -222,21 +130,19 @@ export const Report7Labels: React.FC = () => {
         const pageEl = pages[i];
 
         const canvas = await html2canvas(pageEl, {
-          scale: 2,
+          scale: 2.5,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
         });
 
-        const imgData = canvas.toDataURL('image/jpeg', 0.95);
+        const imgData = canvas.toDataURL('image/jpeg', 0.92);
         if (i > 0) {
           pdf.addPage('a4', 'landscape');
         }
-        // 비율을 지킨 채 A4 가로 안에 넣고 가운데 놓습니다.
-        const ratio = canvas.width / canvas.height;
-        let w = 297, h = 297 / ratio;
-        if (h > 210) { h = 210; w = 210 * ratio; }
-        pdf.addImage(imgData, 'JPEG', (297 - w) / 2, (210 - h) / 2, w, h, undefined, 'FAST');
+        // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
+        const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, true);
+        pdf.addImage(imgData, 'JPEG', x, y, w, h, undefined, 'FAST');
       }
 
       const filename = `문제지_봉투라벨_${meta.title || '시험시간표'}.pdf`;
@@ -245,6 +151,7 @@ export const Report7Labels: React.FC = () => {
       console.error('PDF 생성 실패:', err);
       alert('PDF 생성 중 오류가 발생했습니다.');
     } finally {
+      endCapture();
       setIsGeneratingPdf(false);
     }
   };

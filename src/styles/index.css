@@ -149,6 +149,14 @@
 }
 
 
+/* 화면을 그대로 그림으로 떠서 인쇄하거나 PDF 로 만드는 동안에만 붙습니다.
+   창이 좁으면 위의 max-width:100% 때문에 페이지가 줄어들고, 줄어든 상태로
+   그림을 뜨면 표가 다시 접혀 화면에서 보던 것과 다른 종이가 나옵니다.
+   뜨는 동안만 원래 A4 폭으로 되돌려, 창 크기와 상관없이 같은 결과를 냅니다. */
+.capturing .print-page.page-portrait { width: 210mm !important; max-width: none !important; }
+.capturing .print-page.page-landscape { width: 297mm !important; max-width: none !important; }
+
+
 /* Blue Theme (default) */
 :root, :root[data-theme="blue"] {
   --c-primary: #005691;
