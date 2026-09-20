@@ -13,6 +13,8 @@ interface StageHeaderProps {
   guideMessage?: string;
   isError?: boolean;
   actions?: React.ReactNode;
+  /** 제목 옆 물음표. 이 단계가 무엇을 하는지 설명합니다. */
+  help?: React.ReactNode;
 }
 
 export const StageHeader: React.FC<StageHeaderProps> = ({
@@ -26,6 +28,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   guideMessage,
   isError = false,
   actions,
+  help,
 }) => {
   const activeGrade = useAppStore(s => s.activeGrade) || '2';
 
@@ -45,6 +48,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
                 {activeGrade}학년
               </span>
               <h2 className="text-xl font-black text-[#005691] tracking-tight">{stageTitle}</h2>
+              {help}
               <span
                 className={`text-[15px] px-3.5 py-1 rounded-full font-black flex items-center gap-1.5 shadow-2xs ${
                   isConfirmed

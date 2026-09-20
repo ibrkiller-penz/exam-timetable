@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/appStore';
 import { StageHeader } from '../components/StageHeader';
+import { StepHelp } from '../components/StepHelp';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AlertModal } from '../components/AlertModal';
 import { CloudModal } from '../components/CloudModal';
@@ -395,6 +396,31 @@ export const Step6Timetable: React.FC = () => {
       <StageHeader
         stageNumber={6}
         stageTitle="고사시간표 작성 (5×5 격자)"
+        help={
+          <StepHelp title="6. 시간표작성">
+            <p>어느 날 몇 교시에 어떤 과목을 볼지 정하는 단계입니다. <strong>이상적 시간표 추천</strong>을 누르면 아래 규칙으로 자동 편성합니다.</p>
+            <h3>반드시 지키는 것</h3>
+            <ul>
+              <li><strong>한 학생이 같은 교시에 두 과목을 보지 않습니다.</strong> 겹치면 아예 놓지 않습니다.</li>
+              <li><strong>모든 과목을 빠짐없이 놓습니다.</strong> 자리를 못 찾으면 앞의 선택을 되짚어 다시 시도합니다(백트래킹). 고를 수 있는 자리가 가장 적은 과목부터 놓아 막다른 길을 줄입니다.</li>
+              <li>2단계에서 <strong>시간을 넣은 교시에만</strong> 놓습니다. 4·5교시를 비워 두었으면 거기엔 놓지 않습니다.</li>
+            </ul>
+            <h3>되도록 지키는 것</h3>
+            <ul>
+              <li>한 학생이 <strong>하루에 두 과목을 넘지 않도록</strong> 나눕니다.</li>
+              <li>전교생이 보는 <strong>공통 과목은 3교시</strong> 쪽으로 보냅니다. 선택 과목은 1·2교시로 흩어 놓습니다.</li>
+              <li>하루 교시가 넉넉하면 <strong>2교시를 자습으로 비워</strong> 두고, 교시가 적으면 2·3교시를 모두 씁니다.</li>
+              <li>한 교시에 놓는 과목 수는 <strong>환경 설정의 '슬롯당 최대 과목 수'</strong>를 넘지 않습니다.</li>
+            </ul>
+            <h3>손으로 고치기</h3>
+            <ul>
+              <li><strong>과목</strong>을 끌어 다른 교시로 옮깁니다.</li>
+              <li><strong>교시 칸</strong>을 끌면 두 칸의 내용이 통째로 바뀝니다.</li>
+              <li><strong>일차 제목(⋮⋮)</strong>을 끌면 그 날 전체가 다른 날과 자리를 바꿉니다.</li>
+            </ul>
+            <p>옮긴 뒤에는 칸마다 '정상 / 동시 시험 불가'가 다시 표시되니 그것만 확인하면 됩니다.</p>
+          </StepHelp>
+        }
         isConfirmed={!!(stages.step6 ?? stages.stage3)}
         confirmLabel="시간표 확정"
         cancelLabel="시간표 확정 취소"

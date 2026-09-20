@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/appStore';
 import { StageHeader } from '../components/StageHeader';
+import { StepHelp } from '../components/StepHelp';
 import { MSG } from '../domain/messages';
 import { Search } from 'lucide-react';
 import { buildStudents } from '../domain/subjects';
@@ -33,6 +34,17 @@ export const Step5StudentSubjects: React.FC = () => {
       <StageHeader
         stageNumber={5}
         stageTitle="학생별 평가 과목 현황 (조회)"
+        help={
+          <StepHelp title="5. 학생과목">
+            <p>학생 한 명 한 명이 <strong>어떤 평가 과목을 듣는지</strong> 보여 주는 화면입니다. 고치는 곳이 아니라 확인하는 곳입니다.</p>
+            <p>여기가 맞아야 뒤가 다 맞습니다.</p>
+            <ul>
+              <li>한 교시에 <strong>누가 시험을 보고 누가 대기인지</strong>를 이 표로 가릅니다.</li>
+              <li>같은 분반 학생을 한 고사실에 모으는 것도 이 자료가 근거입니다.</li>
+            </ul>
+            <p>빠진 과목이 보이면 1단계 편성현황부터 다시 확인하세요.</p>
+          </StepHelp>
+        }
         isConfirmed={!!stages.step5}
         confirmLabel="학생과목 확인"
         cancelLabel="확인 취소"

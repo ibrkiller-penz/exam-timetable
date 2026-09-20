@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/appStore';
 import { StageHeader } from '../components/StageHeader';
+import { StepHelp } from '../components/StepHelp';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AlertModal } from '../components/AlertModal';
 import { MSG } from '../domain/messages';
@@ -252,6 +253,15 @@ export const Step4EvalSubjects: React.FC = () => {
       <StageHeader
         stageNumber={4}
         stageTitle="평가 대상 과목 지정"
+        help={
+          <StepHelp title="4. 평가과목">
+            <p>전체 과목 중 <strong>이번 고사에서 시험을 치는 과목</strong>만 고르는 단계입니다.</p>
+            <h3>동시 시험 가능 과목이란</h3>
+            <p>두 과목을 <strong>같이 듣는 학생이 한 명도 없으면</strong> 같은 교시에 나란히 놓을 수 있습니다. 이 프로그램은 체크한 과목들을 훑어 그런 묶음을 미리 찾아 둡니다.</p>
+            <p>6단계 시간표는 이 묶음을 이용해 한 교시에 여러 과목을 배치합니다. 그래야 고사 일수가 줄어듭니다.</p>
+            <p>여기서 확정을 취소하면 이미 짠 시간표가 지워집니다.</p>
+          </StepHelp>
+        }
         isConfirmed={!!(stages.step4 ?? stages.stage2)}
         onConfirm={handleConfirm}
         onCancel={handleCancel}

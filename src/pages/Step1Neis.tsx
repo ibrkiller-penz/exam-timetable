@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useAppStore } from '../store/appStore';
 import { StageHeader } from '../components/StageHeader';
+import { StepHelp } from '../components/StepHelp';
 import { ConfirmModal } from '../components/ConfirmModal';
 import { AlertModal } from '../components/AlertModal';
 import { parseNeisFile } from '../domain/neisImport';
@@ -188,6 +189,22 @@ export const Step1Neis: React.FC = () => {
       <StageHeader
         stageNumber={1}
         stageTitle="학생편성현황"
+        help={
+          <StepHelp title="1. 학생편성현황">
+            <p>나이스에서 받은 <strong>학생편성현황 엑셀</strong>을 읽어들이는 단계입니다. 이 자료 하나가 뒤의 모든 단계의 바탕이 됩니다.</p>
+            <h3>무엇을 읽나요</h3>
+            <ul>
+              <li>학년·반·번호·성명</li>
+              <li>과목과 <strong>강의실(분반)</strong> — 이동수업이면 'G1', '학교지정-F'처럼 적혀 있습니다. 나중에 같은 분반 학생을 한 고사실에 모아 앉히는 근거가 됩니다.</li>
+            </ul>
+            <h3>자동으로 걸러내는 것</h3>
+            <ul>
+              <li>성명이 <strong>(미재학)</strong>으로 시작하는 학생은 지웁니다.</li>
+              <li>표 위쪽의 제목·빈 줄은 건너뛰고 머리글 줄을 찾아 읽습니다.</li>
+            </ul>
+            <p>편의반으로 옮기거나 특정 학생을 지울 수 있습니다. 다 정리한 뒤 확정하세요. 확정을 취소하면 뒤 단계의 배치가 모두 지워집니다.</p>
+          </StepHelp>
+        }
         isConfirmed={!!(stages.step1 ?? stages.stage1)}
         onConfirm={handleConfirm}
         onCancel={handleCancel}

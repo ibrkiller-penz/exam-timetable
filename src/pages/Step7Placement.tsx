@@ -12,7 +12,7 @@ import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
 import { displayName } from '../domain/privacy';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
-import { autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
+import { RoomFillOrder, WaitFillMode, autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
 import { SUBJECT_COLOR_PALETTES } from '../domain/constants';
 import { Sparkles, Trash2, Users, CheckCircle2, Lock, Unlock, Layers, AlertTriangle, RotateCcw, RotateCw, Plus, Clock, UserX, X, RefreshCw, ArrowRightLeft, UserCheck, Minus, BookOpen, Ban, ArrowRight, HelpCircle } from 'lucide-react';
@@ -81,7 +81,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
    */
   const cellLabelFontSize = (label: string, compact: boolean): number => {
     const len = label.length;
-    const steps = compact ? [15, 13.5, 12, 10.5] : [18, 16, 14, 12.5];
+    // 두 줄로 나눠 쓰므로 한 줄이 짧아졌습니다. 그만큼 글자를 키울 수 있습니다.
+    const steps = compact ? [17, 15.5, 14, 12.5] : [21, 19, 17, 15];
     if (len <= 9) return steps[0];
     if (len <= 12) return steps[1];
     if (len <= 15) return steps[2];
@@ -1329,8 +1330,20 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     }
   };
 
+  // 고사장을 어느 반부터 채울지 묻는 창. 학교마다 쓰는 방식이 달라 정해 둘 수 없습니다.
+  const [fillOrderAsk, setFillOrderAsk] = useState<boolean>(false);
+
+  // 8. 학생 배치는 '고사 인원'과 '대기 인원'을 어떻게 앉힐지 함께 묻습니다.
+  const [examMode, setExamMode] = useState<'auto' | 'ban' | 'student_id'>('auto');
+  const [waitMode, setWaitMode] = useState<WaitFillMode>('home');
+
   const handleAutoPlaceAll = () => {
     if (isStageLocked) return;
+    setFillOrderAsk(true);
+  };
+
+  const runAutoPlaceAll = (roomFillOrder: RoomFillOrder) => {
+    setFillOrderAsk(false);
     setConfirmModal({
       isOpen: true,
       message: MSG.S7_AUTO_ALL,
@@ -1341,13 +1354,13 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         const roomsLocked = !!stages.step7;
         const next = roomsLocked
           ? placement
-          : autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity, slotCapacityBasis);
+          : autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity, slotCapacityBasis, roomFillOrder);
         if (!roomsLocked) setPlacementGrid(next);
         const allPlacements: Record<number, Record<string, string>> = {};
         for (const ps of placementSlots) {
           const slotLocked = lockedCells[ps.index];
           const existingPlacements = studentPlacements?.[ps.index];
-          allPlacements[ps.index] = initSlotStudentPlacements(ps.index, next[ps.index] ?? {}, placementSlots, roomsAt(ps.index), entries, students, neis, existingPlacements, slotLocked);
+          allPlacements[ps.index] = initSlotStudentPlacements(ps.index, next[ps.index] ?? {}, placementSlots, roomsAt(ps.index), entries, students, neis, existingPlacements, slotLocked, examMode, waitMode);
         }
         setAllStudentPlacements(allPlacements);
         setConfirmModal(null);
@@ -2077,8 +2090,15 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
           >
             {isCompactFit ? '🔍 한눈에 보기 (ON)' : '🔍 원래 크기 (확대)'}
           </button>
-          <span className="text-slate-400 text-[13px]">
-            {isCompactFit ? '※ 화면 맞춤 모드: 모든 반이 한눈에 들어오도록 최적화됨' : '※ 기본 크기 모드'}
+          {/* 이 화면이 무엇을 하는 곳인지 한 줄로 밝혀 둡니다.
+              표만 보고는 여기서 무엇을 정하는지, 칸을 눌러도 되는지 알 수 없습니다. */}
+          <span className="text-slate-500 text-[13px] leading-snug">
+            {stepMode === 7
+              ? '교시마다 어느 교실을 고사장으로, 어느 교실을 대기실로 쓸지와 정원을 정합니다. 칸을 눌러 고사장↔대기실을 바꾸고, 끌어서 자리를 맞바꿉니다.'
+              : '7단계에서 정한 고사실에 학생을 실제로 앉힙니다. 칸을 더블클릭하면 그 고사실 명단이 열리고, 거기서 학생을 다른 실로 옮길 수 있습니다.'}
+            <span className="text-slate-400">
+              {isCompactFit ? ' · 지금은 모든 반이 한 화면에 들어오도록 줄여 보는 중입니다.' : ' · 지금은 원래 크기입니다.'}
+            </span>
           </span>
         </div>
 
@@ -2473,18 +2493,39 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                 }}
                               >
                                 <div className="flex flex-col items-center justify-center gap-0.5">
+                                  {/* 과목과 분반을 두 줄로 나눠 씁니다. 한 줄로 붙이면 길어져서
+                                      글자를 줄일 수밖에 없고, 멀리서 읽히지 않습니다. */}
                                   <div
-                                    className={`font-black leading-tight whitespace-nowrap overflow-hidden ${
+                                    className={`font-black leading-tight overflow-hidden text-center ${
                                       isOverCapacity ? 'text-orange-950' : isWait ? 'text-slate-500' : `${color.text} hover:underline`
                                     } ${stepMode === 7 && !isWait && cellVal ? 'cursor-text' : ''}`}
                                     title={stepMode === 7 && !isWait && cellVal ? '눌러서 분반 이름을 고칩니다' : undefined}
-                                    style={{ fontSize: `${cellLabelFontSize(isWait ? '대기' : banLabel(cellVal, ps.index, r.id), isCompactFit)}px` }}
                                   >
-                                    {/* 대기실은 '대기'라고만 씁니다. 칸에 적힌 숫자는 지난번에 나눈 결과라
-                                        지금 앉은 인원과 어긋납니다. 인원은 바로 아래 줄에 제대로 나옵니다. */}
-                                    {isWait
-                                      ? '대기'
-                                      : banLabel(cellVal, ps.index, r.id)}
+                                    {isWait ? (
+                                      /* 대기실은 '대기'라고만 씁니다. 칸에 적힌 숫자는 지난번에 나눈
+                                         결과라 지금 앉은 인원과 어긋납니다. 인원은 아래 줄에 나옵니다. */
+                                      <span style={{ fontSize: `${cellLabelFontSize('대기', isCompactFit)}px` }}>대기</span>
+                                    ) : (() => {
+                                      const label = banLabel(cellVal, ps.index, r.id);
+                                      const cut = label.lastIndexOf('-');
+                                      const subject = cut === -1 ? label : label.slice(0, cut).trim();
+                                      const ban = cut === -1 ? '' : label.slice(cut + 1).trim();
+                                      return (
+                                        <>
+                                          <div className="break-keep" style={{ fontSize: `${cellLabelFontSize(subject, isCompactFit)}px` }}>
+                                            {subject}
+                                          </div>
+                                          {ban && (
+                                            <div
+                                              className="font-bold opacity-80 break-keep"
+                                              style={{ fontSize: `${cellLabelFontSize(ban, isCompactFit) - 1}px` }}
+                                            >
+                                              {ban}
+                                            </div>
+                                          )}
+                                        </>
+                                      );
+                                    })()}
                                   </div>
                                   {isOverCapacity && stepMode !== 7 && (
                                     <span className="px-1.5 py-0.2 bg-orange-600 text-white text-[9.5px] rounded-sm font-black shadow-2xs tracking-tighter">
@@ -3382,6 +3423,110 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       )}
 
       {/* 분반 이름 지정 */}
+      {/* 고사장을 어느 반부터 채울지. 학교마다 쓰는 방식이 다릅니다. */}
+      {fillOrderAsk && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setFillOrderAsk(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-[#005691] text-white px-5 py-4 flex items-center justify-between">
+              <div>
+                <div className="font-black text-[17px]">전체 자동배치</div>
+                <div className="text-[13px] text-blue-100 font-medium mt-0.5">
+                  {stepMode === 7 ? '고사장을 어느 반부터 채울까요?' : '학생을 어떻게 앉힐까요?'}
+                </div>
+              </div>
+              <button onClick={() => setFillOrderAsk(false)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="px-6 py-5 space-y-2">
+              {stepMode === 7 ? (
+                <>
+                  {([
+                    ['minMove', '최소 이동 (권장)', '시험 보는 학생이 제 교실에 그대로 앉도록 맞춥니다. 학생이 가장 적게 움직입니다.'],
+                    ['first', '1반부터 채우기', '앞 반부터 차례로 고사장으로 씁니다. 뒤쪽 반이 대기실이 됩니다.'],
+                    ['last', '마지막 반부터 채우기', '뒤 반부터 거꾸로 고사장으로 씁니다. 앞쪽 반이 대기실이 됩니다.'],
+                  ] as const).map(([value, label, desc]) => (
+                    <button
+                      key={value}
+                      onClick={() => runAutoPlaceAll(value)}
+                      className="w-full text-left px-4 py-3 rounded-xl border-2 border-gray-200 hover:border-[#005691] hover:bg-blue-50/50 transition"
+                    >
+                      <div className="font-black text-[15px] text-slate-800">{label}</div>
+                      <div className="text-[13px] text-slate-500 mt-0.5 leading-relaxed">{desc}</div>
+                    </button>
+                  ))}
+                  <p className="text-[13px] text-slate-500 pt-2 leading-relaxed border-t border-gray-100 mt-3">
+                    어느 쪽을 고르든 <strong>분반은 쪼개지 않습니다.</strong> 배치한 뒤 칸을 끌거나 눌러 손으로 고칠 수 있습니다.
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* 고사 인원과 대기 인원은 따로 정합니다. 시험 보는 학생은 분반을 지키는 것이,
+                      대기 학생은 제 교실에 있는 것이 대개 낫지만 학교마다 다릅니다. */}
+                  <div>
+                    <div className="font-black text-[14px] text-slate-700 mb-1.5">시험 보는 학생</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        ['auto', '분반대로 (권장)', '편성현황의 분반을 통째로 한 고사실에 앉힙니다.'],
+                        ['student_id', '학번순', '분반을 보지 않고 학번 순서대로 고사실에 나눠 앉힙니다.'],
+                      ] as const).map(([value, label, desc]) => (
+                        <button
+                          key={value}
+                          onClick={() => setExamMode(value)}
+                          className={`text-left px-3 py-2.5 rounded-xl border-2 transition ${
+                            examMode === value ? 'border-[#005691] bg-blue-50/60' : 'border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="font-black text-[14px] text-slate-800">{label}</div>
+                          <div className="text-[12.5px] text-slate-500 mt-0.5 leading-snug">{desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-3">
+                    <div className="font-black text-[14px] text-slate-700 mb-1.5">대기(미응시) 학생</div>
+                    <div className="grid grid-cols-2 gap-2">
+                      {([
+                        ['home', '제 교실 우선 (권장)', '자기 반 교실에 최대한 그대로 남깁니다. 이동이 가장 적습니다.'],
+                        ['student_id', '학번순', '학번 순서대로 앞 대기실부터 채웁니다. 명단이 깔끔해집니다.'],
+                      ] as const).map(([value, label, desc]) => (
+                        <button
+                          key={value}
+                          onClick={() => setWaitMode(value)}
+                          className={`text-left px-3 py-2.5 rounded-xl border-2 transition ${
+                            waitMode === value ? 'border-[#005691] bg-blue-50/60' : 'border-gray-200 hover:bg-gray-50'
+                          }`}
+                        >
+                          <div className="font-black text-[14px] text-slate-800">{label}</div>
+                          <div className="text-[12.5px] text-slate-500 mt-0.5 leading-snug">{desc}</div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 flex justify-end gap-2 border-t border-gray-100 mt-3">
+                    <button
+                      onClick={() => setFillOrderAsk(false)}
+                      className="px-4 py-2 bg-white hover:bg-gray-100 text-slate-700 border border-gray-300 rounded-lg font-bold text-[14px]"
+                    >
+                      취소
+                    </button>
+                    <button
+                      onClick={() => runAutoPlaceAll('minMove')}
+                      className="px-4 py-2 bg-[#005691] hover:bg-[#00426e] text-white rounded-lg font-bold text-[14px]"
+                    >
+                      이대로 배치
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 늘 따로 보는 학생인지, 이 시험만 따로 보는 학생인지 물어봅니다. */}
       {separateAsk && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-6" onClick={() => setSeparateAsk(null)}>

@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { useAppStore } from '../store/appStore';
 import { StageHeader } from '../components/StageHeader';
+import { StepHelp } from '../components/StepHelp';
 import { MSG } from '../domain/messages';
 import { buildSubjectTables } from '../domain/baseData';
 
@@ -23,6 +24,16 @@ export const Step3Subjects: React.FC = () => {
       <StageHeader
         stageNumber={3}
         stageTitle="과목 및 분반 현황 (조회)"
+        help={
+          <StepHelp title="3. 과목현황">
+            <p>1단계 자료에서 <strong>과목과 분반을 집계해 보여 주는</strong> 화면입니다. 고치는 곳이 아니라 확인하는 곳입니다.</p>
+            <ul>
+              <li><strong>분반 수</strong> — 그 과목을 몇 개 강의실로 나눠 듣는지. 7단계에서 필요한 고사실 수의 기준이 됩니다.</li>
+              <li><strong>수강 인원</strong> — 그 과목을 듣는 학생 수.</li>
+            </ul>
+            <p>숫자가 이상하면 1단계 파일이 잘못된 것이니, 나이스에서 다시 받아 오세요. 편의반도 반 수에 들어갑니다.</p>
+          </StepHelp>
+        }
         isConfirmed={!!stages.step3}
         confirmLabel="과목현황 확인"
         cancelLabel="확인 취소"

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../store/appStore';
 import { StageHeader } from '../components/StageHeader';
+import { StepHelp } from '../components/StepHelp';
 import { Plus, Trash2, Calendar, Clock, Building2, Sparkles, Check, RefreshCw, Copy, Layers, Save, CheckCircle2 } from 'lucide-react';
 import { MSG } from '../domain/messages';
 import { DEFAULT_PERIOD_TIMES } from '../domain/constants';
@@ -28,6 +29,10 @@ export const Step2BaseInfo: React.FC = () => {
     copyBaseInfoFromGrade,
   } = useAppStore();
 
+  // 확정한 기초정보는 못 고치게 잠급니다. 날짜·고사실이 바뀌면
+  // 이미 짜 둔 시간표와 배치가 조용히 어긋납니다.
+  const locked = !!stages.step2;
+
   const grade = useAppStore(selGrade);
   const totalStudents = useAppStore(selTotalStudents);
 
@@ -54,6 +59,7 @@ export const Step2BaseInfo: React.FC = () => {
 
   // Handle exam duration switch (3일, 4일, 5일)
   const handleDurationChange = (cnt: number) => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     setExamDuration(cnt);
     // Clear dates for days beyond selected duration
     const nextDays = days.map(d => (d.day > cnt ? { ...d, date: null } : d));
@@ -65,6 +71,7 @@ export const Step2BaseInfo: React.FC = () => {
 
   // Auto calculate consecutive dates excluding weekends
   const handleAutoCalculateDates = () => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     if (!startDate) return;
     const calculated = calculateExamDates(startDate, examDuration);
     const nextDays = days.map(d => {
@@ -86,11 +93,13 @@ export const Step2BaseInfo: React.FC = () => {
   };
 
   const handleDateChange = (dayIdx: number, val: string) => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     const nextDays = days.map(d => (d.day === dayIdx ? { ...d, date: val || null } : d));
     setExamDays(nextDays);
   };
 
   const handleTimeChange = (dayIdx: number, periodIdx: number, val: string) => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     const nextTimes = times.map(t =>
       t.day === dayIdx && t.period === periodIdx ? { ...t, time: val || null } : t
     );
@@ -99,6 +108,7 @@ export const Step2BaseInfo: React.FC = () => {
 
   // Set default 3 periods (1~3 periods) for all visible days
   const handleApplyDefault3Periods = () => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     const nextTimes = times.map(t => {
       if (t.day <= examDuration) {
         if (t.period <= 3) {
@@ -113,6 +123,7 @@ export const Step2BaseInfo: React.FC = () => {
 
   // Add/Remove 4th period
   const handleTogglePeriod4 = () => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     const nextEnable = !hasPeriod4;
     const nextTimes = times.map(t => {
       if (t.period === 4) {
@@ -129,6 +140,7 @@ export const Step2BaseInfo: React.FC = () => {
 
   // Add/Remove 5th period
   const handleTogglePeriod5 = () => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     const nextEnable = !hasPeriod5;
     const nextTimes = times.map(t => {
       if (t.period === 5) {
@@ -145,6 +157,7 @@ export const Step2BaseInfo: React.FC = () => {
 
   // Copy all period times from Day 1 to other visible days (1일차 전체복사)
   const copyFirstDayTimes = () => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     const day1Times = new Map<number, string | null>();
     for (const t of times.filter(t => t.day === 1)) {
       day1Times.set(t.period, t.time);
@@ -159,6 +172,7 @@ export const Step2BaseInfo: React.FC = () => {
   };
 
   const handleBulkGenerateRooms = () => {
+    if (locked) return; // 확정한 기초정보는 고치지 않습니다.
     generateRooms(bulkBanCount, bulkCapacity, bulkPadZero);
   };
 
@@ -184,6 +198,17 @@ export const Step2BaseInfo: React.FC = () => {
       <StageHeader
         stageNumber={2}
         stageTitle="기초정보 설정"
+        help={
+          <StepHelp title="2. 기초정보">
+            <p>고사 <strong>날짜·시간·고사실</strong>을 정하는 단계입니다.</p>
+            <h3>여기서 정한 것이 뒤에 어떻게 쓰이나요</h3>
+            <ul>
+              <li><strong>날짜와 교시 시간</strong> — 시간을 비워 둔 교시는 시험을 배치하지 않습니다. 6단계 시간표는 여기서 시간을 넣은 교시에만 과목을 놓습니다.</li>
+              <li><strong>고사실명·최대 수용인원</strong> — 7단계의 정원이 됩니다. 책상 수를 생각해 적으세요.</li>
+              <li><strong>별도실</strong> — 학반이 아닌 특별실입니다. 시험 보는 학생이 특별실로 이동하고 남은 학생이 제 교실에서 자습하는 방식이면, 필요한 수만큼 만들어 두세요.</li>
+            </ul>
+          </StepHelp>
+        }
         isConfirmed={!!stages.step2}
         confirmLabel="기초정보 확정"
         cancelLabel="확정 취소"
@@ -287,6 +312,7 @@ export const Step2BaseInfo: React.FC = () => {
                       type="date"
                       value={startDate}
                       onChange={e => setStartDate(e.target.value)}
+                      disabled={locked}
                       className="w-full px-2.5 py-1.5 text-[15px] border border-gray-200 rounded-xl bg-white focus:ring-2 focus:ring-[#00A651] focus:outline-none font-normal"
                     />
                   </div>
@@ -336,6 +362,7 @@ export const Step2BaseInfo: React.FC = () => {
                         type="date"
                         value={d.date ?? ''}
                         onChange={e => handleDateChange(d.day, e.target.value)}
+                        disabled={locked}
                         className="flex-1 px-3 py-1.5 text-[15.5px] border border-gray-200 rounded-xl focus:ring-2 focus:ring-[#00A651] focus:outline-none font-normal"
                       />
                       {d.date && (
@@ -445,6 +472,7 @@ export const Step2BaseInfo: React.FC = () => {
                                 placeholder={DEFAULT_PERIOD_TIMES[t.period] || '09:00 ~ 09:50'}
                                 value={t.time ?? ''}
                                 onChange={e => handleTimeChange(t.day, t.period, e.target.value)}
+                                disabled={locked}
                                 className="flex-1 px-2.5 py-1 text-[15px] border border-gray-300 rounded font-mono focus:ring-1 focus:ring-blue-500 focus:outline-none"
                               />
                             </div>
@@ -499,6 +527,7 @@ export const Step2BaseInfo: React.FC = () => {
                       max={30}
                       value={bulkBanCount}
                       onChange={e => setBulkBanCount(Math.max(1, Number(e.target.value) || 1))}
+                      disabled={locked}
                       className="w-full px-2 py-1 text-[15px] border border-gray-300 rounded bg-white font-bold text-center"
                     />
                   </div>
@@ -510,6 +539,7 @@ export const Step2BaseInfo: React.FC = () => {
                       max={60}
                       value={bulkCapacity}
                       onChange={e => setBulkCapacity(Math.max(1, Number(e.target.value) || 1))}
+                      disabled={locked}
                       className="w-full px-2 py-1 text-[15px] border border-gray-300 rounded bg-white font-bold text-center"
                     />
                   </div>
@@ -518,6 +548,7 @@ export const Step2BaseInfo: React.FC = () => {
                     <select
                       value={bulkPadZero ? '01' : '1'}
                       onChange={e => setBulkPadZero(e.target.value === '01')}
+                      disabled={locked}
                       className="w-full px-1.5 py-1 text-[15px] border border-gray-300 rounded bg-white"
                     >
                       <option value="1">1반, 2반..</option>
@@ -565,7 +596,8 @@ export const Step2BaseInfo: React.FC = () => {
                                 type="text"
                                 value={r.banName}
                                 placeholder="(별도실)"
-                                onChange={e => updateRoom(r.id, { banName: e.target.value })}
+                                onChange={e => { if (locked) return; updateRoom(r.id, { banName: e.target.value }); }}
+                                disabled={locked}
                                 className="w-full px-2 py-1 border border-gray-200 rounded-lg font-bold text-[#0f172a] bg-transparent focus:bg-white text-[15px]"
                               />
                             </td>
@@ -580,7 +612,8 @@ export const Step2BaseInfo: React.FC = () => {
                               <input
                                 type="text"
                                 value={r.roomName}
-                                onChange={e => updateRoom(r.id, { roomName: e.target.value })}
+                                onChange={e => { if (locked) return; updateRoom(r.id, { roomName: e.target.value }); }}
+                                disabled={locked}
                                 className="w-full px-2 py-1 border border-gray-200 rounded-lg font-black text-[#005691] bg-transparent focus:bg-white text-[15px]"
                               />
                             </td>
@@ -592,7 +625,8 @@ export const Step2BaseInfo: React.FC = () => {
                                 min={1}
                                 max={100}
                                 value={r.capacity}
-                                onChange={e => updateRoom(r.id, { capacity: Number(e.target.value) || 0 })}
+                                onChange={e => { if (locked) return; updateRoom(r.id, { capacity: Number(e.target.value) || 0 }); }}
+                                disabled={locked}
                                 className="w-14 px-1.5 py-1 border border-gray-200 rounded-lg text-center font-black text-[#005691] text-[15px]"
                               />
                             </td>

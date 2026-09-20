@@ -29,6 +29,21 @@ export interface MovementStats {
  * 판정되어 학급이 열 개 넘는 학교에서 명단이 뒤섞였습니다. 꼬리는 완전히
  * 같아야 합니다.
  */
+/**
+ * 고사장을 어느 반부터 채울지.
+ *  - 'minMove' 원반이 같은 교실을 먼저 줍니다. 학생이 가장 적게 움직입니다(기본).
+ *  - 'first'   1반부터 차례로 채웁니다. 뒤쪽 반이 대기실이 됩니다.
+ *  - 'last'    마지막 반부터 거꾸로 채웁니다. 앞쪽 반이 대기실이 됩니다.
+ */
+export type RoomFillOrder = 'minMove' | 'first' | 'last';
+
+/**
+ * 대기(미응시) 인원을 어떻게 앉힐지.
+ *  - 'home'      제 교실에 머무르는 것을 먼저 맞춥니다. 학생이 가장 적게 움직입니다(기본).
+ *  - 'student_id' 학번 순서대로 앞 대기실부터 채웁니다. 명단이 학번순으로 깔끔해집니다.
+ */
+export type WaitFillMode = 'home' | 'student_id';
+
 const sameBanRoom = (a: string | undefined, b: string | undefined): boolean => {
   if (!a || !b) return false;
   const tail = (v: string) => {
@@ -290,7 +305,9 @@ export function autoPlaceSlot(
   entries: Map<SubjectBanKey, SubjectBanEntry>,
   students: Student[],
   isExtra: boolean,
-  lockedCellsRow?: Record<string, boolean>
+  lockedCellsRow?: Record<string, boolean>,
+  /** 고사장을 어느 반부터 채울지. 기본은 학생이 가장 적게 움직이는 쪽입니다. */
+  roomFillOrder: RoomFillOrder = 'minMove'
 ): PlacementGrid {
   const newPlacement: PlacementGrid = JSON.parse(JSON.stringify(placement));
   const currentSlot = newPlacement[i] || {};
@@ -397,10 +414,22 @@ export function autoPlaceSlot(
   });
 
   // 2. 분반별 최적 고사실 매칭 (잠긴 고사실 제외)
+  // '1반부터' / '마지막 반부터'는 교실 순서를 그대로 따릅니다.
+  // 원반 매칭을 건너뛰어야 담당자가 고른 순서대로 고사장이 정해집니다.
+  const orderedRooms = roomFillOrder === 'last' ? [...rooms].reverse() : rooms;
+
   for (const item of banItems) {
     let targetRoom: ExamRoom | undefined = undefined;
 
-    if (item.dominantBan) {
+    if (roomFillOrder !== 'minMove') {
+      targetRoom = orderedRooms.find(r =>
+        !lockedCellsRow?.[r.id] &&
+        !isExtraRoom(r) &&
+        (!newPlacement[i][r.id] || newPlacement[i][r.id] === '')
+      );
+    }
+
+    if (!targetRoom && roomFillOrder === 'minMove' && item.dominantBan) {
       targetRoom = rooms.find(r => 
         !lockedCellsRow?.[r.id] &&
         (r.banName === item.dominantBan || r.roomName === item.dominantBan) &&
@@ -455,7 +484,7 @@ export function autoPlaceSlot(
   }
 
   // 1. Place remaining exams in empty rooms (excluding locked rooms)
-  for (const r of rooms) {
+  for (const r of orderedRooms) {
     if (lockedCellsRow?.[r.id]) continue;
     if (newPlacement[i][r.id] && newPlacement[i][r.id] !== '') continue;
     const head = queue[0];
@@ -549,7 +578,8 @@ export function autoPlaceAll(
   extraAnswers?: Record<number, boolean>,
   lockedCells?: Record<number, Record<string, boolean>>,
   slotRoomCapacity?: SlotRoomCapacity,
-  slotCapacityBasis?: SlotCapacityBasis
+  slotCapacityBasis?: SlotCapacityBasis,
+  roomFillOrder: RoomFillOrder = 'minMove'
 ): PlacementGrid {
   let currentPlacement = JSON.parse(JSON.stringify(placement));
   const firstUsableRoom = rooms.find(r => r.roomName !== '' && r.roomName !== '0');
@@ -567,7 +597,8 @@ export function autoPlaceAll(
       entries,
       students,
       isExtra,
-      lockedCells?.[ps.index]
+      lockedCells?.[ps.index],
+      roomFillOrder
     );
   }
 
@@ -701,7 +732,9 @@ export function initSlotStudentPlacements(
   neis?: NeisRow[],
   existingSlotPlacements?: Record<string, string>,
   lockedCellsRow?: Record<string, boolean>,
-  placementMode?: 'auto' | 'ban' | 'student_id'
+  placementMode?: 'auto' | 'ban' | 'student_id',
+  /** 대기 인원을 어떻게 앉힐지. 기본은 제 교실에 머무르게 하는 쪽입니다. */
+  waitMode: WaitFillMode = 'home'
 ): Record<string, string> {
   const result: Record<string, string> = {};
   const ps = placementSlots.find(s => s.index === slotIndex);
@@ -917,8 +950,9 @@ export function initSlotStudentPlacements(
     }
   }
 
-  // Pass 2A: Home class non-takers first in home room (strictly capped by room capacity)
-  for (const r of rooms) {
+  // Pass 2A: 제 교실에 머무르게 하는 단계입니다.
+  // '학번순'을 고르면 이 단계를 건너뛰고, 아래 2B 에서 학번 순서대로 채웁니다.
+  for (const r of (waitMode === 'home' ? rooms : [])) {
     const quota = roomWaitQuota[r.id] || 0;
     if (quota <= 0 || !r.banName) continue;
 
