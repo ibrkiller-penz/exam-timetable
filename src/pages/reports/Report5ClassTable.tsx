@@ -34,7 +34,7 @@ export const Report5ClassTable: React.FC = () => {
       <PrintPageSize />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">10-5. 학급 시험시간표</h2>
+          <h2 className="text-xl font-bold text-[#005691]">11-5. 학급 시험시간표</h2>
           <select
             value={curBan}
             onChange={e => setSelectedBan(e.target.value)}

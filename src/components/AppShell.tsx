@@ -10,7 +10,7 @@ import { AppTheme } from '../domain/types';
 import {
   FileSpreadsheet, Settings, Calendar, Layers, CheckSquare, Users,
   Clock, Grid, ClipboardList, Printer, Download, Upload, RotateCcw,
-  Sparkles, CheckCircle2, Cloud, FolderOpen, Save, Palette
+  Sparkles, CheckCircle2, Cloud, FolderOpen, Save, Palette, UserCheck
 } from 'lucide-react';
 
 interface AppShellProps {
@@ -160,7 +160,15 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
     }
   };
 
-  const steps = [
+  // 별도 고사실에 지정된 학생 수. 9번 단계에 몇 명인지 바로 보이게 합니다.
+  const separateCount = Object.keys(store.separateExaminers ?? {}).length;
+
+  // optional: 꼭 거치지 않아도 되는 단계(별도 응시자가 없는 학교도 있습니다).
+  const steps: {
+    id: string; num: number; label: string;
+    icon: typeof FileSpreadsheet; done: boolean;
+    optional?: boolean; count?: number;
+  }[] = [
     { id: 'step1', num: 1, label: '1. 학생편성현황', icon: FileSpreadsheet, done: !!(stages.step1 ?? stages.stage1) },
     { id: 'step2', num: 2, label: '2. 기초정보', icon: Calendar, done: !!stages.step2 },
     { id: 'step3', num: 3, label: '3. 과목현황', icon: Layers, done: !!stages.step3 },
@@ -169,18 +177,18 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
     { id: 'step6', num: 6, label: '6. 시간표작성', icon: Clock, done: !!(stages.step6 ?? stages.stage3) },
     { id: 'step7', num: 7, label: '7. 고사장 배치', icon: Grid, done: !!(stages.step7 ?? stages['step7-1'] ?? stages.stage4) },
     { id: 'step8', num: 8, label: '8. 학생 배치', icon: Users, done: !!(stages.step8 ?? stages['step7-2']) },
-    { id: 'step9', num: 9, label: '9. 응시현황', icon: ClipboardList, done: !!(stages.step9 ?? stages.stage5) },
+    { id: 'sep', num: 9, label: '9. 별도 고사실', icon: UserCheck, done: false, optional: true, count: separateCount },
+    { id: 'step9', num: 10, label: '10. 응시현황', icon: ClipboardList, done: !!(stages.step9 ?? stages.stage5) },
   ];
 
   const reports = [
-    { id: 'r1', label: '10-1 전체 시간표' },
-    { id: 'r2', label: '10-2 고사실 명단' },
-    { id: 'r3', label: '10-3 고사실 시간표' },
-    { id: 'r4', label: '10-4 좌석배치도' },
-    { id: 'r5', label: '10-5 학급 시간표' },
-    { id: 'r6', label: '10-6 개별 수험표 출력' },
-    { id: 'r7', label: '10-7 봉투 라벨' },
-    { id: 'r8', label: '10-8 별도 고사실' },
+    { id: 'r1', label: '11-1 전체 시간표' },
+    { id: 'r2', label: '11-2 고사실 명단' },
+    { id: 'r3', label: '11-3 고사실 시간표' },
+    { id: 'r4', label: '11-4 좌석배치도' },
+    { id: 'r5', label: '11-5 학급 시간표' },
+    { id: 'r6', label: '11-6 개별 수험표 출력' },
+    { id: 'r7', label: '11-7 봉투 라벨' },
   ];
 
   const p = tc.primary;
@@ -281,7 +289,14 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
                   <Icon className="w-4.5 h-4.5" style={{ color: active ? tc.primary : '#64748b' }} />
                   <span style={{ color: active ? tc.primary : '#334155' }}>{s.label}</span>
                 </div>
-                {s.done ? (
+                {s.optional ? (
+                  <span
+                    className="text-[13px] font-black px-2 py-0.5 rounded-md border bg-slate-50 text-slate-500 border-slate-200"
+                    title="별도 고사실은 해당하는 학생이 있을 때만 쓰는 단계입니다."
+                  >
+                    {s.count ? `${s.count}명` : '선택'}
+                  </span>
+                ) : s.done ? (
                   <span className="flex items-center gap-1 text-[15px] font-black text-[#007a3c] bg-[#e5f6ec] px-2 py-1 rounded-md border border-[#00A651]/30">
                     <CheckCircle2 className="w-4 h-4" />
                   </span>

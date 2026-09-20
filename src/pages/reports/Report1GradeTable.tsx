@@ -41,7 +41,7 @@ export const Report1GradeTable: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-auto p-6 print:overflow-visible print:h-auto print:p-0">
       <PrintPageSize landscape={true} />
       <div className="flex items-center justify-between mb-4 no-print">
-        <h2 className="text-xl font-bold text-[#005691]">10-1. 전체 시험시간표</h2>
+        <h2 className="text-xl font-bold text-[#005691]">11-1. 전체 시험시간표</h2>
         <PdfSaveButton filename={`${meta.title || '고사'} 전체 시험시간표.pdf`} disabled={!hasPlacement} />
         <button
           onClick={() => window.print()}

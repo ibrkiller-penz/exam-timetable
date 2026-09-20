@@ -5,7 +5,7 @@ import { useAppStore } from '../../store/appStore';
 /**
  * 인쇄물이 비어 있을 때, 왜 비었는지 화면이 직접 말하게 합니다.
  *
- * 10번 인쇄물은 9. 응시현황까지 확정되어야 만들어집니다.
+ * 11번 인쇄물은 10. 응시현황까지 확정되어야 만들어집니다.
  * 예전에는 "응시현황이 없거나…"라고만 해서, 무엇을 더 해야 하는지
  * 알 수 없었습니다. 어느 단계가 남았는지 짚어 줍니다.
  */
@@ -14,14 +14,21 @@ export const ReportGate: React.FC<{
   what: string;
   /** 단계는 모두 끝났는데 고른 조건에 해당하는 자료가 없을 때 보여 줄 말. */
   emptyHint?: string;
-}> = ({ what, emptyHint }) => {
+  /**
+   * 어디까지 끝나야 하는지.
+   * 인쇄물은 '10. 응시현황'까지 확정되어야 하지만,
+   * 9. 별도 고사실 지정은 '8. 학생 배치'만 끝나면 할 수 있습니다.
+   */
+  until?: 'placement' | 'attendance';
+}> = ({ what, emptyHint, until = 'attendance' }) => {
   const stages = useAppStore(s => s.stages);
 
-  const steps = [
+  const allSteps = [
     { done: !!stages.step7, label: '7. 고사장 배치 확정', hint: '고사실과 정원을 정하고 확정합니다.' },
     { done: !!stages.stage4, label: '8. 학생 배치 확정', hint: '학생을 앉히고 확정하면 응시현황이 만들어집니다.' },
-    { done: !!stages.stage5, label: '9. 응시현황 확정', hint: '좌석번호까지 부여하고 확정하면 인쇄물이 나옵니다.' },
+    { done: !!stages.stage5, label: '10. 응시현황 확정', hint: '좌석번호까지 부여하고 확정하면 인쇄물이 나옵니다.' },
   ];
+  const steps = until === 'placement' ? allSteps.slice(0, 2) : allSteps;
 
   const next = steps.find(s => !s.done);
 

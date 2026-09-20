@@ -25,7 +25,7 @@ export const Report3RoomTimetable: React.FC = () => {
       <PrintPageSize landscape={true} />
       <div className="flex items-center justify-between mb-4 no-print">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">10-3. 고사실 시험시간표</h2>
+          <h2 className="text-xl font-bold text-[#005691]">11-3. 고사실 시험시간표</h2>
           <select
             value={selectedRoomId}
             onChange={e => setSelectedRoomId(e.target.value)}

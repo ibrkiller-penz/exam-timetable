@@ -80,7 +80,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div>
             <label className="block font-normal text-gray-700 mb-1">
               좌석배치도 기본 행렬
-              <Where>10-4 좌석배치도 관련</Where>
+              <Where>11-4 좌석배치도 관련</Where>
             </label>
             <div className="flex items-center gap-2">
               <div className="flex-1">
@@ -109,14 +109,14 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
             </div>
             <p className="text-xs text-gray-500 mt-1">
               한 고사실에 {(settings.seatColumns || 5) * (settings.seatsPerColumn || 8)}석이 그려집니다.
-              고사실마다 다르게 하려면 10-4 좌석배치도에서 바꿉니다.
+              고사실마다 다르게 하려면 11-4 좌석배치도에서 바꿉니다.
             </p>
           </div>
 
           <div className="flex items-center justify-between pt-2">
             <span className="font-normal text-gray-700">
               학생별 시간표에 좌석번호 표시
-              <Where>10-6 개별 수험표 관련</Where>
+              <Where>11-6 개별 수험표 관련</Where>
             </span>
             <input
               type="checkbox"
@@ -130,7 +130,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({ isOpen, onClose })
           <div className="pt-2">
             <span className="block font-normal text-gray-700 mb-1.5">
               별도 고사실 운영 수
-              <Where>10-8 별도 고사실 관련</Where>
+              <Where>9. 별도 고사실 관련</Where>
             </span>
             <div className="flex items-center gap-2">
               <input

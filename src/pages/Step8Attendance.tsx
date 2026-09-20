@@ -109,24 +109,24 @@ export const Step8Attendance: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <StageHeader
         stageNumber={9}
-        stageTitle="9. 응시현황 및 좌석번호 부여"
+        stageTitle="10. 응시현황 및 좌석번호 부여"
         help={
-          <StepHelp title="9. 응시현황">
-            <p>8단계까지 정한 배치를 바탕으로 <strong>학생마다 한 줄씩</strong> 응시현황을 만들고, 좌석번호를 부여하는 단계입니다. 10번 인쇄물은 모두 이 자료에서 나옵니다.</p>
+          <StepHelp title="10. 응시현황">
+            <p>8·9단계까지 정한 배치를 바탕으로 <strong>학생마다 한 줄씩</strong> 응시현황을 만들고, 좌석번호를 부여하는 단계입니다. 11번 인쇄물은 모두 이 자료에서 나옵니다.</p>
             <h3>좌석번호 부여</h3>
             <ul>
               <li><strong>학번순</strong> — 명단 순서대로 1번부터 붙입니다.</li>
               <li><strong>랜덤</strong> — 고사실·과목 안에서 섞습니다. 대기실은 섞지 않습니다.</li>
             </ul>
-            <p>좌석번호는 자리의 <strong>순서</strong>일 뿐이고, 실제 앉는 위치는 10-4 좌석배치도의 열·행과 배치순서로 그려집니다.</p>
+            <p>좌석번호는 자리의 <strong>순서</strong>일 뿐이고, 실제 앉는 위치는 11-4 좌석배치도의 열·행과 배치순서로 그려집니다.</p>
             <h3>확정하면</h3>
-            <p>10번 인쇄물이 모두 열립니다. 별도 고사실 응시자는 좌석을 받지 않으므로, 좌석이 비어 있어도 오류가 아닙니다.</p>
+            <p>11번 인쇄물이 모두 열립니다. 별도 고사실 응시자는 좌석을 받지 않으므로, 좌석이 비어 있어도 오류가 아닙니다.</p>
           </StepHelp>
         }
         /* 9번은 9번 확정만 봅니다. step8 까지 대신 읽는 바람에
            8번을 확정하면 9번도 확정된 것처럼 보였습니다. */
         isConfirmed={!!(stages.step9 ?? stages.stage5)}
-        confirmLabel="9. 응시현황 확정"
+        confirmLabel="10. 응시현황 확정"
         cancelLabel="응시현황 확정 취소"
         onConfirm={handleConfirm}
         onCancel={handleCancel}

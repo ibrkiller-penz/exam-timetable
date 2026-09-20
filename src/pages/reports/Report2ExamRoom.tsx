@@ -42,7 +42,7 @@ export const Report2ExamRoom: React.FC = () => {
       <PrintPageSize />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">10-2. 고사실 명단</h2>
+          <h2 className="text-xl font-bold text-[#005691]">11-2. 고사실 명단</h2>
           <select
             value={selectedDay}
             onChange={e => setSelectedDay(e.target.value as DayLabel)}

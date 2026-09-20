@@ -375,7 +375,7 @@ export const Report7Labels: React.FC = () => {
 
       {!stages.stage5 ? (
         <div className="p-12 text-center text-[#8C867A] border border-slate-200 rounded-xl bg-white flex flex-col items-center justify-center">
-          <p className="font-bold">8단계 응시현황이 확정되면 문제지 봉투 라벨이 생성됩니다.</p>
+          <p className="font-bold">10. 응시현황이 확정되면 문제지 봉투 라벨이 생성됩니다.</p>
         </div>
       ) : (
         <div className="space-y-6">

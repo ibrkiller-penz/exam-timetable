@@ -76,7 +76,7 @@ export const Report4SeatMap: React.FC = () => {
       <PrintPageSize landscape={anyWide} />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">10-4. 고사실 좌석배치도</h2>
+          <h2 className="text-xl font-bold text-[#005691]">11-4. 고사실 좌석배치도</h2>
           <select
             value={selectedDay}
             onChange={e => setReportSelection({ day: e.target.value as any })}

@@ -1804,7 +1804,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       }
 
       const notices = confirmStage4();
-      await saveCloudImmediately(useAppStore.getState(), '[확정] 8단계. 학생 배치 확정');
+      await saveCloudImmediately(useAppStore.getState(), '[확정] 8. 학생 배치 확정');
 
       let finalMessage = '✅ 서버에 배치가 확정 및 안전하게 저장되었습니다.\n\n';
       if (notices.length > 0) {

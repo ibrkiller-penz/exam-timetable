@@ -8,7 +8,7 @@ import { Printer, Download, X } from 'lucide-react';
 /**
  * 고사 시간표 미리보기.
  * 8. 학생 배치에서 확정 전에도 시간표를 바로 보고, 인쇄하거나 엑셀로 내려받습니다.
- * 표는 10-1 전체 시간표와 같은 함수로 만들어 인쇄물과 내용이 어긋나지 않습니다.
+ * 표는 11-1 전체 시간표와 같은 함수로 만들어 인쇄물과 내용이 어긋나지 않습니다.
  */
 export const TimetablePreviewModal: React.FC<{ onClose: () => void }> = ({ onClose }) => {
   const { meta, rooms, days, times, placement, settings, slotBanLabels, slotBanLabelStyle } = useAppStore();
@@ -35,7 +35,7 @@ export const TimetablePreviewModal: React.FC<{ onClose: () => void }> = ({ onClo
             </button>
             <button
               onClick={() => {
-                // 10-1 전체 시간표와 같은 모양으로 내보냅니다.
+                // 11-1 전체 시간표와 같은 모양으로 내보냅니다.
                 const body: (string | number)[][] = [];
                 for (const r of rows) {
                   body.push([r.isFirstOfDate ? r.dateText.replace(/\s+/g, ' ') : '', r.periodLabel, ...r.cells.map(c => c.subject), '']);

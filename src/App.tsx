@@ -39,6 +39,9 @@ export const App: React.FC = () => {
       case 'step6': return <Step6Timetable />;
       case 'step7': return <Step7Placement stepMode={7} />;
       case 'step8': return <Step7Placement stepMode={8} />;
+      // 9. 별도 고사실 (10-8에서 단계로 올라왔습니다. 옛 'r8' 주소도 그대로 받습니다.)
+      case 'sep':
+      case 'r8': return <Report8SeparateRoom />;
       case 'step9': return <Step8Attendance />;
       case 'r1': return <Report1GradeTable />;
       case 'r2': return <Report2ExamRoom />;
@@ -47,7 +50,6 @@ export const App: React.FC = () => {
       case 'r5': return <Report5ClassTable />;
       case 'r6': return <Report6StudentTable />;
       case 'r7': return <Report7Labels />;
-      case 'r8': return <Report8SeparateRoom />;
       default: return <Step1Neis />;
     }
   };

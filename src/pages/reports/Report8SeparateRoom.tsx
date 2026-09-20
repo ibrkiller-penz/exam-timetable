@@ -9,10 +9,11 @@ import { separateRoomFor, SeparateExaminer } from '../../domain/types';
 import { ReportGate } from './ReportGate';
 import { PdfSaveButton } from './PdfSaveButton';
 import { PrintPageSize } from './PrintPageSize';
+import { StepHelp } from '../../components/StepHelp';
 import { buildStudentTableReport } from '../../domain/reports/studentTable';
 
 /**
- * 10-8. 별도 고사실 — 명단 체크와 명렬 출력.
+ * 9. 별도 고사실 — 명단 체크와 명렬 출력.
  *
  * 틱이나 장애가 있어 따로 응시하는 학생들입니다. 담당 선생님이 하시던 방식대로,
  * 그 학생들은 원래 고사실 명단에 그대로 두고 감독 선생님께 이 명렬을 따로 드립니다.
@@ -144,7 +145,35 @@ export const Report8SeparateRoom: React.FC = () => {
       <PrintPageSize />
       <div className="flex flex-wrap items-center justify-between gap-4 mb-4 no-print">
         <div className="flex items-center gap-3">
-          <h2 className="text-xl font-bold text-[#005691]">10-8. 별도 고사실</h2>
+          <h2 className="text-xl font-bold text-[#005691]">9. 별도 고사실</h2>
+          <StepHelp title="9. 별도 고사실">
+            <div>
+              <h3>이 단계가 하는 일</h3>
+              <p>틱이나 장애 등으로 <strong>제 교실이 아닌 별도 고사실에서 시험을 보는 학생</strong>을 지정하는 단계입니다. 해당하는 학생이 없으면 그냥 넘어가도 됩니다.</p>
+            </div>
+            <div>
+              <h3>지정하면 무엇이 달라지나</h3>
+              <ul>
+                <li><strong>고사실 명단</strong>에는 그대로 남고, 비고에 '별도'로 표시됩니다. 소속은 원래 교실이기 때문입니다.</li>
+                <li><strong>좌석배치도</strong>에서는 빠지고, 남은 학생들의 좌석번호가 1번부터 다시 매겨집니다.</li>
+                <li><strong>고사실 시간표·학급 시간표·개별 수험표</strong>에는 그 교시만 '(별)'이 붙습니다.</li>
+                <li><strong>봉투 라벨</strong>의 응시인원에서 별도로 나가는 인원만큼 빠집니다.</li>
+              </ul>
+            </div>
+            <div>
+              <h3>종일인지, 그 교시만인지</h3>
+              <p>학생을 체크하면 <strong>전체 적용</strong>인지 <strong>이 시험만</strong>인지 물어봅니다. 전체로 하면 모든 시험을 별도실에서 봅니다.</p>
+              <p>대기 시간까지 별도실에 머무는지는 <strong>설정</strong>에서 정합니다. '종일'로 두면 대기실 좌석배치도에서도 빠집니다.</p>
+            </div>
+            <div>
+              <h3>몇 실로 나누나</h3>
+              <p>설정의 <strong>별도 고사실 운영 수</strong>(기본 2실)만큼 나눕니다. 한 교시에 지정된 학생을 학번 순으로 1실·2실… 로 번갈아 넣습니다.</p>
+            </div>
+            <div>
+              <h3>순서</h3>
+              <p><strong>8. 학생 배치</strong>를 확정해야 응시현황이 만들어지고, 그 위에 별도 지정을 입힙니다. 지정을 마치면 <strong>10. 응시현황</strong>으로 가서 좌석번호를 확정하세요.</p>
+            </div>
+          </StepHelp>
           <span className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
             {([['manage', '명단 체크'], ['print', '명렬 출력']] as const).map(([id, label]) => (
               <button
@@ -211,6 +240,11 @@ export const Report8SeparateRoom: React.FC = () => {
           </button>
           </div>
         )}
+      </div>
+
+      <div className="no-print mb-4 px-4 py-3 rounded-xl bg-blue-50/70 border border-blue-100 text-[14px] text-slate-700 leading-relaxed">
+        별도 고사실에서 시험을 보는 학생을 지정합니다. 지정한 학생은 <strong>고사실 명단에는 그대로 남고 비고에 '별도'</strong>로 표시되며,
+        <strong> 좌석배치도에서는 빠집니다.</strong> 해당하는 학생이 없으면 이 단계는 건너뛰고 <strong>10. 응시현황</strong>으로 가시면 됩니다.
       </div>
 
       {/* 한 학생이 어느 교시에 무슨 과목을 어디서 보는지. 그대로 인쇄해 담임께 드릴 수 있습니다. */}
@@ -349,7 +383,11 @@ export const Report8SeparateRoom: React.FC = () => {
         );
       })()}
 
-      {tab === 'manage' ? (
+      {/* 8. 학생 배치를 확정해야 응시현황이 만들어지고, 그 위에 별도 지정을 입힙니다.
+          확정 전에 지정하면 어디에도 반영되지 않으므로 먼저 막습니다. */}
+      {!stages.stage4 ? (
+        <ReportGate what="별도 고사실 지정" until="placement" />
+      ) : tab === 'manage' ? (
         <div className="no-print">
           <div className="flex flex-wrap items-center gap-2 mb-3">
             <div className="relative">
@@ -497,7 +535,7 @@ export const Report8SeparateRoom: React.FC = () => {
         </div>
       ) : rosters.length === 0 ? (
         !stages.stage4 ? (
-          <ReportGate what="별도 고사실 명렬" />
+          <ReportGate what="별도 고사실 명렬" until="placement" />
         ) : (
           <div className="p-10 border border-slate-200 rounded-2xl bg-white max-w-xl mx-auto text-center">
             <div className="w-12 h-12 mx-auto bg-slate-100 rounded-full flex items-center justify-center mb-4">
