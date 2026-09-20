@@ -35,19 +35,21 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
   return (
     <div className="bg-white border-b border-gray-200/90 px-7 py-4.5 shadow-2xs">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        {/* Left: Stage Title & Status */}
-        <div className="flex items-center gap-4">
+        {/* Left: Stage Title & Status
+            제목 쪽은 줄어들지 않게 합니다(shrink-0). 오른쪽 버튼이 많은 단계(8. 학생 배치)에서
+            제목이 한 글자씩 세로로 접히고, 버튼은 넘칠 때 다음 줄로 내려가는 편이 읽기 낫습니다. */}
+        <div className="flex items-center gap-4 shrink-0">
           <span className="flex items-center justify-center w-10 h-10 rounded-xl bg-[#005691] text-white font-black text-base shadow-sm ring-1 ring-red-500/50 shrink-0">
             {stageNumber}
           </span>
           <div>
             <div className="flex items-center gap-3">
-              <span className={`px-2.5 py-0.5 rounded-lg text-white font-black text-xs ${
+              <span className={`px-2.5 py-0.5 rounded-lg text-white font-black text-xs whitespace-nowrap ${
                 activeGrade === '3' ? 'bg-[#9b1c1c]' : 'bg-[#005691]'
               }`}>
                 {activeGrade}학년
               </span>
-              <h2 className="text-xl font-black text-[#005691] tracking-tight">{stageTitle}</h2>
+              <h2 className="text-xl font-black text-[#005691] tracking-tight whitespace-nowrap">{stageTitle}</h2>
               {help}
               <span
                 className={`text-[15px] px-3.5 py-1 rounded-full font-black flex items-center gap-1.5 shadow-2xs ${
@@ -71,7 +73,7 @@ export const StageHeader: React.FC<StageHeaderProps> = ({
         </div>
 
         {/* Right: Actions & Confirm Button */}
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-3 flex-wrap justify-end min-w-0">
           {actions}
           {onConfirm && !isConfirmed && (
             <button

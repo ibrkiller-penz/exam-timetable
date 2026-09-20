@@ -1913,7 +1913,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <StageHeader
         stageNumber={stepMode === 7 ? 7 : 8}
-        stageTitle={stepMode === 7 ? "7. 고사장 배치" : "8. 학생 배치"}
+        stageTitle={stepMode === 7 ? "고사장 배치" : "학생 배치"}
         isConfirmed={isStageLocked}
         confirmLabel={stepMode === 7 ? "7. 고사장 배치 확정" : "8. 학생 배치 확정"}
         cancelLabel="확정 취소"

@@ -78,7 +78,7 @@ export const Step7_1RoomPlacement: React.FC<Step7_1RoomPlacementProps> = ({ onNe
       {/* Stage Header */}
       <StageHeader
         stageNumber={7}
-        stageTitle="7. 고사장 배치 (고사실 / 대기실 & 정원 설정)"
+        stageTitle="고사장 배치 (고사실 · 대기실 · 정원)"
         isConfirmed={isConfirmed}
         confirmLabel="7. 고사장 배치 확정"
         cancelLabel="확정 취소"

@@ -108,8 +108,8 @@ export const Step8Attendance: React.FC = () => {
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <StageHeader
-        stageNumber={9}
-        stageTitle="10. 응시현황 및 좌석번호 부여"
+        stageNumber={10}
+        stageTitle="응시현황 및 좌석번호 부여"
         help={
           <StepHelp title="10. 응시현황">
             <p>8·9단계까지 정한 배치를 바탕으로 <strong>학생마다 한 줄씩</strong> 응시현황을 만들고, 좌석번호를 부여하는 단계입니다. 11번 인쇄물은 모두 이 자료에서 나옵니다.</p>
