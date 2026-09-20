@@ -14,10 +14,12 @@ service cloud.firestore {
       return key.size() == 32 && key.matches('^[a-f0-9]+$');
     }
 
-    // 저장본은 이 네 가지 필드만 갖습니다. 다른 것을 끼워 넣지 못하게 합니다.
+    // 저장본이 가질 수 있는 필드를 못 박습니다. 다른 것은 끼워 넣지 못합니다.
+    // 내용은 stateJsonLz(압축)에 들어가고, 아주 옛날 저장본은 stateJson 을
+    // 쓰기도 했습니다. 앱이 둘 다 읽으므로 규칙도 둘 다 받습니다.
     function okSave() {
-      return request.resource.data.keys().hasOnly(['id', 'title', 'updatedAt', 'stateJsonLz'])
-        && request.resource.data.stateJsonLz is string
+      return request.resource.data.keys().hasOnly(['id', 'title', 'updatedAt', 'stateJson', 'stateJsonLz'])
+        && request.resource.data.keys().hasAny(['stateJson', 'stateJsonLz'])
         && request.resource.data.updatedAt is string;
     }
 

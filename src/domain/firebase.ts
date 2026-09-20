@@ -4,13 +4,20 @@ import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getFirestore, doc, setDoc, getDoc, collection, getDocs, deleteDoc } from 'firebase/firestore';
 import { AppState } from './types';
 
+/*
+ * 이 앱만 쓰는 전용 프로젝트입니다.
+ *
+ * 예전에는 school-schedule-ad811 을 썼는데, 그 프로젝트에는 급식·출결 등
+ * 다른 프로그램 다섯 개가 같이 얹혀 있었습니다. 한 곳의 보안 규칙을 고치면
+ * 다른 프로그램이 멈출 수 있어, 고사시간표만 따로 떼어 냈습니다.
+ */
 const firebaseConfig = {
-  apiKey: "AIzaSyClQdRIlbNJMy8qyQacFqqRJoNPSj23jo8",
-  authDomain: "school-schedule-ad811.firebaseapp.com",
-  projectId: "school-schedule-ad811",
-  storageBucket: "school-schedule-ad811.appspot.com",
-  messagingSenderId: "789522158878",
-  appId: "1:789522158878:web:7836bf982b8d7c7f44250f"
+  apiKey: "AIzaSyCMR_Eou8smGS8POH0Tx1ayHVLNU3jD4zg",
+  authDomain: "examtable-app.firebaseapp.com",
+  projectId: "examtable-app",
+  storageBucket: "examtable-app.firebasestorage.app",
+  messagingSenderId: "417337303327",
+  appId: "1:417337303327:web:817706d999ef828e29502a"
 };
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();

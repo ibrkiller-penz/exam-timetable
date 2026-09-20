@@ -1,0 +1,6 @@
+{
+  "_comment": "school-schedule-ad811(다른 프로그램 다섯 개가 함께 쓰는 옛 프로젝트)의 규칙만 배포하는 설정입니다. 이 앱 배포에는 쓰지 않습니다.",
+  "firestore": {
+    "rules": "firestore.legacy.rules"
+  }
+}

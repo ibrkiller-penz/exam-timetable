@@ -28,7 +28,7 @@ describe('이름 가리기는 웹에서만', () => {
     const { isNameVisible, displayName } = await import('../../src/domain/privacy');
 
     expect(isNameVisible()).toBe(true);
-    expect(displayName('황동현')).toBe('황동현');
+    expect(displayName('가나다')).toBe('가나다');
   });
 
   it('웹에서는 기본이 가린 상태이고, 비밀번호를 넣어야 보인다', async () => {
@@ -36,15 +36,15 @@ describe('이름 가리기는 웹에서만', () => {
     const { isNameVisible, displayName, unlockNames, lockNames } = await import('../../src/domain/privacy');
 
     expect(isNameVisible()).toBe(false);
-    expect(displayName('황동현')).toBe('황○○');
+    expect(displayName('가나다')).toBe('가○○');
 
     expect(unlockNames('틀린비번')).toBe(false);
     expect(isNameVisible()).toBe(false);
 
     expect(unlockNames('1004')).toBe(true);
-    expect(displayName('황동현')).toBe('황동현');
+    expect(displayName('가나다')).toBe('가나다');
 
     lockNames();
-    expect(displayName('황동현')).toBe('황○○');
+    expect(displayName('가나다')).toBe('가○○');
   });
 });

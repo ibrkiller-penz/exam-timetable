@@ -41,8 +41,13 @@ const collect = (name: string, problems: string[], extra?: Record<string, unknow
   expect(problems, head).toEqual([]);
 };
 
+// skipIf 는 테스트를 건너뛸 뿐, 아래 본문은 그대로 실행합니다.
+// 상태 덤프가 없을 때 s.rooms 를 읽다 터지면 나머지 테스트까지 빨개집니다.
+// 덤프가 없으면 빈 상태를 넣어 두고, 테스트는 skipIf 가 건너뜁니다.
+const EMPTY = { rooms: [], students: [], neis: [], attendance: [], timetable: {}, evalSubjects: [], subjectBans: [], placement: {}, studentPlacements: {}, days: [], times: [], settings: {} } as unknown as AppState;
+
 describe.skipIf(!state)('11번 인쇄물 — 원자료·응시현황·인쇄물 검증', () => {
-  const s = state!;
+  const s = state ?? EMPTY;
   const rooms = s.rooms;
   const usable = rooms.filter(isUsableRoom);
   const roomById = new Map(rooms.map(r => [r.id, r]));

@@ -1,5 +1,7 @@
 {
   "projects": {
-    "default": "firsttest-5db1f"
+    "default": "examtable-app",
+    "legacy": "school-schedule-ad811",
+    "oldhost": "firsttest-5db1f"
   }
 }

@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "test": "vitest run",
     "dist:win": "npm run build && electron-builder --win",
-    "dist:offline": "npm run build && electron-builder --win && node scripts/package-offline.cjs"
+    "dist:offline": "npm run build && electron-builder --win && node scripts/package-offline.cjs",
+    "deploy:rules": "firebase deploy --only firestore:rules --project examtable-app",
+    "deploy:web": "npm run build && firebase deploy --only hosting --project firsttest-5db1f",
+    "fetch:state": "node scripts/fetch-state.cjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

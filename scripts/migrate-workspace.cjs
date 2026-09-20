@@ -46,10 +46,16 @@ async function del(docPath) {
   if (!r.ok && r.status !== 404) throw new Error(`DELETE ${docPath}: ${r.status}`);
 }
 
-/** 옮길 필드만 남깁니다. 규칙이 이 네 가지만 받습니다. */
+/**
+ * 옮길 필드만 남깁니다.
+ *
+ * stateJson 을 빠뜨리면 안 됩니다. 옛날 저장본은 압축하지 않은 stateJson 에
+ * 내용이 들어 있고(앱도 두 가지를 모두 읽습니다), 이것을 버리면 껍데기만
+ * 남은 스냅샷이 됩니다.
+ */
 const pick = (fields) => {
   const out = {};
-  for (const k of ['id', 'title', 'updatedAt', 'stateJsonLz']) if (fields[k]) out[k] = fields[k];
+  for (const k of ['id', 'title', 'updatedAt', 'stateJson', 'stateJsonLz']) if (fields[k]) out[k] = fields[k];
   return out;
 };
 
