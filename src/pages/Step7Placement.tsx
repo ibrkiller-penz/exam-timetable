@@ -1170,6 +1170,21 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     setSelectedStudentKeys([]);
   };
 
+  /**
+   * 고른 것을 버리고 창을 닫습니다. ✕ 와 '닫기'가 이것을 씁니다.
+   *
+   * 예전에는 둘 다 '이동 적용'을 부르면서 성공 안내만 숨겼습니다. 그래서
+   * 닫으려고 누른 것이 조용히 이동을 저질렀고, 무결성 검증에 걸리면
+   * 이동도 안 되고 창도 안 닫혀 빠져나갈 길이 없었습니다.
+   * 닫기는 닫기만 합니다. 배치를 바꾸는 길은 '이동 적용 및 닫기' 하나뿐입니다.
+   */
+  const handleCloseStudentList = () => {
+    setStudentListModal(null);
+    setSelectedStudentKeys([]);
+    setBatchTargetRoomId('');
+    setRowTargetRoomIds({});
+  };
+
   const handleCommitTransfersAndClose = (showNotice = false) => {
     if (!studentListModal) return;
 
@@ -2942,7 +2957,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
 
       {/* Student List Modal with Multi-Selection, Individual Dropdowns, and Explicit Transfer/Close Buttons */}
       {studentListModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setStudentListModal(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={handleCloseStudentList}>
           <div className="bg-white rounded-2xl shadow-2xl w-[720px] max-h-[85vh] flex flex-col border border-gray-200 animate-in fade-in zoom-in-95 duration-150" onClick={e => e.stopPropagation()}>
             {/* Modal Header */}
             <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-white rounded-t-2xl gap-3">
@@ -3010,7 +3025,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                 })()}
               </div>
               <button
-                onClick={() => handleCommitTransfersAndClose(false)}
+                onClick={handleCloseStudentList}
+                title="고른 것을 버리고 닫습니다. 배치는 바뀌지 않습니다."
                 className="text-[#0f172a] hover:text-gray-800 text-xl font-bold p-1 rounded-lg hover:bg-gray-50 transition cursor-pointer"
               >
                 ✕
@@ -3305,7 +3321,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                   🚀 이동 적용 및 닫기
                 </button>
                 <button
-                  onClick={() => handleCommitTransfersAndClose(false)}
+                  onClick={handleCloseStudentList}
+                  title="고른 것을 버리고 닫습니다. 배치는 바뀌지 않습니다."
                   className="px-5 py-2.5 bg-gray-100 hover:bg-slate-200 text-slate-700 rounded-xl text-[15px] font-bold transition cursor-pointer"
                 >
                   닫기
