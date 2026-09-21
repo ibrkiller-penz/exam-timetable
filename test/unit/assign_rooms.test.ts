@@ -246,3 +246,49 @@ describe('정원을 넘긴 방의 학생을 같은 과목 방으로 넘기기', 
     expect(res.moved).toEqual([]); // 받아 줄 유일한 방 B 가 잠겨 있으니 아무도 안 움직입니다.
   });
 });
+
+describe('학번순으로 고르게 나누기', () => {
+  const BANS: SeatBan[] = [
+    { cell: 'K(4)-1반', size: 30 },
+    { cell: 'K(4)-2반', size: 30 },
+    { cell: 'K(4)-3반', size: 31 },
+  ];
+
+  it('분반을 보지 않고 과목 단위로 실을 잡는다 — 칸 이름은 분반이 아니라 N실', () => {
+    const plan = planRooms({ bans: BANS, rooms: ROOMS, nonTakers: 0, mode: 'student_id' });
+
+    expect(plan.mode).toBe('student_id');
+    expect(plan.ok).toBe(true);
+    // 큰 방부터 40+30+28 = 98석 >= 91명 이므로 3실.
+    expect(Object.keys(plan.exam)).toHaveLength(3);
+    expect(Object.values(plan.exam).sort()).toEqual(['K(4)-1실', 'K(4)-2실', 'K(4)-3실']);
+    expect(plan.notes.join(' ')).toMatch(/학번순으로 3실에 고르게 앉힙니다/);
+  });
+
+  it('실을 더 열어 두었으면 그만큼 쓴다 — 늘린 실이 놀지 않게', () => {
+    // 이미 4실에 이 과목이 열려 있는 상태.
+    const current = { extra_9: 'K(4)-1반', extra_8: 'K(4)-2반', room_1: 'K(4)-3반', room_2: 'K(4)-4반' };
+    const plan = planRooms({ bans: BANS, rooms: ROOMS, nonTakers: 0, mode: 'student_id', current });
+
+    expect(Object.keys(plan.exam)).toHaveLength(4);
+    expect(plan.notes.join(' ')).toMatch(/학번순으로 4실에 고르게 앉힙니다/);
+  });
+
+  it('좌석이 모자라면 학번순이어도 모자란다고 말한다', () => {
+    const tiny: SeatRoom[] = [{ id: 'room_4', name: '3-4', capacity: 24 }];
+    const plan = planRooms({ bans: BANS, rooms: tiny, nonTakers: 0, mode: 'student_id' });
+
+    expect(plan.ok).toBe(false);
+    expect(plan.seatShort).toBe(91 - 24);
+    expect(plan.notes.join(' ')).toMatch(/시험 좌석이 67석 모자랍니다/);
+  });
+
+  it('과목이 둘이면 과목마다 따로 실을 잡는다', () => {
+    const bans: SeatBan[] = [...BANS, { cell: 'M(4)-1반', size: 20 }];
+    const plan = planRooms({ bans, rooms: ROOMS, nonTakers: 0, mode: 'student_id' });
+
+    const cells = Object.values(plan.exam);
+    expect(cells.filter(c => c.startsWith('K(4)'))).toHaveLength(3);
+    expect(cells.filter(c => c.startsWith('M(4)'))).toHaveLength(1);
+  });
+});

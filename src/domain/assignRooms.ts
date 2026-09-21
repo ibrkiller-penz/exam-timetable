@@ -23,7 +23,7 @@ import {
   CellValue, ExamRoom, PlacementSlot, SubjectBanEntry, SubjectBanKey, Student, NeisRow, PlacementGrid,
   capacityForSlot, isWaitCell, CapacityBasis,
 } from './types';
-import { autoPlaceSlot, initSlotStudentPlacements } from './autoPlace';
+import { autoPlaceSlot, initSlotStudentPlacements, distributeWaitToRooms } from './autoPlace';
 
 /** 앉힐 자리. 정원은 그 교시에 실제로 적용되는 값입니다. */
 export interface SeatRoom {
@@ -55,6 +55,8 @@ export interface RoomPlan {
   ok: boolean;
   /** 지금 자리에서 옮겨야 하는 분반 수(적을수록 학생이 덜 움직입니다) */
   moves: number;
+  /** 실제로 쓴 방식. 화면이 무엇으로 앉혔는지 알려 주려고 돌려줍니다. */
+  mode: 'ban' | 'student_id';
 }
 
 /**
@@ -88,6 +90,15 @@ export interface RoomPlanInput {
   capacityFor?: (roomId: string, cell: string | null) => number;
   /** 칸에서 과목 이름을 꺼냅니다. 기본은 마지막 '-' 앞까지입니다. */
   subjectOf?: (cell: string) => string;
+  /**
+   * 어떻게 앉힐지.
+   *   'ban'        분반을 통째로 한 방에. 편성현황과 명단이 그대로 맞습니다.
+   *   'student_id' 분반을 보지 않고 학번 순서대로 고르게 나눕니다.
+   *
+   * 고사실을 분반 수보다 많이 열면 분반은 어차피 깨집니다. 그때는 'ban' 으로
+   * 둘 수 없고 학번순이라야 인원이 고르게 나뉩니다. 기본은 'ban' 입니다.
+   */
+  mode?: 'ban' | 'student_id';
 }
 
 /**
@@ -172,6 +183,61 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
   // 0명 분반은 자리를 차지할 이유가 없습니다. 방만 하나 낭비합니다.
   const freeBans = input.bans.filter(b => !lockedCells.has(b.cell) && b.size > 0);
 
+  // 2-A. 학번순이면 분반을 보지 않습니다. 과목마다 '들어갈 만큼'의 방을 큰 것부터
+  //      잡고, 칸에는 '과목-N실'을 적습니다. 분반 이름이 아니므로 앱이 학번순으로
+  //      고르게 나눠 앉힙니다(getSlotPlacementStrategy).
+  if (input.mode === 'student_id') {
+    const bySubject = new Map<string, SeatBan[]>();
+    for (const b of freeBans) {
+      const k = subjectOf(b.cell);
+      bySubject.set(k, [...(bySubject.get(k) ?? []), b]);
+    }
+    let shortAll = 0;
+    const pool = freeRooms.filter(r => !(r.id in exam)).sort((a, b) => capOf(b.id, null) - capOf(a.id, null) || a.id.localeCompare(b.id));
+    let next = 0;
+    for (const [subject, bans] of bySubject) {
+      const need = bans.reduce((a, b) => a + b.size, 0);
+      /*
+       * 지금 이 과목에 열어 둔 실 수를 존중합니다.
+       *
+       * 담당자가 실을 하나 더 열었다면 인원을 더 나누려는 뜻입니다. '들어갈
+       * 만큼만' 쓰면 늘린 실이 놀고 아무것도 달라지지 않습니다. 열어 둔 만큼
+       * 쓰되, 그래도 모자라면 더 가져옵니다.
+       */
+      const openNow = Object.values(current).filter(c => subjectOf(c) === subject).length;
+      const picked: SeatRoom[] = [];
+      let have = 0;
+      while ((have < need || picked.length < openNow) && next < pool.length) {
+        const r = pool[next++];
+        picked.push(r);
+        have += capOf(r.id, `${subject}-1실`);
+      }
+      picked.forEach((r, i) => { exam[r.id] = `${subject}-${i + 1}실`; });
+      if (have >= need) {
+        notes.push(
+          `[${subject}] 학번순으로 ${picked.length}실에 고르게 앉힙니다 ` +
+          `(응시 ${need}명 / 좌석 ${have}석, 실당 ${Math.ceil(need / Math.max(1, picked.length))}명 안팎). 분반은 섞입니다.`
+        );
+      } else {
+        shortAll += need - have;
+        notes.push(
+          `[${subject}] 시험 좌석이 ${need - have}석 모자랍니다 (쓸 수 있는 방 ${picked.length}곳 ${have}석 / 응시 ${need}명). ` +
+          `이 교시에 고사실을 더 열거나 정원을 올려야 합니다.`
+        );
+      }
+    }
+    const waitIds = input.rooms.filter(r => !(r.id in exam) && fixed[r.id] !== 'forbidden').map(r => r.id);
+    const waitCap = waitIds.reduce((a, id) => a + capOf(id, null), 0);
+    const wShort = Math.max(0, input.nonTakers - waitCap);
+    if (wShort > 0) notes.push(`대기 자리가 ${wShort}명분 모자랍니다. (미응시 ${input.nonTakers}명 / 남은 방 ${waitCap}석)`);
+    let mv = 0;
+    for (const [rid, cell] of Object.entries(exam)) if (current[rid] !== cell) mv++;
+    return {
+      exam, waitRoomIds: waitIds, unseated: [], waitShort: wShort, seatShort: shortAll,
+      notes, ok: shortAll === 0 && wShort === 0, moves: mv, mode: 'student_id',
+    };
+  }
+
   // 2. ⓪ 지금 자리가 이미 되면 손대지 않습니다.
   //    분반이 통째로는 안 들어가도 앱이 같은 과목 방으로 넘겨 앉히므로,
   //    과목별 좌석 합계만 맞으면 지금 배치는 멀쩡한 배치입니다. 그걸 굳이
@@ -246,9 +312,13 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
       );
     } else {
       seatShort += need - have;
+      const spare = freeRooms.filter(r => !(r.id in exam)).length;
       notes.push(
         `[${subject}] 시험 좌석이 ${need - have}석 모자랍니다 (가장 큰 방 ${bansS.length}곳을 써도 ${have}석 / 응시 ${need}명). ` +
-        `이 교시에 더 큰 방을 열거나 정원을 올려야 합니다.`
+        (spare > 0
+          ? `분반을 통째로 앉히면 방 ${bansS.length}곳만 쓰므로 남는 ${spare}실이 놀고 있습니다. ` +
+            `'학번순'으로 다시 앉히면 ${bansS.length + spare}실에 고르게 나눠 앉힐 수 있습니다.`
+          : `이 교시에 고사실을 더 열거나 정원을 올려야 합니다.`)
       );
     }
   }
@@ -271,6 +341,12 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
     notes.push(`대기 자리가 ${waitShort}명분 모자랍니다. (미응시 ${input.nonTakers}명 / 남은 방 ${waitSeats}석)`);
   }
   const ok = stillUnseated.length === 0 && seatShort === 0 && waitShort === 0;
+  if (ok && subjectsShort.size > 0) {
+    notes.push(
+      `분반을 통째로 앉혔습니다. 인원을 실마다 더 고르게 나누려면 '학번순'으로 다시 앉히면 됩니다 ` +
+      `(그 대신 분반이 섞입니다).`
+    );
+  }
   if (ok && subjectsShort.size === 0) {
     const moved = Object.entries(exam).filter(([rid, cell]) => current[rid] !== cell);
     notes.push(
@@ -281,7 +357,7 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
     );
   }
 
-  return { exam, waitRoomIds, unseated: stillUnseated, waitShort, seatShort, notes, ok, moves };
+  return { exam, waitRoomIds, unseated: stillUnseated, waitShort, seatShort, notes, ok, moves, mode: 'ban' };
 }
 
 /**
@@ -301,6 +377,7 @@ export function planSlotRooms(args: {
   slotRoomCapacity?: Record<number, Record<string, number>>;
   slotCapacityBasis?: CapacityBasis;
   lockedRow?: Record<string, boolean>;
+  mode?: 'ban' | 'student_id';
 }): { plan: RoomPlan; nextRow: Record<string, CellValue> } {
   const { ps, row, rooms, entries, lockedRow } = args;
 
@@ -338,7 +415,7 @@ export function planSlotRooms(args: {
     return capacityForSlot(r, ps.index, args.slotRoomCapacity, ps, cell ?? '대기', args.slotCapacityBasis);
   };
 
-  const plan = planRooms({ bans, rooms: seatRooms, nonTakers: ps.nonTakers, current, fixed, capacityFor });
+  const plan = planRooms({ bans, rooms: seatRooms, nonTakers: ps.nonTakers, current, fixed, capacityFor, mode: args.mode });
 
   const nextRow: Record<string, CellValue> = {};
   for (const r of usable) {
@@ -434,19 +511,45 @@ export function replanAndPlaceSlot(args: {
   slotCapacityBasis?: CapacityBasis;
   lockedRow?: Record<string, boolean>;
   roomIdSelected?: string;
+  mode?: 'ban' | 'student_id';
 }): { plan: RoomPlan; placement: PlacementGrid; slotStudentPlacements: Record<string, string> } {
   const { ps, rooms, entries, students, neis, lockedRow } = args;
   const i = ps.index;
   const { plan, nextRow } = planSlotRooms({
     ps, row: args.placement[i] || {}, rooms, entries,
     slotRoomCapacity: args.slotRoomCapacity, slotCapacityBasis: args.slotCapacityBasis, lockedRow,
+    mode: args.mode,
   });
 
   const seeded: PlacementGrid = JSON.parse(JSON.stringify(args.placement));
   seeded[i] = nextRow;
 
-  const placed = autoPlaceSlot(i, args.roomIdSelected ?? rooms[0]?.id ?? '', seeded, [ps], rooms, entries, students, false, lockedRow);
-  const seatedRaw = initSlotStudentPlacements(i, placed[i] ?? {}, [ps], rooms, entries, students, neis, undefined, lockedRow);
+  /*
+   * 학번순일 때는 autoPlaceSlot 에 맡기지 않습니다.
+   *
+   * autoPlaceSlot 은 빈 방을 보면 분반 칸(panelItems 의 ban 항목)을 도로 채워
+   * 넣습니다. 그래서 '과목-N실' 세 칸만 두었는데 옆 빈 방에 '과목-N반' 칸이
+   * 세 개 더 생기고, 91명이 3실이 아니라 6실로 흩어졌습니다. 실제로 재어 보고
+   * 알았습니다.
+   *
+   * 여기서는 시험 칸을 그대로 두고, 남은 방에 대기만 직접 나눕니다.
+   */
+  const placed: PlacementGrid = JSON.parse(JSON.stringify(seeded));
+  if (plan.mode === 'student_id') {
+    const nonTakers = students.filter(st => !st.subjects.some(sub => ps.subjects.includes(sub)));
+    const waitRooms = rooms.filter(r =>
+      r.roomName !== '' && r.roomName !== '0' &&
+      !nextRow[r.id] && !lockedRow?.[r.id] && args.placement[i]?.[r.id] !== '배치금지'
+    );
+    for (const a of distributeWaitToRooms(nonTakers, waitRooms, students)) {
+      if (a.count > 0) placed[i][a.room.id] = `대기 - ${a.count}명`;
+    }
+  } else {
+    Object.assign(placed, autoPlaceSlot(i, args.roomIdSelected ?? rooms[0]?.id ?? '', seeded, [ps], rooms, entries, students, false, lockedRow));
+  }
+  const seatedRaw = initSlotStudentPlacements(
+    i, placed[i] ?? {}, [ps], rooms, entries, students, neis, undefined, lockedRow, plan.mode,
+  );
 
   // 분반 위주 배치는 정원을 넘겨 앉히므로, 넘친 학생을 같은 과목 방으로 넘깁니다.
   const { placements: slotStudentPlacements } = spillOverCapacity({

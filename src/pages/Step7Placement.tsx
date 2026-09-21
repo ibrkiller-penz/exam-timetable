@@ -13,7 +13,7 @@ import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
 import { displayName } from '../domain/privacy';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { RoomFillOrder, WaitFillMode, autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
-import { planSlotRooms, replanAndPlaceSlot, RoomPlan } from '../domain/assignRooms';
+import { planSlotRooms, replanAndPlaceSlot, spillOverCapacity, RoomPlan } from '../domain/assignRooms';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
 import { SUBJECT_COLOR_PALETTES } from '../domain/constants';
 import { Sparkles, Trash2, Users, CheckCircle2, Lock, Unlock, Layers, AlertTriangle, RotateCcw, RotateCw, Plus, Clock, UserX, X, RefreshCw, ArrowRightLeft, UserCheck, Minus, BookOpen, Ban, ArrowRight, HelpCircle } from 'lucide-react';
@@ -151,7 +151,7 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   const selectedCell = ui.selectedPlacementCell;
   const movementStats = calculateStudentMovement(placement, placementSlots, rooms, students);
 
-  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void } | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean; message: string; onConfirm: () => void; extra?: React.ReactNode } | null>(null);
   const [alertModal, setAlertModal] = useState<{ isOpen: boolean; message: string; isError?: boolean } | null>(null);
   const [cloudModalOpen, setCloudModalOpen] = useState<boolean>(false);
   const [algorithmHelpOpen, setAlgorithmHelpOpen] = useState<boolean>(false);
@@ -160,6 +160,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   const [timetablePreviewOpen, setTimetablePreviewOpen] = useState(false);
   /** '고사실 점검' 결과. null 이면 창을 닫은 상태입니다. */
   const [roomCheck, setRoomCheck] = useState<{ ps: PlacementSlot; plan: RoomPlan }[] | null>(null);
+  /** '이 교시 재배치' 때 고른 방식. 분반을 지킬지, 학번순으로 고르게 나눌지. */
+  const [replanMode, setReplanMode] = useState<'ban' | 'student_id'>('ban');
   const [studentListModal, setStudentListModal] = useState<{
     slotIndex: number;
     roomId: string;
@@ -1320,6 +1322,33 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
    * 알 수 없었습니다. 열다섯 교시를 하나씩 눌러 보는 수밖에 없었습니다.
    * 어느 교시가 왜 안 되는지, 무엇을 하면 되는지 여기서 한꺼번에 봅니다.
    */
+  /**
+   * 재배치할 때 어떻게 앉힐지 고릅니다.
+   *
+   * 고사실을 분반 수보다 많이 열면 분반은 어차피 깨집니다. 그때는 학번순이라야
+   * 인원이 고르게 나뉩니다. 분반을 지키려면 방을 분반 수만큼만 쓰면 됩니다.
+   */
+  const ReplanModePicker: React.FC = () => (
+    <div className="grid grid-cols-2 gap-2">
+      {([
+        ['ban', '분반대로', '편성현황의 분반을 통째로 한 고사실에. 명단이 그대로 맞습니다.'],
+        ['student_id', '학번순', '분반을 보지 않고 학번 순서대로 실마다 고르게. 분반은 섞입니다.'],
+      ] as const).map(([value, label, desc]) => (
+        <button
+          key={value}
+          type="button"
+          onClick={() => setReplanMode(value)}
+          className={`text-left px-3 py-2.5 rounded-xl border-2 transition ${
+            replanMode === value ? 'border-[#005691] bg-blue-50/60' : 'border-gray-200 hover:bg-gray-50'
+          }`}
+        >
+          <div className="font-black text-[14px] text-slate-800">{label}</div>
+          <div className="text-[12.5px] text-slate-500 mt-0.5 leading-snug">{desc}</div>
+        </button>
+      ))}
+    </div>
+  );
+
   const handleCheckRooms = () => {
     const rows = placementSlots
       .filter(ps => ps.subjects.length > 0)
@@ -1361,7 +1390,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     });
 
     /** allowRoomChange 는 '7단계(고사장 배치)를 고쳐도 좋다'는 승인을 받았는지입니다. */
-    const applyReplan = (allowRoomChange: boolean) => {
+    const applyReplan = (allowRoomChange: boolean, mode: 'ban' | 'student_id') => {
       try {
         const firstUsableRoom = rooms.find(r => r.roomName !== '' && r.roomName !== '0');
         const firstRoomId = firstUsableRoom ? firstUsableRoom.id : rooms[0]?.id ?? '';
@@ -1371,43 +1400,52 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         let nextStudents: Record<string, string>;
 
         if (allowRoomChange) {
-          // 방부터 다시 잡고 학생을 앉힙니다. resetAndAutoPlaceSlot 은 계획을 지워 버려 못 씁니다.
+          // 7단계가 열려 있습니다. 방부터 다시 잡고 학생을 앉힙니다.
           const res = replanAndPlaceSlot({
             ps, placement, rooms: roomsAt(slot), entries, students, neis,
             slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot], lockedRow: lockedCells[slot],
-            roomIdSelected: firstRoomId,
+            roomIdSelected: firstRoomId, mode,
           });
           plan = res.plan; nextPlacement = res.placement; nextStudents = res.slotStudentPlacements;
         } else {
-          // 방은 그대로 두고(7단계 확정) 학생만 다시 나눕니다. 계획은 안내에만 씁니다.
-          plan = planFor().plan;
-          const res = resetAndAutoPlaceSlot(
-            slot, firstRoomId, placement, placementSlots, roomsAt(slot),
-            entries, students, neis, false, lockedCells[slot]
+          /*
+           * 7단계가 확정되어 있으면 고사실 칸은 손대지 않습니다.
+           * 학생을 어떻게 나눌지는 8단계 몫이라, 고른 방식으로 다시 앉힙니다.
+           * (resetAndAutoPlaceSlot 은 칸을 지우고 시작하므로 여기서는 못 씁니다.)
+           */
+          plan = planSlotRooms({
+            ps, row: placement[slot] || {}, rooms: roomsAt(slot), entries,
+            slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot], lockedRow: lockedCells[slot], mode,
+          }).plan;
+          nextPlacement = placement;
+          const seated = initSlotStudentPlacements(
+            slot, placement[slot] ?? {}, placementSlots, roomsAt(slot), entries, students, neis,
+            undefined, lockedCells[slot], mode,
           );
-          nextPlacement = res.placement; nextStudents = res.slotStudentPlacements;
+          nextStudents = spillOverCapacity({
+            row: placement[slot] ?? {}, placements: seated, rooms: roomsAt(slot), students, entries,
+            lockedRow: lockedCells[slot],
+            capacityOf: (r, cell) => capacityForSlot(r, slot, slotRoomCapacity, ps, cell, slotCapacityBasis[slot]),
+          }).placements;
         }
 
-        // 고사실은 7단계가 열려 있을 때만 바뀝니다(그때만 allowRoomChange 가 참입니다).
+        // 고사실은 7단계가 열려 있을 때만 바뀝니다.
         if (allowRoomChange) setPlacementGrid(nextPlacement);
         setSlotStudentPlacements(slot, nextStudents);
         setConfirmModal(null);
 
-        const movedRooms = allowRoomChange && plan.moves > 0;
+        const how = mode === 'student_id' ? '학번순' : '분반대로';
         const needsStep7 = !allowRoomChange && (plan.moves > 0 || !plan.ok);
         setAlertModal({
           isOpen: true,
           isError: !plan.ok || needsStep7,
           message: needsStep7
-            ? `⚠️ [${ps.title}] 학생만 다시 나눴습니다. 고사실은 그대로입니다.\n\n` +
+            ? `⚠️ [${ps.title}] 학생만 ${how}으로 다시 나눴습니다. 고사실은 그대로입니다.\n\n` +
               `${plan.notes.join('\n\n')}\n\n` +
               `고사실을 옮기려면 7. 고사장 배치에서 '확정 취소'를 한 뒤 그 교시를 재배치하세요.`
             : !plan.ok
-              ? `⚠️ [${ps.title}] 학생을 옮기는 것만으로는 다 앉힐 수 없습니다.\n\n` +
-                `${plan.notes.join('\n\n')}\n\n고사실을 손보기 전에는 이 교시를 확정할 수 없습니다.`
-              : movedRooms
-                ? `✅ [${ps.title}] 고사실을 고치고 학생을 다시 앉혔습니다.\n\n${plan.notes.join('\n')}`
-                : `✅ [${ps.title}] 재배치를 마쳤습니다. 다른 교시는 그대로입니다.\n\n${plan.notes.join('\n')}`,
+              ? `⚠️ [${ps.title}] 다 앉힐 수 없습니다.\n\n${plan.notes.join('\n\n')}`
+              : `✅ [${ps.title}] ${how}으로 재배치를 마쳤습니다. 다른 교시는 그대로입니다.\n\n${plan.notes.join('\n')}`,
         });
       } catch (e) {
         setConfirmModal(null);
@@ -1422,6 +1460,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     setConfirmModal({
       isOpen: true,
       message: `[${ps.title}] 교시의 학생 배치를 초기화하고 다시 자동 배치하시겠습니까?\n\n※ 다른 교시의 학생 배치는 전혀 변경되지 않고 안전하게 유지됩니다.`,
+      extra: <ReplanModePicker />,
       onConfirm: () => {
         pushHistory(`[${ps.title}] 교시 재배치`);
         const { plan } = planFor();
@@ -1435,7 +1474,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
          * 넘나드는 것이 더 헷갈려 되돌렸습니다.)
          */
         void plan;
-        applyReplan(!roomsLocked);
+        applyReplan(!roomsLocked, replanMode);
       },
     });
   };
@@ -2551,6 +2590,17 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                 const sourceIsLocked = lockedCells[data.slot]?.[data.roomId];
                                 if (sourceIsLocked) return;
                                 if (data.slot === ps.index && data.roomId !== r.id) {
+                                  // 고사실을 맞바꾸는 것은 7단계 일입니다. 확정돼 있으면
+                                  // 스토어가 거절하므로, 말없이 아무 일도 안 일어나지 않게 합니다.
+                                  if (stages.step7) {
+                                    setAlertModal({
+                                      isOpen: true,
+                                      isError: true,
+                                      message: `고사실끼리 맞바꾸려면 7. 고사장 배치에서 '확정 취소'를 먼저 해야 합니다.\n` +
+                                        `8. 학생 배치에서는 고사실 구성을 바꾸지 않습니다.`,
+                                    });
+                                    return;
+                                  }
                                   pushHistory();
                                   swapPlacementCells(ps.index, data.roomId, r.id);
                                 }
@@ -3482,6 +3532,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         <ConfirmModal
           isOpen={confirmModal.isOpen}
           message={confirmModal.message}
+          extra={confirmModal.extra}
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal(null)}
         />

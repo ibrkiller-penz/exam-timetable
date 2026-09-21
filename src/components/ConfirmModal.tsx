@@ -9,6 +9,8 @@ interface ConfirmModalProps {
   cancelText?: string;
   onConfirm: () => void;
   onCancel: () => void;
+  /** 본문 아래에 끼워 넣을 것(고르는 칸 등). 없으면 예전 그대로입니다. */
+  extra?: React.ReactNode;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -19,6 +21,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = '아니오',
   onConfirm,
   onCancel,
+  extra,
 }) => {
   if (!isOpen) return null;
 
@@ -34,6 +37,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <div className="mt-2 text-[17px] text-gray-700 whitespace-pre-line leading-relaxed">
               {message}
             </div>
+            {extra && <div className="mt-4">{extra}</div>}
           </div>
         </div>
         <div className="mt-6 flex justify-end gap-3">
