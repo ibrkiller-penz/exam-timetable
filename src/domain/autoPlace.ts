@@ -403,6 +403,20 @@ export function autoPlaceSlot(
   });
 
   banItems.sort((a, b) => {
+    /*
+     * 큰 분반부터 자리를 잡습니다.
+     *
+     * 예전에는 '한 반에서 온 비율(dominantRatio)'이 먼저였습니다. 그래서 한
+     * 반에서 온 24명짜리가 28석 교실을 먼저 차지하고, 뒤에 오는 29명짜리는
+     * 24석 교실밖에 못 얻었습니다. 한국사에서 29명 둘이 24석 방에 들어가
+     * 10명이 넘친 까닭입니다.
+     *
+     * 큰 것부터 넣으면, 어딘가에 앉힐 수 있는 배치가 있는 한 이 순서로
+     * 반드시 찾아집니다. 크기가 같을 때만 제 반 교실 쪽을 앞세웁니다.
+     */
+    if (roomFillOrder === 'minMove' && b.assignedStudents.length !== a.assignedStudents.length) {
+      return b.assignedStudents.length - a.assignedStudents.length;
+    }
     if (b.dominantRatio !== a.dominantRatio) {
       return b.dominantRatio - a.dominantRatio;
     }
@@ -421,6 +435,16 @@ export function autoPlaceSlot(
   for (const item of banItems) {
     let targetRoom: ExamRoom | undefined = undefined;
 
+    /*
+     * 이름이 맞아도 자리가 모자라면 그 방은 아닙니다.
+     *
+     * '자기 반 교실'은 학생이 덜 움직여 좋지만, 29명을 24석에 넣을 값은
+     * 아닙니다. 들어가는 방이 하나도 없을 때만 아래에서 가장 큰 방을 씁니다.
+     */
+    const seatsOf = (r: ExamRoom) => (r.capacity && r.capacity > 0 ? r.capacity : 28);
+    const groupSize = item.assignedStudents.length;
+    const roomFits = (r: ExamRoom) => seatsOf(r) >= groupSize;
+
     if (roomFillOrder !== 'minMove') {
       targetRoom = orderedRooms.find(r =>
         !lockedCellsRow?.[r.id] &&
@@ -433,7 +457,8 @@ export function autoPlaceSlot(
       targetRoom = rooms.find(r => 
         !lockedCellsRow?.[r.id] &&
         (r.banName === item.dominantBan || r.roomName === item.dominantBan) &&
-        (!newPlacement[i][r.id] || newPlacement[i][r.id] === '')
+        (!newPlacement[i][r.id] || newPlacement[i][r.id] === '') &&
+        roomFits(r)
       );
     }
 
@@ -442,7 +467,8 @@ export function autoPlaceSlot(
         !lockedCellsRow?.[r.id] &&
         r.roomName === item.it.room && 
         isExtraRoom(r) &&
-        (!newPlacement[i][r.id] || newPlacement[i][r.id] === '')
+        (!newPlacement[i][r.id] || newPlacement[i][r.id] === '') &&
+        roomFits(r)
       );
     }
 
@@ -451,7 +477,8 @@ export function autoPlaceSlot(
         targetRoom = rooms.find(r => 
           !lockedCellsRow?.[r.id] &&
           (r.banName === ban || r.roomName === ban) &&
-          (!newPlacement[i][r.id] || newPlacement[i][r.id] === '')
+          (!newPlacement[i][r.id] || newPlacement[i][r.id] === '') &&
+          roomFits(r)
         );
         if (targetRoom) break;
       }
@@ -465,8 +492,8 @@ export function autoPlaceSlot(
         !isExtraRoom(r) &&
         (!newPlacement[i][r.id] || newPlacement[i][r.id] === '')
       );
-      const size = item.assignedStudents.length;
-      const capOf = (r: ExamRoom) => (r.capacity && r.capacity > 0 ? r.capacity : 28);
+      const size = groupSize;
+      const capOf = seatsOf;
       const fits = free.filter(r => capOf(r) >= size).sort((a, b) => capOf(a) - capOf(b));
       // 담을 수 있는 방 중 가장 작은 방, 없으면 남은 방 중 가장 큰 방을 씁니다.
       targetRoom = fits[0] ?? [...free].sort((a, b) => capOf(b) - capOf(a))[0];
