@@ -140,15 +140,25 @@ export const Report5ClassTable: React.FC = () => {
       ) : (
         <div className="print-pages flex flex-col gap-8">
           {reportsToRender.map(({ report, dateFormatted, actualRoomName }) => (() => {
-            // 한 장에 30명까지 싣습니다. 넘으면 장을 나눕니다.
-            const PER_PAGE = 30;
+            /*
+             * 한 장은 언제나 35줄입니다.
+             *
+             * 학급마다 인원이 다르다고 표 크기가 달라지면, 같은 고사에서 나온
+             * 서류로 보이지 않고 반끼리 견주기도 어렵습니다. 24명이면 25~35번
+             * 줄을 빈 줄로 둡니다. 감독 선생님이 결시 학생을 적어 넣기도 합니다.
+             *
+             * 줄 높이는 못 박습니다(ROW_H). 남는 높이를 줄마다 나눠 가지면
+             * 빈 줄은 글자가 없어 높이가 0이 되고, 글자 있는 줄만 커집니다.
+             */
+            const PER_PAGE = 35;
+            const ROW_H = 22;
             const cnt = Math.max(1, Math.ceil(report.students.length / PER_PAGE));
             const sheets = Array.from({ length: cnt }, (_, i) => report.students.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
 
             return sheets.map((pageStudents, pageIdx) => (
               <div
                 key={`${report.ban}-${report.day}-${pageIdx}`}
-                className="print-page page-portrait bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
+                className="print-page page-portrait bg-white border border-gray-300 p-6 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none"
               >
                 {/* 소속 고사실을 바꾸면 제목도 따라갑니다.
                     학급과 고사실이 같은 보통의 경우에는 군더더기라 붙이지 않습니다. */}
@@ -169,7 +179,7 @@ export const Report5ClassTable: React.FC = () => {
                   ]}
                 />
 
-                <table className="sheet-table sheet-rows-5 fill-rest w-full table-fixed text-center">
+                <table className="sheet-table sheet-rows-5 sheet-dense w-full table-fixed text-center">
                   {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}
                   <colgroup>
                     <col style={{ width: '7%' }} />
@@ -202,19 +212,32 @@ export const Report5ClassTable: React.FC = () => {
                   </thead>
                   <tbody className="">
                     {pageStudents.map(st => (
-                      <tr key={st.num}>
+                      <tr key={st.num} style={{ height: ROW_H }}>
                         <td className="font-bold text-slate-600">{st.num}</td>
-                        <td className="font-black text-[16px] print:text-[15px] text-gray-900 whitespace-nowrap">{displayName(st.name)}</td>
+                        <td className="font-black text-gray-900 whitespace-nowrap">{displayName(st.name)}</td>
                         {report.activePeriods.map(p => {
                           const room = st.periods[p]?.room || '-';
                           const sep = room.includes('(별)');
                           return (
                             <React.Fragment key={p}>
-                              <td className="font-bold text-slate-800 px-1"><FitCell>{st.periods[p]?.subject || '-'}</FitCell></td>
-                              <td className={`font-black text-[16px] print:text-[15px] ${sep ? 'text-amber-700' : 'text-red-700'}`}>{room}</td>
+                              <td className="font-bold text-slate-800 px-1"><FitCell base={15.5}>{st.periods[p]?.subject || '-'}</FitCell></td>
+                              <td className={`font-black ${sep ? 'text-amber-700' : 'text-red-700'}`}>{room}</td>
                             </React.Fragment>
                           );
                         })}
+                      </tr>
+                    ))}
+                    {/* 모자라는 줄은 빈 줄로 채웁니다. 표 크기가 반마다 달라지지 않게. */}
+                    {Array.from({ length: Math.max(0, PER_PAGE - pageStudents.length) }, (_, k) => (
+                      <tr key={`blank-${k}`} style={{ height: ROW_H }}>
+                        <td className="text-slate-300">{pageIdx * PER_PAGE + pageStudents.length + k + 1}</td>
+                        <td />
+                        {report.activePeriods.map(p => (
+                          <React.Fragment key={p}>
+                            <td />
+                            <td />
+                          </React.Fragment>
+                        ))}
                       </tr>
                     ))}
                   </tbody>

@@ -221,6 +221,20 @@
 
 /* 도드라져야 하는 칸. 크기는 한 가지뿐이라 종이마다 같습니다. */
 .sheet-strong { font-size: var(--sheet-fs-strong); }
+
+/* 한 장에 서른다섯 줄을 넣어야 하는 표(학급 시간표).
+   줄 수가 못 박혀 있어 보통 크기로는 A4 를 넘습니다. 칸마다 px 을 적지 않고
+   변수만 낮춥니다 — 크기를 바꿀 일이 생겨도 볼 곳은 여전히 한 군데입니다. */
+.sheet-table.sheet-dense {
+  --sheet-fs: 15.5px;
+  --sheet-fs-head: 14px;
+}
+.sheet-table.sheet-dense th,
+.sheet-table.sheet-dense td {
+  padding-top: 0.5px;
+  padding-bottom: 0.5px;
+  line-height: 1.15;
+}
 .sheet-table th,
 .sheet-table td {
   /* 칸을 가르는 선 — 가로든 세로든 같은 가는 실선. 눈이 줄을 따라가게만
