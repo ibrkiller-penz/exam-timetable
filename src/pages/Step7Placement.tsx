@@ -1178,6 +1178,23 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
    * 이동도 안 되고 창도 안 닫혀 빠져나갈 길이 없었습니다.
    * 닫기는 닫기만 합니다. 배치를 바꾸는 길은 '이동 적용 및 닫기' 하나뿐입니다.
    */
+  /**
+   * 고른 고사실에 미배치 학생을 한 번에 앉힙니다.
+   *
+   * 칸을 이미 눌러 두었으니 어느 고사실인지 앱이 압니다. 그런데도 창을 띄워
+   * 학생마다 같은 고사실을 아홉 번 고르게 했습니다. 고른 칸으로 바로 넣습니다.
+   * 학생마다 다른 곳에 보내야 할 때만 '골라서 배정'으로 창을 엽니다.
+   *
+   * 한 명씩 넣던 오른쪽 '배치…' 칸과 같은 길을 씁니다. 되돌리기도 한 번에 됩니다.
+   */
+  const handleAssignUnplacedToCurrentRoom = (list: Student[]) => {
+    if (isStageLocked || !curSlot || !curRoom || list.length === 0) return;
+    const transfers: Record<string, string> = {};
+    for (const st of list) transfers[`${st.ban}-${st.num}`] = curRoom.id;
+    pushHistory(`[${curSlot.title}] 미배치 ${list.length}명 → ${curRoom.roomName} 배정`);
+    transferStudentsAndUpdatePlacement(curSlot.index, transfers);
+  };
+
   const handleCloseStudentList = () => {
     setStudentListModal(null);
     setSelectedStudentKeys([]);
@@ -2904,13 +2921,26 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                     <span className="text-[14.5px] font-black text-rose-700">
                       {curSlot.title} 미배치 {unplaced.length}명
                     </span>
-                    <button
-                      onClick={() => handleOpenUnplacedModal(curSlot.index)}
-                      className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[13px] font-bold transition"
-                      title="미배치 학생을 고사실에 배정합니다"
-                    >
-                      배정하기
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      {/* 칸을 눌러 고사실을 이미 골랐으면, 창을 띄우지 않고 바로 넣습니다. */}
+                      {curRoom && curSlotRow[curRoom.id] !== '배치금지' && (
+                        <button
+                          onClick={() => handleAssignUnplacedToCurrentRoom(unplaced)}
+                          disabled={isStageLocked}
+                          className="px-2.5 py-1 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-[13px] font-bold transition disabled:bg-gray-100 disabled:text-gray-400 disabled:cursor-not-allowed"
+                          title={`${unplaced.length}명을 모두 ${curRoom.roomName}에 넣습니다. 창을 띄우지 않습니다.`}
+                        >
+                          {curRoom.roomName}에 {unplaced.length}명
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleOpenUnplacedModal(curSlot.index)}
+                        className="px-2.5 py-1 bg-white border border-rose-300 text-rose-700 hover:bg-rose-50 rounded-lg text-[13px] font-bold transition"
+                        title="학생마다 다른 고사실로 보낼 때 씁니다"
+                      >
+                        골라서
+                      </button>
+                    </div>
                   </div>
                   <div className="flex-1 overflow-auto border border-gray-200 rounded-xl divide-y divide-gray-100">
                     {unplaced.map(st => {
