@@ -1080,9 +1080,24 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       setSlotStudentPlacements(slotIndex, slotPlacements);
     }
 
+    /*
+     * '미배치'에는 두 가지가 있습니다.
+     *
+     *   ① 아예 자리를 못 받은 학생
+     *   ② 시험을 보는데 대기실에 앉아 있는 학생
+     *
+     * 요약 칸의 '응시 미배치' 숫자는 ②까지 셉니다. 그런데 이 명단은 ①만
+     * 보여 줬습니다. 그래서 22 를 눌렀는데 '0명'짜리 빈 창이 떴습니다.
+     * 숫자가 가리키는 학생이 명단에 나와야 손을 쓸 수 있습니다.
+     */
+    const takesThisSlot = (st: Student) =>
+      (st.subjects || []).some(sub => (ps.subjects || []).includes(sub));
+
     const unplaced = students.filter(st => {
       const rId = slotPlacements?.[`${st.ban}-${st.num}`];
-      return !rId || rId === 'unplaced' || !slotRow[rId] || slotRow[rId] === '배치금지';
+      const cell = rId ? slotRow[rId] : undefined;
+      if (!rId || rId === 'unplaced' || !cell || cell === '배치금지') return true; // ①
+      return isWaitCell(cell) && takesThisSlot(st);                                // ②
     }).sort((a, b) => {
       if (a.ban !== b.ban) return a.ban.localeCompare(b.ban, 'ko');
       return a.num - b.num;
