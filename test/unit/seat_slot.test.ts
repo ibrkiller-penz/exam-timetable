@@ -78,8 +78,8 @@ describe('한 교시를 백지에서 짜기', () => {
     expect(res.notes.join(' ')).toMatch(/정원을 모두 20명 넘겼습니다/);
   });
 
-  it('분반이 방보다 커도 쪼개지 않는다 — 넘치는 쪽을 택한다', () => {
-    // 40명 분반이 30석 방에. 쪼개면 채점이 두 방으로 갈리므로 통째로 넣고 10명을 넘깁니다.
+  it('분반이 방보다 크면 넘친 인원만 옆 방으로 보낸다', () => {
+    // 40명 분반이 30석 방에. 의자를 열 개 더 놓기보다 넘친 10명을 옆 방으로 보냅니다.
     const rooms = [room('r1', '3-1', '1반', 30), room('r2', '3-2', '2반', 30)];
     const entries = subjectBanEntries([
       { subject: '수학(4)', room: 'g1', stuCount: 40, subjectSeq: 1 },
@@ -89,11 +89,15 @@ describe('한 교시를 백지에서 짜기', () => {
     const res = seatSlot({ ps: slot(['수학(4)'], 50, 0), rooms, entries, students: all, capacityOf: capOf });
 
     expect(res.unseated).toEqual([]);
-    expect(res.overTotal).toBe(10);
-    // 40명이 한 방에 그대로. 분반이 갈라지지 않습니다.
-    expect(seatedIn(res, 'r1')).toBe(40);
-    expect(seatedIn(res, 'r2')).toBe(10);
-    expect(res.notes.join(' ')).toMatch(/의자를 더 놓으면 됩니다/);
+    expect(res.overTotal).toBe(0);              // 정원을 넘긴 방이 없습니다
+    expect(seatedIn(res, 'r1')).toBe(30);
+    expect(seatedIn(res, 'r2')).toBe(20);
+    // 옮긴 사람은 학번이 뒤인 쪽부터. 분반 명단이 앞에서부터 이어집니다.
+    expect(res.moved).toHaveLength(10);
+    expect(res.moved.map(m => m.num)).toEqual([40, 39, 38, 37, 36, 35, 34, 33, 32, 31]);
+    expect(res.moved.every(m => m.to === '3-2')).toBe(true);
+    // 여럿을 옮겨야 하면 고사실을 하나 더 여는 편이 낫다고 알려 줍니다.
+    expect(res.notes.join(' ')).toMatch(/고사실을 하나 더 열면/);
   });
 
   it('한국사처럼 반마다 한 분반이면, 제 교실을 쓰고 큰 반만 한 명씩 넘친다', () => {
@@ -113,9 +117,12 @@ describe('한 교시를 백지에서 짜기', () => {
     const res = seatSlot({ ps: slot(['한국사(1)'], 163, 0), rooms, entries, students: all, capacityOf: capOf });
 
     expect(res.unseated).toEqual([]);
-    expect(res.overTotal).toBe(2);                 // 모두 2명
-    expect(res.over).toHaveLength(2);              // 두 방에 1명씩
-    expect(res.over.every(o => o.over === 1)).toBe(true);
+    // 29명짜리 분반 둘이 28석 방에 들어가 한 명씩 넘치는데,
+    // 의자를 더 놓는 대신 그 한 명씩만 자리가 남은 옆 고사실로 보냅니다.
+    expect(res.overTotal).toBe(0);
+    expect(res.moved).toHaveLength(2);
+    expect(res.moved.every(m => m.num === 29)).toBe(true);   // 학번이 맨 뒤인 학생
+    expect(new Set(res.moved.map(m => m.from)).size).toBe(2); // 서로 다른 두 방에서
     // 별도실은 열지 않습니다.
     expect(res.row['extra_8']).toBeUndefined();
     expect(res.row['extra_9']).toBeUndefined();
@@ -205,5 +212,44 @@ describe('고사실은 그대로 두고 학생만 다시 앉히기', () => {
     expect(seatedIn(res, 'r3')).toBe(0);
     expect(seatedIn(res, 'r1')).toBe(20);
     expect(res.row['r2']).toBeUndefined();   // 비어 있던 방은 비어 있는 채로
+  });
+});
+
+describe('잠근 칸', () => {
+  it('자물쇠를 채운 칸은 자동배치가 건드리지 않는다', () => {
+    const rooms = [room('r1', '3-1', '1반', 30), room('r2', '3-2', '2반', 30), room('r3', '3-3', '3반', 30)];
+    const entries = subjectBanEntries([
+      { subject: '수학(4)', room: 'g1', stuCount: 10, subjectSeq: 1 },
+      { subject: '수학(4)', room: 'g2', stuCount: 10, subjectSeq: 1 },
+    ]);
+    const all = [...students('1반', 1, 10, ['수학(4)']), ...students('2반', 1, 10, ['수학(4)'])];
+
+    // 담당자가 2분반을 3-3 교실에 두고 자물쇠를 채웠습니다.
+    const res = seatSlot({
+      ps: slot(['수학(4)'], 20, 0), rooms, entries, students: all, capacityOf: capOf,
+      lockedRow: { r3: '수학(4)-2반' },
+    });
+
+    expect(res.row['r3']).toBe('수학(4)-2반');       // 칸이 그대로
+    expect(seatedIn(res, 'r3')).toBe(10);            // 그 분반이 그대로 앉아 있고
+    expect(res.row['r1']).toBe('수학(4)-1반');       // 나머지만 새로 짭니다
+    expect(seatedIn(res, 'r1')).toBe(10);
+    expect(res.unseated).toEqual([]);
+    expect(res.overTotal).toBe(0);
+  });
+
+  it('잠근 대기실도 그대로 두고 사람만 채운다', () => {
+    const rooms = [room('r1', '3-1', '1반', 30), room('r2', '3-2', '2반', 30)];
+    const entries = subjectBanEntries([{ subject: '수학(4)', room: 'g1', stuCount: 10, subjectSeq: 1 }]);
+    const all = [...students('1반', 1, 10, ['수학(4)']), ...students('2반', 1, 12, ['국어(4)'])];
+    const res = seatSlot({
+      ps: slot(['수학(4)'], 10, 12), rooms, entries, students: all, capacityOf: capOf,
+      lockedRow: { r2: '대기2반 - 12명' },
+    });
+
+    expect(res.row['r2']).toBe('대기2반 - 12명');
+    expect(seatedIn(res, 'r2')).toBe(12);
+    expect(seatedIn(res, 'r1')).toBe(10);
+    expect(res.unseated).toEqual([]);
   });
 });

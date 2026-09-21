@@ -45,11 +45,25 @@ export interface OverRoom {
   over: number;
 }
 
+/** 정원이 넘쳐 옆 고사실로 옮긴 학생 하나. */
+export interface MovedStudent {
+  ban: string;
+  num: number;
+  /** 원래 이 학생의 분반이 앉은 방 */
+  from: string;
+  /** 옮겨 간 방 */
+  to: string;
+  /** 이 학생이 속한 분반 칸 */
+  cell: string;
+}
+
 export interface SeatSlotResult {
   /** 이 교시의 칸. roomId -> 값 */
   row: Record<string, CellValue>;
   /** 학생 자리. `${ban}-${num}` -> roomId */
   placements: Record<string, string>;
+  /** 정원이 넘쳐 옆 방으로 옮긴 학생들. 채점 명단은 분반 그대로입니다. */
+  moved: MovedStudent[];
   /** 정원을 넘긴 방들. 여기가 의자를 더 놓아야 할 곳입니다. */
   over: OverRoom[];
   /** 넘긴 인원 합계 */
@@ -87,6 +101,13 @@ export function seatSlot(args: {
    * 방까지 새로 짜면 그 손질이 사라집니다. 줄을 주면 방은 건드리지 않습니다.
    */
   keepRow?: Record<string, CellValue>;
+  /**
+   * 자물쇠를 채워 둔 칸. 방ID -> 그 칸 값.
+   *
+   * 담당자가 일부러 잠가 둔 것이므로 자동배치가 건드리지 않습니다.
+   * 잠근 방은 칸도 학생도 그대로 두고, 나머지 방만 새로 짭니다.
+   */
+  lockedRow?: Record<string, CellValue>;
 }): SeatSlotResult {
   const { ps, entries, students, neis, capacityOf } = args;
   const mode: SeatMode = args.mode ?? 'ban';
@@ -117,6 +138,7 @@ export function seatSlot(args: {
   const row: Record<string, CellValue> = {};
   const placements: Record<string, string> = {};
   const unseated: Student[] = [];
+  const moved: MovedStudent[] = [];
   const seatedIn = new Map<string, number>();   // roomId -> 앉은 수
   const capOfRoom = new Map<string, number>();  // roomId -> 정원
   const taken = new Set<string>();
@@ -150,6 +172,13 @@ export function seatSlot(args: {
   };
 
   /*
+   * 잠근 칸부터 자리를 잡습니다. 그래야 나머지가 남은 방만 두고 짭니다.
+   * 이미 앉은 분반은 아래 과목 루프에서 빼므로 두 번 앉지 않습니다.
+   */
+  const lockedBans = new Set<string>();
+  if (!args.keepRow) seatLocked();
+
+  /*
    * 줄을 받았으면 방은 손대지 않습니다. 칸에 적힌 대로 학생만 다시 앉힙니다.
    * 아래 과목 루프는 건너뜁니다.
    */
@@ -160,8 +189,11 @@ export function seatSlot(args: {
   //    적은 과목이 큰 방을 먼저 차지하면 큰 과목이 갈 곳을 잃습니다.
   const subjectOrder = keeping ? [] : [...bansBySubject.entries()].sort((a, b) => sum(b[1]) - sum(a[1]));
   for (const [subject, bans] of subjectOrder) {
-    const need = sum(bans);
     const free = () => usable.filter(r => !taken.has(r.id));
+
+    const bansLeft = bans.filter(b => !lockedBans.has(b.cell));
+    if (bansLeft.length === 0) continue;   // 이 과목은 잠근 칸으로 다 앉았습니다.
+    const need = sum(bansLeft);
 
     if (mode === 'ban') {
       /*
@@ -177,7 +209,7 @@ export function seatSlot(args: {
        * 짝짓기는 큰 분반 ↔ 큰 방. 이 순서가 넘치는 인원의 합을 가장 작게
        * 만듭니다(둘 다 내림차순으로 맞추면 Σmax(0, 인원-정원)이 최소).
        */
-      const order = [...bans].sort((x, y) => y.members.length - x.members.length);
+      const order = [...bansLeft].sort((x, y) => y.members.length - x.members.length);
       const pool = free();
       const regular = pool.filter(r => !r.extra);
       const extra = pool.filter(r => r.extra);
@@ -217,26 +249,51 @@ export function seatSlot(args: {
       }
 
       if (lineup.length >= order.length) {
-        order.forEach((b, i) => {
+        const seats = order.map((b, i) => {
           const r = lineup[i];
           row[r.id] = b.cell;
           taken.add(r.id);
           capOfRoom.set(r.id, r.capFor(b.cell));
           for (const st of b.members) put(st, r.id);
+          return { r, cell: b.cell };
         });
-        const short = order
-          .map((b, i) => ({ b, r: lineup[i], over: b.members.length - lineup[i].capFor(b.cell) }))
+
+        /*
+         * 넘친 인원만 옆 고사실로 보냅니다.
+         *
+         * 분반을 통째로 앉히면 큰 분반이 한두 명씩 정원을 넘깁니다. 그 방에
+         * 의자를 더 놓는 것보다, 넘친 한둘을 자리가 남은 옆 방으로 보내는 편이
+         * 낫습니다. 분반은 그대로 남고 채점 명단도 그대로입니다.
+         *
+         * 옮기는 학생은 학번이 뒤인 쪽부터입니다. 분반 명단이 앞에서부터
+         * 끊기지 않고 이어지므로, 누가 옮겨 갔는지 찾기 쉽습니다.
+         */
+        const movedHere = spillOverflow(seats);
+        moved.push(...movedHere);
+
+        const short = seats
+          .map(s => ({ s, over: -headroom(s.r.id) }))
           .filter(x => x.over > 0);
         notes.push(
-          `[${subject}] 분반 ${bans.length}개를 통째로 앉혔습니다 (응시 ${need}명)` +
-          (short.length === 0
+          `[${subject}] 분반 ${bansLeft.length}개를 통째로 앉혔습니다 (응시 ${need}명)` +
+          (movedHere.length === 0
             ? '.'
-            : ` — ${short.map(x => `${x.r.name}에 ${x.over}명`).join(', ')} 넘칩니다. 의자를 더 놓으면 됩니다.`)
+            : ` — 정원이 넘쳐 ${movedHere.length}명을 옆 고사실로 옮겼습니다 (` +
+              movedHere.map(m => `${m.ban} ${m.num}번 → ${m.to}`).join(', ') +
+              `). 채점 명단은 분반 그대로입니다.`) +
+          (short.length === 0
+            ? ''
+            : ` 그래도 ${short.map(x => `${x.s.r.name}에 ${x.over}명`).join(', ')} 넘칩니다. ` +
+              `의자를 더 놓거나, 이 교시에 고사실을 하나 더 여는 편이 낫습니다.`) +
+          // 한둘이면 옮기는 편이 낫지만, 여럿이면 고사실을 하나 더 여는 편이 낫습니다.
+          (movedHere.length >= 3
+            ? ` 옮긴 인원이 적지 않습니다. 이 교시에 고사실을 하나 더 열면 분반을 그대로 둘 수 있습니다.`
+            : '')
         );
         continue;
       }
       notes.push(
-        `[${subject}] 분반이 ${bans.length}개인데 쓸 방이 ${lineup.length}곳뿐이라, ` +
+        `[${subject}] 분반이 ${bansLeft.length}개인데 쓸 방이 ${lineup.length}곳뿐이라, ` +
         `같은 과목끼리 나눠 앉힙니다.`
       );
     }
@@ -255,7 +312,7 @@ export function seatSlot(args: {
     if (have < need) {
       for (const r of pool) if (!picked.includes(r)) { picked.push(r); have += r.capFor(probe); }
     }
-    if (picked.length === 0) { unseated.push(...bans.flatMap(b => b.members)); continue; }
+    if (picked.length === 0) { unseated.push(...bansLeft.flatMap(b => b.members)); continue; }
 
     picked.forEach((r, i) => {
       const cell = `${subject}-${i + 1}실`;
@@ -263,7 +320,7 @@ export function seatSlot(args: {
       taken.add(r.id);
       capOfRoom.set(r.id, r.capFor(cell));
     });
-    for (const st of bans.flatMap(b => b.members).sort(byNum)) put(st, bestRoom(st, picked)!.id);
+    for (const st of bansLeft.flatMap(b => b.members).sort(byNum)) put(st, bestRoom(st, picked)!.id);
 
     if (have < need) {
       notes.push(
@@ -276,8 +333,8 @@ export function seatSlot(args: {
   // ── 남은 방이 대기실. 제 반 교실 먼저, 초과는 고르게. ───────────────
   const waitRooms = keeping
     ? usable.filter(r => taken.has(r.id) && isWaitCell(row[r.id]))
-    : usable.filter(r => !taken.has(r.id));
-  if (!keeping) for (const r of waitRooms) capOfRoom.set(r.id, r.capFor('대기'));
+    : usable.filter(r => !taken.has(r.id) || isWaitCell(row[r.id]));
+  if (!keeping) for (const r of waitRooms) if (!taken.has(r.id)) capOfRoom.set(r.id, r.capFor('대기'));
   if (waitRooms.length === 0 && nonTakers.length > 0) {
     unseated.push(...nonTakers);
   } else {
@@ -312,7 +369,67 @@ export function seatSlot(args: {
     notes.unshift('모두 자리를 받았고 정원을 넘긴 고사실도 없습니다.');
   }
 
-  return { row, placements, over, overTotal, unseated, notes, ok: unseated.length === 0 && overTotal === 0 };
+  return { row, placements, moved, over, overTotal, unseated, notes, ok: unseated.length === 0 && overTotal === 0 };
+
+  /**
+   * 정원을 넘긴 방에서 넘친 만큼만 빼내어, 자리가 남은 같은 과목 방으로 보냅니다.
+   *
+   * 같은 과목 방으로만 보냅니다. 다른 과목 방에 앉히면 시험지와 시작 시각이
+   * 달라 한 교실에서 두 시험을 치르게 됩니다.
+   * 보낼 곳이 없으면 그대로 둡니다 — 고사실을 더 열지 말지는 담당자가 정합니다.
+   */
+  function spillOverflow(seats: { r: Room; cell: CellValue }[]): MovedStudent[] {
+    const out: MovedStudent[] = [];
+    // 한 번 돌 때마다 넘친 인원이 하나 줄어드므로 반드시 멈춥니다.
+    for (let guard = 0; guard < 10000; guard++) {
+      const full = seats.filter(s => headroom(s.r.id) < 0)
+        .sort((a, b) => headroom(a.r.id) - headroom(b.r.id));
+      if (full.length === 0) break;
+      const src = full[0];
+      const dst = seats
+        .filter(s => s.r.id !== src.r.id && headroom(s.r.id) > 0)
+        .sort((a, b) => headroom(b.r.id) - headroom(a.r.id) || a.r.id.localeCompare(b.r.id))[0];
+      if (!dst) break;
+
+      const here = students
+        .filter(st => placements[keyOf(st)] === src.r.id)
+        .sort(byNum);
+      const st = here[here.length - 1];
+      if (!st) break;
+
+      placements[keyOf(st)] = dst.r.id;
+      seatedIn.set(src.r.id, (seatedIn.get(src.r.id) ?? 0) - 1);
+      seatedIn.set(dst.r.id, (seatedIn.get(dst.r.id) ?? 0) + 1);
+      out.push({ ban: st.ban, num: st.num, from: src.r.name, to: dst.r.name, cell: String(src.cell) });
+    }
+    return out;
+  }
+
+  /**
+   * 잠근 칸을 그대로 되살립니다.
+   *
+   * 칸에 분반이 적혀 있으면 그 분반 명단을 그 방에 앉히고, 그 분반은
+   * 아래 자동배치에서 뺍니다. 대기 칸이면 방만 잡아 두고 사람은 뒤에서 채웁니다.
+   */
+  function seatLocked() {
+    const locked = args.lockedRow;
+    if (!locked) return;
+    for (const r of usable) {
+      const cell = locked[r.id];
+      if (!cell || cell === '배치금지') continue;
+      row[r.id] = cell;
+      taken.add(r.id);
+      capOfRoom.set(r.id, r.capFor(cell));
+      if (isWaitCell(cell)) continue;
+      const e = entries.get(String(cell) as SubjectBanKey);
+      if (!e || !ps.subjects.includes(e.subject)) continue;
+      lockedBans.add(String(cell));
+      for (const st of membersOfBan(e, entries, students, neis)) {
+        if (placements[keyOf(st)]) continue;
+        put(st, r.id);
+      }
+    }
+  }
 
   function homeScore(r: Room, members: Student[]) {
     return members.filter(st => r.banName === st.ban || r.name === st.ban).length;

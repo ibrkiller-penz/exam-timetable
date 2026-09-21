@@ -1412,8 +1412,14 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     for (const [rid, v] of Object.entries(placement[ps.index] ?? {})) {
       if (v === '배치금지') forbidden[rid] = true;
     }
+    // 자물쇠를 채운 칸은 그대로 둡니다. 담당자가 일부러 잠가 둔 것입니다.
+    const lockedRow: Record<string, CellValue> = {};
+    for (const [rid, on] of Object.entries(lockedCells[ps.index] ?? {})) {
+      const v = placement[ps.index]?.[rid];
+      if (on && v) lockedRow[rid] = v;
+    }
     return seatSlot({
-      ps, rooms: roomsAt(ps.index), entries, students, neis, mode, forbidden, keepRow,
+      ps, rooms: roomsAt(ps.index), entries, students, neis, mode, forbidden, keepRow, lockedRow,
       capacityOf: (room, cell) =>
         capacityForSlot(room, ps.index, slotRoomCapacity, ps, cell, slotCapacityBasis[ps.index]),
     });
@@ -1592,6 +1598,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         const next: typeof placement = { ...placement };
         const allPlacements: Record<number, Record<string, string>> = {};
         let overAll = 0;
+        let movedAll = 0;
         const rough: string[] = [];
         for (const ps of placementSlots) {
           if (ps.subjects.length === 0) continue;
@@ -1599,6 +1606,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
           next[ps.index] = res.row;
           allPlacements[ps.index] = res.placements;
           overAll += res.overTotal;
+          movedAll += res.moved.length;
           if (res.overTotal > 0 || res.unseated.length > 0) rough.push(`${ps.title}: ${res.notes[res.notes.length - 1]}`);
         }
         setPlacementGrid(next);
@@ -1607,9 +1615,12 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         setAlertModal({
           isOpen: true,
           isError: overAll > 0,
-          message: overAll === 0
+          message: (overAll === 0
             ? `\u2705 모든 교시를 배치했습니다. 정원을 넘긴 고사실이 없습니다.`
-            : `\u26a0\ufe0f 배치했지만 정원을 모두 ${overAll}명 넘겼습니다.\n\n${rough.join('\n')}`,
+            : `\u26a0\ufe0f 배치했지만 정원을 모두 ${overAll}명 넘겼습니다.\n\n${rough.join('\n')}`)
+            + (movedAll > 0
+              ? `\n\n정원이 넘쳐 ${movedAll}명을 옆 고사실로 옮겼습니다. 채점 명단은 분반 그대로입니다.`
+              : ''),
         });
       },
     });
