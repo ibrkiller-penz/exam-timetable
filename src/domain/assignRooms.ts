@@ -512,6 +512,11 @@ export function replanAndPlaceSlot(args: {
   lockedRow?: Record<string, boolean>;
   roomIdSelected?: string;
   mode?: 'ban' | 'student_id';
+  /**
+   * 고사실은 그대로 두고 학생만 다시 나눕니다(8. 학생 배치).
+   * 7단계가 확정된 뒤에는 고사실 구성을 바꿀 수 없으므로 이 쪽을 씁니다.
+   */
+  keepRooms?: boolean;
 }): { plan: RoomPlan; placement: PlacementGrid; slotStudentPlacements: Record<string, string> } {
   const { ps, rooms, entries, students, neis, lockedRow } = args;
   const i = ps.index;
@@ -522,7 +527,8 @@ export function replanAndPlaceSlot(args: {
   });
 
   const seeded: PlacementGrid = JSON.parse(JSON.stringify(args.placement));
-  seeded[i] = nextRow;
+  // 고사실을 그대로 둘 때는 지금 줄을 씁니다. 계획은 안내에만 쓰입니다.
+  seeded[i] = args.keepRooms ? (args.placement[i] ?? {}) : nextRow;
 
   /*
    * 학번순일 때는 autoPlaceSlot 에 맡기지 않습니다.
@@ -544,7 +550,7 @@ export function replanAndPlaceSlot(args: {
     for (const a of distributeWaitToRooms(nonTakers, waitRooms, students)) {
       if (a.count > 0) placed[i][a.room.id] = `대기 - ${a.count}명`;
     }
-  } else {
+  } else if (!args.keepRooms) {
     Object.assign(placed, autoPlaceSlot(i, args.roomIdSelected ?? rooms[0]?.id ?? '', seeded, [ps], rooms, entries, students, false, lockedRow));
   }
   const seatedRaw = initSlotStudentPlacements(
@@ -557,4 +563,54 @@ export function replanAndPlaceSlot(args: {
     capacityOf: (r, cell) => capacityForSlot(r, i, args.slotRoomCapacity, ps, cell, args.slotCapacityBasis),
   });
   return { plan, placement: placed, slotStudentPlacements };
+}
+
+/** 미리보기 한 줄. 어느 방에 무엇이 몇 명 앉는지. */
+export interface SeatingRow {
+  roomId: string;
+  room: string;
+  cell: CellValue;
+  seated: number;
+  capacity: number;
+  over: number;
+  wait: boolean;
+}
+
+/**
+ * 배치 결과를 방별로 한 줄씩 정리합니다.
+ *
+ * 누르기 전에 무엇이 달라지는지 보여 주려고 만들었습니다. '재배치 하니
+ * 이상하다'는 말이 나오는 까닭은 대개 누른 뒤에야 결과를 보기 때문입니다.
+ */
+export function summarizeSeating(args: {
+  ps: PlacementSlot;
+  row: Record<string, CellValue>;
+  placements: Record<string, string>;
+  rooms: ExamRoom[];
+  students: Student[];
+  slotRoomCapacity?: Record<number, Record<string, number>>;
+  slotCapacityBasis?: CapacityBasis;
+}): { rows: SeatingRow[]; unplaced: number; overTotal: number } {
+  const { ps, row, placements, rooms, students } = args;
+  const rows: SeatingRow[] = [];
+  let overTotal = 0;
+
+  for (const r of rooms) {
+    const cell = row[r.id];
+    if (!cell || cell === '배치금지') continue;
+    const seated = students.filter(st => placements[`${st.ban}-${st.num}`] === r.id).length;
+    const capacity = capacityForSlot(r, ps.index, args.slotRoomCapacity, ps, cell, args.slotCapacityBasis);
+    const over = Math.max(0, seated - capacity);
+    overTotal += over;
+    rows.push({ roomId: r.id, room: r.roomName, cell, seated, capacity, over, wait: isWaitCell(cell) });
+  }
+
+  const unplaced = students.filter(st => {
+    const rid = placements[`${st.ban}-${st.num}`];
+    return !rid || !row[rid] || row[rid] === '배치금지';
+  }).length;
+
+  // 시험 칸을 먼저, 그 다음 대기. 같은 갈래에서는 고사실 이름 순서대로.
+  rows.sort((a, b) => (a.wait === b.wait ? a.room.localeCompare(b.room, 'ko') : a.wait ? 1 : -1));
+  return { rows, unplaced, overTotal };
 }
