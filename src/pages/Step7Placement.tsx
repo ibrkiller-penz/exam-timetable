@@ -1388,27 +1388,26 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
           nextPlacement = res.placement; nextStudents = res.slotStudentPlacements;
         }
 
-        if (allowRoomChange) {
-          // 승인을 받았으면 7단계 확정을 잠시 풀고 고친 뒤 곧바로 다시 확정합니다.
-          // 풀어만 두고 끝내면 사용자가 모르는 사이 단계가 내려가 있습니다.
-          const wasConfirmed = !!stages.step7;
-          if (wasConfirmed) cancelStep7Rooms();
-          setPlacementGrid(nextPlacement);
-          if (wasConfirmed) confirmStep7Rooms();
-        }
+        // 고사실은 7단계가 열려 있을 때만 바뀝니다(그때만 allowRoomChange 가 참입니다).
+        if (allowRoomChange) setPlacementGrid(nextPlacement);
         setSlotStudentPlacements(slot, nextStudents);
         setConfirmModal(null);
 
         const movedRooms = allowRoomChange && plan.moves > 0;
+        const needsStep7 = !allowRoomChange && (plan.moves > 0 || !plan.ok);
         setAlertModal({
           isOpen: true,
-          isError: !plan.ok,
-          message: !plan.ok
-            ? `⚠️ [${ps.title}] 학생을 옮기는 것만으로는 다 앉힐 수 없습니다.\n\n` +
-              `${plan.notes.join('\n\n')}\n\n고사실을 손보기 전에는 이 교시를 확정할 수 없습니다.`
-            : movedRooms
-              ? `✅ [${ps.title}] 고사실을 고치고 학생을 다시 앉혔습니다. 7단계는 다시 확정해 두었습니다.\n\n${plan.notes.join('\n')}`
-              : `✅ [${ps.title}] 재배치를 마쳤습니다. 다른 교시는 그대로입니다.\n\n${plan.notes.join('\n')}`,
+          isError: !plan.ok || needsStep7,
+          message: needsStep7
+            ? `⚠️ [${ps.title}] 학생만 다시 나눴습니다. 고사실은 그대로입니다.\n\n` +
+              `${plan.notes.join('\n\n')}\n\n` +
+              `고사실을 옮기려면 7. 고사장 배치에서 '확정 취소'를 한 뒤 그 교시를 재배치하세요.`
+            : !plan.ok
+              ? `⚠️ [${ps.title}] 학생을 옮기는 것만으로는 다 앉힐 수 없습니다.\n\n` +
+                `${plan.notes.join('\n\n')}\n\n고사실을 손보기 전에는 이 교시를 확정할 수 없습니다.`
+              : movedRooms
+                ? `✅ [${ps.title}] 고사실을 고치고 학생을 다시 앉혔습니다.\n\n${plan.notes.join('\n')}`
+                : `✅ [${ps.title}] 재배치를 마쳤습니다. 다른 교시는 그대로입니다.\n\n${plan.notes.join('\n')}`,
         });
       } catch (e) {
         setConfirmModal(null);
@@ -1429,22 +1428,13 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         const roomsLocked = !!stages.step7;
 
         /*
-         * 고사실을 옮겨야 푸는 경우, 8단계에서 그냥 손 놓지 않습니다.
-         * 무엇을 고쳐야 하는지 말하고 승인을 받습니다. 말없이 남의 단계를
-         * 건드리지는 않습니다.
+         * 8단계는 7단계를 건드리지 않습니다.
+         * 7단계가 확정되어 있으면 고사실은 그대로 두고 학생만 다시 나눕니다.
+         * 고사실을 옮겨야 풀리는 교시는 그 사실을 말해 주고, 7단계에서 고치게 합니다.
+         * (한때 여기서 승인을 받아 7단계를 잠시 풀었다가 다시 잠갔는데, 단계를
+         * 넘나드는 것이 더 헷갈려 되돌렸습니다.)
          */
-        if (roomsLocked && plan.moves > 0) {
-          setConfirmModal({
-            isOpen: true,
-            message:
-              `이 작업은 [7. 고사장 배치]를 고쳐야 합니다.\n\n${plan.notes.join('\n\n')}\n\n` +
-              `7단계 확정을 잠시 풀고 고사실을 고친 뒤 다시 확정합니다. ` +
-              `다른 교시의 고사실은 건드리지 않습니다.\n\n그렇게 진행할까요?`,
-            onConfirm: () => applyReplan(true),
-          });
-          return;
-        }
-
+        void plan;
         applyReplan(!roomsLocked);
       },
     });
