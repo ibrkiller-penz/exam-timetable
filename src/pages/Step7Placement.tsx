@@ -1452,6 +1452,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         mode,
         // 7단계가 확정되어 있으면 고사실은 그대로 두고 학생만 다시 나눕니다.
         keepRooms: !allowRoomChange,
+        // 잠근 고사실의 학생을 지키려면 지금 자리를 함께 넘겨야 합니다.
+        existingPlacements: studentPlacements?.[slot],
       });
     };
 
@@ -1466,18 +1468,38 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         setConfirmModal(null);
 
         const how = mode === 'student_id' ? '학번순' : '분반대로';
+
+        /*
+         * 안내는 계획이 아니라 '실제로 앉은 결과'로 합니다.
+         *
+         * 계획(plan)은 방을 옮길 수 있다고 보고 세웁니다. 그런데 8단계에서는
+         * 고사실이 그대로라 계획대로 앉지 못할 수 있습니다. 계획만 보고 말하면
+         * 미리보기에는 미배치 19명이 떠 있는데 결과창은 '마쳤습니다'라고 합니다.
+         * 미리보기와 같은 셈법(summarizeSeating)으로 말합니다.
+         */
+        const savedRow = allowRoomChange ? (nextPlacement[slot] ?? {}) : (placement[slot] ?? {});
+        const seat = summarizeSeating({
+          ps, row: savedRow, placements: nextStudents, rooms: roomsAt(slot), students,
+          slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot],
+        });
+        const trouble: string[] = [];
+        if (seat.unplaced > 0) trouble.push(`자리를 못 받은 학생 ${seat.unplaced}명`);
+        if (seat.overTotal > 0) trouble.push(`정원을 넘긴 인원 ${seat.overTotal}명`);
+        const realOk = trouble.length === 0;
         // 칸 이름만 바뀐 것은 고사실이 바뀐 것이 아닙니다(학번순은 '과목-N실'로 다시 적습니다).
-        const needsStep7 = !allowRoomChange && (plan.roomsChanged > 0 || !plan.ok);
+        const needsStep7 = !allowRoomChange && (plan.roomsChanged > 0 || !realOk);
+
         setAlertModal({
           isOpen: true,
-          isError: !plan.ok || needsStep7,
-          message: needsStep7
-            ? `⚠️ [${ps.title}] 학생만 ${how}으로 다시 나눴습니다. 고사실은 그대로입니다.\n\n` +
-              `${plan.notes.join('\n\n')}\n\n` +
-              `고사실을 옮기려면 7. 고사장 배치에서 '확정 취소'를 한 뒤 그 교시를 재배치하세요.`
-            : !plan.ok
-              ? `⚠️ [${ps.title}] 다 앉힐 수 없습니다.\n\n${plan.notes.join('\n\n')}`
-              : `✅ [${ps.title}] ${how}으로 재배치를 마쳤습니다. 다른 교시는 그대로입니다.\n\n${plan.notes.join('\n')}`,
+          isError: !realOk,
+          message: realOk
+            ? `✅ [${ps.title}] ${how}으로 재배치를 마쳤습니다. 다른 교시는 그대로입니다.\n\n${plan.notes.join('\n')}`
+            : `⚠️ [${ps.title}] ${how}으로 다시 나눴지만 ${trouble.join(', ')}이 남았습니다.\n\n` +
+              `${plan.notes.join('\n\n')}` +
+              (needsStep7
+                ? `\n\n고사실이 그대로여서 여기까지입니다. 방을 옮기려면 ` +
+                  `7. 고사장 배치에서 '확정 취소'를 한 뒤 그 교시를 재배치하세요.`
+                : ''),
         });
       } catch (e) {
         setConfirmModal(null);

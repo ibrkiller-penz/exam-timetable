@@ -565,6 +565,14 @@ export function replanAndPlaceSlot(args: {
    * 7단계가 확정된 뒤에는 고사실 구성을 바꿀 수 없으므로 이 쪽을 씁니다.
    */
   keepRooms?: boolean;
+  /**
+   * 지금 학생이 앉아 있는 자리.
+   *
+   * 잠근 고사실의 학생을 지키려면 이것을 넘겨야 합니다. 넘기지 않으면
+   * initSlotStudentPlacements 가 잠근 방을 건너뛴 채로만 나누어, 그 방에
+   * 앉아 있던 학생이 통째로 미배치가 됩니다.
+   */
+  existingPlacements?: Record<string, string>;
 }): { plan: RoomPlan; placement: PlacementGrid; slotStudentPlacements: Record<string, string> } {
   const { ps, rooms, entries, students, neis, lockedRow } = args;
   const i = ps.index;
@@ -589,7 +597,7 @@ export function replanAndPlaceSlot(args: {
    * 여기서는 시험 칸을 그대로 두고, 남은 방에 대기만 직접 나눕니다.
    */
   const placed: PlacementGrid = JSON.parse(JSON.stringify(seeded));
-  if (plan.mode === 'student_id') {
+  if (plan.mode === 'student_id' && !args.keepRooms) {
     const nonTakers = students.filter(st => !st.subjects.some(sub => ps.subjects.includes(sub)));
     const waitRooms = rooms.filter(r =>
       r.roomName !== '' && r.roomName !== '0' &&
@@ -602,7 +610,7 @@ export function replanAndPlaceSlot(args: {
     Object.assign(placed, autoPlaceSlot(i, args.roomIdSelected ?? rooms[0]?.id ?? '', seeded, [ps], rooms, entries, students, false, lockedRow));
   }
   const seatedRaw = initSlotStudentPlacements(
-    i, placed[i] ?? {}, [ps], rooms, entries, students, neis, undefined, lockedRow, plan.mode,
+    i, placed[i] ?? {}, [ps], rooms, entries, students, neis, args.existingPlacements, lockedRow, plan.mode,
   );
 
   // 분반 위주 배치는 정원을 넘겨 앉히므로, 넘친 학생을 같은 과목 방으로 넘깁니다.
