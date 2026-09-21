@@ -1,0 +1,67 @@
+# master 에 올리면 알아서 배포합니다.
+#
+# 왜 두었나
+#   배포를 손으로 하다 보니 "고쳤는데 아직 안 올렸다"가 자주 생겼습니다.
+#   올리는 순간 GitHub 가 빌드해서 올리므로, 저장소와 배포본이 어긋나지 않습니다.
+#
+# 헷갈리기 쉬운 곳
+#   자료(Firestore)는 examtable-app, 호스팅은 firsttest-5db1f 입니다.
+#   .firebaserc 의 default 는 자료 쪽(examtable-app)이라, 여기서는 호스팅
+#   프로젝트를 반드시 못 박아야 합니다. 안 그러면 엉뚱한 곳으로 갑니다.
+#
+# 저장소가 공개입니다
+#   그래서 push 로만 돕니다. pull_request 로 돌리면 남의 포크가 올린 코드가
+#   우리 배포 열쇠를 쥐게 됩니다. 포크에서는 아예 돌지 않도록 막아 두었습니다.
+
+name: 배포
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: # 필요하면 Actions 화면에서 손으로도 돌립니다.
+
+# 열쇠를 쥔 작업이라 권한은 읽기만 줍니다.
+permissions:
+  contents: read
+
+# 연달아 올렸을 때 옛 빌드가 새 빌드를 덮어쓰지 않게 합니다.
+concurrency:
+  group: deploy-hosting
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    # 포크에서는 돌리지 않습니다(열쇠가 없기도 하고, 있어도 안 됩니다).
+    if: github.repository == 'ibrkiller-penz/exam-timetable'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+        env:
+          # electron 은 로컬 프로그램(.exe) 만들 때만 씁니다. 웹 배포에는
+          # 쓸모없는데 설치하면 150MB 짜리 바이너리를 내려받아 느리고 잘 깨집니다.
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+
+      - name: 타입 검사와 빌드
+        run: npm run build
+
+      # 깨진 것을 올리지 않도록 통과해야 배포로 넘어갑니다.
+      # 실제 학교 엑셀을 읽는 시험은 파일이 없으면 스스로 건너뜁니다.
+      - name: 시험
+        run: npm test
+
+      - name: 호스팅에 올리기
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: firsttest-5db1f # 호스팅 프로젝트. 자료 쪽(examtable-app)이 아닙니다.
+          channelId: live
