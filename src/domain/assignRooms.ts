@@ -57,6 +57,15 @@ export interface RoomPlan {
   moves: number;
   /** 실제로 쓴 방식. 화면이 무엇으로 앉혔는지 알려 주려고 돌려줍니다. */
   mode: 'ban' | 'student_id';
+  /**
+   * 고사실 구성이 실제로 바뀌는 방 수.
+   *
+   * moves 는 칸 글자가 달라지면 셉니다. 학번순은 칸 이름을 '과목-N실'로
+   * 바꿔 적으므로, 같은 방에 같은 과목이 그대로 있어도 moves 가 올라갑니다.
+   * 그것 때문에 8단계에서 '7단계를 고쳐야 한다'는 안내가 괜히 떴습니다.
+   * 이 값은 과목이 다른 방으로 옮겨가는 경우만 셉니다.
+   */
+  roomsChanged: number;
 }
 
 /**
@@ -162,6 +171,22 @@ function seat(
  *      실제 자료에서 앱이 그렇게 앉힌 교시를 보고 알았습니다 — 분반을 통째로만
  *      보면 멀쩡한 교시를 안 된다고 하고, 될 교시에 책상을 더 넣으라고 합니다.
  */
+/** 과목이 다른 방으로 옮겨가는 방의 수. 칸 이름만 바뀐 것은 세지 않습니다. */
+function countRoomsChanged(
+  exam: Record<string, string>,
+  current: Record<string, string>,
+  subjectOf: (cell: string) => string,
+): number {
+  const ids = new Set([...Object.keys(exam), ...Object.keys(current)]);
+  let n = 0;
+  for (const id of ids) {
+    const before = current[id] ? subjectOf(current[id]) : '';
+    const after = exam[id] ? subjectOf(exam[id]) : '';
+    if (before !== after) n++;
+  }
+  return n;
+}
+
 export function planRooms(input: RoomPlanInput): RoomPlan {
   const fixed = input.fixed ?? {};
   const current = input.current ?? {};
@@ -192,10 +217,19 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
       const k = subjectOf(b.cell);
       bySubject.set(k, [...(bySubject.get(k) ?? []), b]);
     }
+    /*
+     * 사람이 많은 과목부터 방을 고릅니다.
+     *
+     * 들어온 차례대로 나눠 주면 5명짜리 과목이 40석을 먼저 차지하고,
+     * 38명짜리가 10석만 받아 28석이 모자랐습니다. 같은 입력인데 과목
+     * 순서만 바뀌어도 되고 안 되고가 갈렸습니다.
+     */
+    const subjectsByNeed = [...bySubject.entries()]
+      .sort((a, b) => b[1].reduce((x, y) => x + y.size, 0) - a[1].reduce((x, y) => x + y.size, 0));
     let shortAll = 0;
     const pool = freeRooms.filter(r => !(r.id in exam)).sort((a, b) => capOf(b.id, null) - capOf(a.id, null) || a.id.localeCompare(b.id));
     let next = 0;
-    for (const [subject, bans] of bySubject) {
+    for (const [subject, bans] of subjectsByNeed) {
       const need = bans.reduce((a, b) => a + b.size, 0);
       /*
        * 지금 이 과목에 열어 둔 실 수를 존중합니다.
@@ -234,45 +268,58 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
     for (const [rid, cell] of Object.entries(exam)) if (current[rid] !== cell) mv++;
     return {
       exam, waitRoomIds: waitIds, unseated: [], waitShort: wShort, seatShort: shortAll,
-      notes, ok: shortAll === 0 && wShort === 0, moves: mv, mode: 'student_id',
+      notes, ok: shortAll === 0 && wShort === 0, moves: mv,
+      roomsChanged: countRoomsChanged(exam, current, subjectOf), mode: 'student_id',
     };
   }
 
-  // 2. ⓪ 지금 자리가 이미 되면 손대지 않습니다.
-  //    분반이 통째로는 안 들어가도 앱이 같은 과목 방으로 넘겨 앉히므로,
-  //    과목별 좌석 합계만 맞으면 지금 배치는 멀쩡한 배치입니다. 그걸 굳이
-  //    큰 방으로 옮겨 봐야 학생만 움직입니다. 앱이 OK 라는 교시는 여기서 끝납니다.
-  const currentOk = (() => {
-    const roomOfCell = new Map<string, string>();
+  /*
+   * 옮기면 실제로 나아질 때만 옮깁니다.
+   *
+   * '방마다 딱 들어가는가'로만 재면 이득 없는 이동을 권하게 됩니다. 29명
+   * 분반이 28석 방에 있을 때, 방을 넷이나 바꿔 봐야 가장 큰 방이 28석이라
+   * 한 명은 여전히 넘칩니다. 결과가 같은데 학생만 움직이는 셈입니다.
+   *
+   * 그래서 '넘치는 인원'으로 견줍니다. 지금 배치와 새로 짠 배치를 각각
+   * 재서, 새것이 더 낫지 않으면 지금 것을 그대로 둡니다. 28명이 25석에,
+   * 25명이 30석에 있는 어긋난 배치는 바꾸면 3명 → 0명이 되므로 옮기고,
+   * 위의 29명 경우는 1명 → 1명이라 그대로 둡니다.
+   */
+  const spillOf = (assign: Record<string, string>) => {
+    const roomOf = new Map<string, string>();
+    for (const [rid, cell] of Object.entries(assign)) roomOf.set(cell, rid);
+    let n = 0;
+    for (const b of freeBans) {
+      const rid = roomOf.get(b.cell);
+      if (!rid) { n += b.size; continue; } // 자리를 못 받으면 통째로 비용입니다.
+      n += Math.max(0, b.size - capOf(rid, b.cell));
+    }
+    return n;
+  };
+
+  /** 지금 배치가 쓸 만한 모양인지(분반마다 방 하나, 방마다 분반 하나). */
+  const currentAssign = (() => {
+    const out: Record<string, string> = {};
+    const seenCell = new Set<string>();
     for (const [rid, cell] of Object.entries(current)) {
       if (rid in fixed || !freeRooms.some(r => r.id === rid)) continue;
-      if (roomOfCell.has(cell)) return false; // 한 분반이 두 방에
-      roomOfCell.set(cell, rid);
+      if (seenCell.has(cell) || out[rid]) return null; // 한 분반이 두 방에, 또는 한 방에 두 분반
+      seenCell.add(cell);
+      out[rid] = cell;
     }
-    if (!freeBans.every(b => roomOfCell.has(b.cell))) return false;
-    const usedRooms = new Set(roomOfCell.values());
-    if (usedRooms.size !== roomOfCell.size) return false; // 한 방에 두 분반
-    const bySubject = new Map<string, SeatBan[]>();
-    for (const b of freeBans) bySubject.set(subjectOf(b.cell), [...(bySubject.get(subjectOf(b.cell)) ?? []), b]);
-    for (const bans of bySubject.values()) {
-      const need = bans.reduce((a, b) => a + b.size, 0);
-      const have = bans.reduce((a, b) => a + capOf(roomOfCell.get(b.cell)!, b.cell), 0);
-      if (have < need) return false;
-    }
-    return true;
+    return freeBans.every(b => seenCell.has(b.cell)) ? out : null;
   })();
 
-  // 2. ① 통째로 앉히기. 지금 자리를 살리는 쪽을 먼저 보되,
+  // ① 통째로 앉히기. 지금 자리를 살리는 쪽을 먼저 보되,
   //    그래서 못 앉는 분반이 생기면 크기 순서만으로 다시 짭니다.
-  let got = currentOk
-    ? { exam: Object.fromEntries(freeBans.map(b => {
-        const rid = Object.entries(current).find(([, c]) => c === b.cell)![0];
-        return [rid, b.cell];
-      })), unseated: [] as SeatBan[] }
-    : seat(freeBans, freeRooms, current, capOf);
+  let got = seat(freeBans, freeRooms, current, capOf);
   if (got.unseated.length > 0) {
     const strict = seat(freeBans, freeRooms, {}, capOf);
     if (strict.unseated.length < got.unseated.length) got = strict;
+  }
+  // 새로 짠 것이 더 낫지 않으면 지금 자리를 그대로 둡니다.
+  if (currentAssign && got.unseated.length === 0 && spillOf(currentAssign) <= spillOf(got.exam)) {
+    got = { exam: currentAssign, unseated: [] };
   }
   Object.assign(exam, got.exam);
 
@@ -333,6 +380,7 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
   // 5. 설명.
   let moves = 0;
   for (const [roomId, cell] of Object.entries(exam)) if (current[roomId] !== cell) moves++;
+  const roomsChanged = countRoomsChanged(exam, current, subjectOf);
 
   for (const ban of stillUnseated) {
     notes.push(`[${ban.cell}] ${ban.size}명을 앉힐 방이 남아 있지 않습니다. 이 교시에 쓸 고사실을 더 열어야 합니다.`);
@@ -357,7 +405,7 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
     );
   }
 
-  return { exam, waitRoomIds, unseated: stillUnseated, waitShort, seatShort, notes, ok, moves, mode: 'ban' };
+  return { exam, waitRoomIds, unseated: stillUnseated, waitShort, seatShort, notes, ok, moves, roomsChanged, mode: 'ban' };
 }
 
 /**

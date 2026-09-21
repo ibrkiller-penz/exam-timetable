@@ -292,3 +292,54 @@ describe('학번순으로 고르게 나누기', () => {
     expect(cells.filter(c => c.startsWith('M(4)'))).toHaveLength(1);
   });
 });
+
+describe('검토에서 찾은 반례', () => {
+  it('학번순: 과목이 들어온 차례에 따라 되고 안 되고가 갈리지 않는다', () => {
+    // 방 40석·10석, A과목 5명·B과목 38명.
+    // 5명짜리가 40석을 먼저 차지하면 38명이 10석밖에 못 받습니다.
+    const rooms: SeatRoom[] = [
+      { id: 'big', name: '세미나실', capacity: 40 },
+      { id: 'small', name: '3-1', capacity: 10 },
+    ];
+    const size: Record<string, number> = { 'A(4)-1반': 5, 'B(4)-1반': 38 };
+    for (const order of [['A(4)-1반', 'B(4)-1반'], ['B(4)-1반', 'A(4)-1반']]) {
+      const bans: SeatBan[] = order.map(cell => ({ cell, size: size[cell] }));
+      const plan = planRooms({ bans, rooms, nonTakers: 0, mode: 'student_id' });
+      expect(plan.ok).toBe(true);
+      expect(plan.seatShort).toBe(0);
+      expect(plan.exam['big']).toBe('B(4)-1실');   // 많은 쪽이 큰 방
+      expect(plan.exam['small']).toBe('A(4)-1실');
+    }
+  });
+
+  it('학번순: 칸 이름만 바뀐 것은 고사실이 바뀐 것으로 세지 않는다', () => {
+    const rooms: SeatRoom[] = [
+      { id: 'r1', name: '3-1', capacity: 30 },
+      { id: 'r2', name: '3-2', capacity: 30 },
+    ];
+    const bans: SeatBan[] = [
+      { cell: '수학(4)-1반', size: 25 },
+      { cell: '수학(4)-2반', size: 25 },
+    ];
+    const current = { r1: '수학(4)-1반', r2: '수학(4)-2반' };
+    const plan = planRooms({ bans, rooms, nonTakers: 0, mode: 'student_id', current });
+
+    expect(plan.moves).toBe(2);         // 칸 글자는 바뀝니다('-1실')
+    expect(plan.roomsChanged).toBe(0);  // 그래도 고사실 구성은 그대로입니다
+  });
+
+  it('분반대로: 큰 분반이 작은 방에 있으면 합계가 맞아도 다시 짠다', () => {
+    // 28명이 25석에, 25명이 30석에. 합계로는 되지만(55>=53) 바꿔 앉히면 그냥 풀립니다.
+    const rooms: SeatRoom[] = [
+      { id: 'r30', name: '3-1', capacity: 30 },
+      { id: 'r25', name: '3-2', capacity: 25 },
+    ];
+    const bans: SeatBan[] = [{ cell: 'X-1반', size: 28 }, { cell: 'X-2반', size: 25 }];
+    const current = { r25: 'X-1반', r30: 'X-2반' };
+    const plan = planRooms({ bans, rooms, nonTakers: 0, current });
+
+    expect(plan.exam['r30']).toBe('X-1반'); // 28명은 30석으로
+    expect(plan.exam['r25']).toBe('X-2반'); // 25명은 25석으로
+    expect(plan.moves).toBeGreaterThan(0);
+  });
+});

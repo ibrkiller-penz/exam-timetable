@@ -1466,7 +1466,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         setConfirmModal(null);
 
         const how = mode === 'student_id' ? '학번순' : '분반대로';
-        const needsStep7 = !allowRoomChange && (plan.moves > 0 || !plan.ok);
+        // 칸 이름만 바뀐 것은 고사실이 바뀐 것이 아닙니다(학번순은 '과목-N실'로 다시 적습니다).
+        const needsStep7 = !allowRoomChange && (plan.roomsChanged > 0 || !plan.ok);
         setAlertModal({
           isOpen: true,
           isError: !plan.ok || needsStep7,
