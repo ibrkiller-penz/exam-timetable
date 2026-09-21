@@ -34,25 +34,21 @@ describe('분반을 고사실에 앉히기', () => {
     expect(seatedCount(plan, bans)).toBe(83);
   });
 
-  it('정원을 넘겨 억지로 앉히지 않는다 — 안 되면 무엇이 모자란지 말한다', () => {
-    // 2일차 3교시의 실제 모습입니다. 30·30·31명인데 30석 이상 방은 둘뿐입니다.
+  it('정원을 넘겨 억지로 앉히지 않는다 — 좌석 합계로도 모자라면 몇 석인지 말한다', () => {
+    // 30·30·31명인데 방을 셋만 쓸 수 있고 그 셋이 24·24·24석이면 어떻게 해도 72석.
+    const small: SeatRoom[] = ROOMS.filter(r => r.capacity === 24).slice(0, 3);
     const bans: SeatBan[] = [
       { cell: '심화 영어 독해Ⅰ(4)-1반', size: 30 },
       { cell: '심화 영어 독해Ⅰ(4)-2반', size: 30 },
       { cell: '심화 영어 독해Ⅰ(4)-3반', size: 31 },
     ];
-    const plan = planRooms({ bans, rooms: ROOMS, nonTakers: 72 });
+    const plan = planRooms({ bans, rooms: small, nonTakers: 0 });
 
     expect(plan.ok).toBe(false);
-    // 큰 둘은 앉고 하나만 못 앉습니다. 손해를 최소로 봅니다.
-    expect(plan.unseated).toHaveLength(1);
-    expect(plan.unseated[0].size).toBe(30);
-    expect(plan.exam['extra_9']).toBe('심화 영어 독해Ⅰ(4)-3반'); // 31명은 40석에만 들어갑니다
-    // 30명짜리가 둘이라 어느 쪽이 30석 방에 가든 같습니다. 크기만 봅니다.
-    expect(bans.find(b => b.cell === plan.exam['extra_8'])?.size).toBe(30);
-    // 무엇을 하면 되는지 숫자로 알려 줍니다.
-    expect(plan.notes.join(' ')).toMatch(/2석 모자랍니다/);
-    expect(plan.notes.join(' ')).toMatch(/정원을 30석으로 올리거나/);
+    expect(plan.seatShort).toBe(91 - 72);
+    expect(plan.notes.join(' ')).toMatch(/시험 좌석이 19석 모자랍니다/);
+    // 그래도 방은 다 채워 둡니다. 칸을 비워 두면 표에서 분반이 사라집니다.
+    expect(Object.keys(plan.exam)).toHaveLength(3);
   });
 
   it('지금 자리로도 되면 그대로 둔다 — 학생을 공연히 옮기지 않는다', () => {
@@ -120,5 +116,133 @@ describe('분반을 고사실에 앉히기', () => {
 
     expect(plan.unseated).toHaveLength(1);
     expect(plan.notes.join(' ')).toMatch(/고사실을 더 열어야 합니다|모자랍니다/);
+  });
+});
+
+describe('정원이 무엇을 넣느냐에 따라 달라질 때', () => {
+  it('capacityFor 를 주면 방마다 하나의 정원이 아니라 (방, 분반) 쌍으로 본다', () => {
+    // room_4 는 좌석 24석이지만 '자기 반'(4반) 분반이 앉으면 학급 인원 30명 기준이 됩니다.
+    const rooms: SeatRoom[] = [
+      { id: 'room_4', name: '3-4', capacity: 24 },
+      { id: 'room_9', name: '세미나실', capacity: 40 },
+    ];
+    const bans: SeatBan[] = [{ cell: 'X-4반', size: 30 }, { cell: 'X-1반', size: 30 }];
+    const capacityFor = (roomId: string, cell: string | null) =>
+      roomId === 'room_4' && cell === 'X-4반' ? 30 : (rooms.find(r => r.id === roomId)!.capacity);
+
+    const plan = planRooms({ bans, rooms, nonTakers: 0, capacityFor });
+
+    expect(plan.ok).toBe(true);
+    expect(plan.exam['room_4']).toBe('X-4반');   // 자기 반이라 30명이 들어갑니다
+    expect(plan.exam['room_9']).toBe('X-1반');
+  });
+
+  it('capacityFor 없이 방 정원 하나로만 보면 같은 입력이 실패한다 — 그래서 넘겨야 한다', () => {
+    // 24석 + 30석 = 54석 < 60명. 자기 반 보정(24→30)이 있어야만 60석이 됩니다.
+    const rooms: SeatRoom[] = [
+      { id: 'room_4', name: '3-4', capacity: 24 },
+      { id: 'extra_8', name: '넘나들', capacity: 30 },
+    ];
+    const bans: SeatBan[] = [{ cell: 'X-4반', size: 30 }, { cell: 'X-1반', size: 30 }];
+
+    expect(planRooms({ bans, rooms, nonTakers: 0 }).ok).toBe(false);
+
+    const capacityFor = (roomId: string, cell: string | null) =>
+      roomId === 'room_4' && cell === 'X-4반' ? 30 : rooms.find(r => r.id === roomId)!.capacity;
+    expect(planRooms({ bans, rooms, nonTakers: 0, capacityFor }).ok).toBe(true);
+  });
+
+  it('0명 분반은 방을 차지하지 않는다', () => {
+    const bans: SeatBan[] = [{ cell: 'Y-1반', size: 0 }, { cell: 'Y-2반', size: 20 }];
+    const plan = planRooms({ bans, rooms: ROOMS, nonTakers: 0 });
+    expect(Object.values(plan.exam)).toEqual(['Y-2반']);
+    expect(plan.unseated).toEqual([]);
+  });
+});
+
+describe('분반을 통째로는 못 앉혀도 좌석 합계로 되는 경우', () => {
+  it('2일차 3교시 — 30·30·31명을 40·30·28석에 나눠 앉히면 된다 (책상을 더 넣을 필요가 없다)', () => {
+    const bans: SeatBan[] = [
+      { cell: '심화 영어 독해Ⅰ(4)-1반', size: 30 },
+      { cell: '심화 영어 독해Ⅰ(4)-2반', size: 30 },
+      { cell: '심화 영어 독해Ⅰ(4)-3반', size: 31 },
+    ];
+    const plan = planRooms({ bans, rooms: ROOMS, nonTakers: 72 });
+
+    expect(plan.ok).toBe(true);
+    expect(plan.seatShort).toBe(0);
+    expect(plan.unseated).toEqual([]);
+    // 큰 방 셋: 세미나실 40 · 넘나들 30 · 3-1 28 = 98석 ≥ 91명
+    expect(new Set(Object.keys(plan.exam))).toEqual(new Set(['extra_9', 'extra_8', 'room_1']));
+    expect(plan.notes.join(' ')).toMatch(/나눠 앉히면 됩니다 \(좌석 98석 \/ 응시 91명\)/);
+    expect(plan.notes.join(' ')).toMatch(/3-1에 2명이 넘쳐/);
+  });
+
+  it('좌석 합계로도 모자라면 몇 석이 모자란지 말한다', () => {
+    const bans: SeatBan[] = [
+      { cell: 'Z-1반', size: 40 },
+      { cell: 'Z-2반', size: 40 },
+      { cell: 'Z-3반', size: 40 },
+    ];
+    const plan = planRooms({ bans, rooms: ROOMS, nonTakers: 0 });
+    // 가장 큰 셋 40+30+28 = 98 < 120
+    expect(plan.ok).toBe(false);
+    expect(plan.seatShort).toBe(22);
+    expect(plan.notes.join(' ')).toMatch(/시험 좌석이 22석 모자랍니다/);
+  });
+
+  it('과목이 둘이면 서로 다른 과목 방으로는 넘기지 않는다', () => {
+    // A 과목은 좌석 합계로 해결, B 과목은 그대로 통째로 앉는다.
+    const bans: SeatBan[] = [
+      { cell: 'A-1반', size: 30 }, { cell: 'A-2반', size: 30 }, { cell: 'A-3반', size: 31 },
+      { cell: 'B-1반', size: 20 },
+    ];
+    const plan = planRooms({ bans, rooms: ROOMS, nonTakers: 0 });
+    expect(plan.ok).toBe(true);
+    const roomOf = (cell: string) => Object.entries(plan.exam).find(([, c]) => c === cell)?.[0];
+    expect(roomOf('B-1반')).toBeDefined();
+    expect(['extra_9', 'extra_8', 'room_1']).not.toContain(roomOf('B-1반'));
+  });
+});
+
+import { spillOverCapacity } from '../../src/domain/assignRooms';
+import { subjectBanEntries } from '../../src/domain/placement';
+
+describe('정원을 넘긴 방의 학생을 같은 과목 방으로 넘기기', () => {
+  const rooms: any[] = [
+    { id: 'A', banName: '1반', stuCount: 28, maxClassSize: 28, roomName: '3-1', capacity: 28 },
+    { id: 'B', banName: '2반', stuCount: 28, maxClassSize: 28, roomName: '3-2', capacity: 40 },
+    { id: 'C', banName: '3반', stuCount: 28, maxClassSize: 28, roomName: '3-3', capacity: 24 },
+  ];
+  const entries = subjectBanEntries([
+    { subject: '영어', room: 'r1', stuCount: 30, subjectSeq: 1 },
+    { subject: '영어', room: 'r2', stuCount: 20, subjectSeq: 1 },
+    { subject: '수학', room: 'r3', stuCount: 10, subjectSeq: 2 },
+  ]);
+  const row = { A: '영어-1반', B: '영어-2반', C: '수학-1반' };
+  const students: any[] = [];
+  const placements: Record<string, string> = {};
+  for (let n = 1; n <= 30; n++) { students.push({ grade: '3', ban: '1반', num: n, name: '', subjects: ['영어'] }); placements[`1반-${n}`] = 'A'; }
+  for (let n = 1; n <= 20; n++) { students.push({ grade: '3', ban: '2반', num: n, name: '', subjects: ['영어'] }); placements[`2반-${n}`] = 'B'; }
+  for (let n = 1; n <= 30; n++) { students.push({ grade: '3', ban: '3반', num: n, name: '', subjects: ['수학'] }); placements[`3반-${n}`] = 'C'; }
+  const capacityOf = (r: any) => r.capacity;
+
+  it('넘친 2명을 같은 과목의 여유 있는 방으로만 옮긴다 — 뒷번호부터', () => {
+    const res = spillOverCapacity({ row, placements, rooms, students, entries, capacityOf });
+    expect(res.moved.map(m => m.key)).toEqual(['1반-29', '1반-30']);
+    expect(res.moved.every(m => m.to === 'B')).toBe(true);
+    expect(Object.values(res.placements).filter(r => r === 'A')).toHaveLength(28);
+  });
+
+  it('다른 과목 방으로는 넘기지 않는다 — 받아 줄 방이 없으면 그대로 둔다', () => {
+    // 수학은 방이 C 하나뿐이라 30명 중 6명이 넘쳐도 갈 곳이 없습니다.
+    const res = spillOverCapacity({ row, placements, rooms, students, entries, capacityOf });
+    expect(res.moved.some(m => m.from === 'C')).toBe(false);
+    expect(Object.values(res.placements).filter(r => r === 'C')).toHaveLength(30);
+  });
+
+  it('잠근 방에서는 빼지 않고, 잠근 방으로 넣지도 않는다', () => {
+    const res = spillOverCapacity({ row, placements, rooms, students, entries, capacityOf, lockedRow: { B: true } });
+    expect(res.moved).toEqual([]); // 받아 줄 유일한 방 B 가 잠겨 있으니 아무도 안 움직입니다.
   });
 });

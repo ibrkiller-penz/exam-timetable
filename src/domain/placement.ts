@@ -280,10 +280,11 @@ export function hasErrorBaechi(
 ): void {
   for (const ps of placementSlots) {
     const sum = slotSummary(ps.index, placement, placementSlots, entries, studentPlacements, students);
-    if (sum.errorKey === '응시초과') throw new Error(MSG.S7_ERR_1);
-    if (sum.errorKey === '응시미배치') throw new Error(MSG.S7_ERR_2);
-    if (sum.errorKey === '미응시미배치') throw new Error(MSG.S7_ERR_3);
-    if (sum.errorKey === '미응시초과') throw new Error(MSG.S7_ERR_4);
+    // 어느 교시인지 앞에 붙입니다. 문구만 보고 어디가 걸렸는지 알아야 열다섯 교시를 하나씩 눌러 보지 않습니다.
+    if (sum.errorKey === '응시초과') throw new Error(`[${ps.title}] ${MSG.S7_ERR_1}`);
+    if (sum.errorKey === '응시미배치') throw new Error(`[${ps.title}] ${MSG.S7_ERR_2}`);
+    if (sum.errorKey === '미응시미배치') throw new Error(`[${ps.title}] ${MSG.S7_ERR_3}`);
+    if (sum.errorKey === '미응시초과') throw new Error(`[${ps.title}] ${MSG.S7_ERR_4}`);
   }
 
   const seen = new Set<string>();

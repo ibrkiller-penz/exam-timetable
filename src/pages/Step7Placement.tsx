@@ -13,7 +13,7 @@ import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
 import { displayName } from '../domain/privacy';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { RoomFillOrder, WaitFillMode, autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
-import { planSlotRooms, RoomPlan } from '../domain/assignRooms';
+import { planSlotRooms, replanAndPlaceSlot, RoomPlan } from '../domain/assignRooms';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
 import { SUBJECT_COLOR_PALETTES } from '../domain/constants';
 import { Sparkles, Trash2, Users, CheckCircle2, Lock, Unlock, Layers, AlertTriangle, RotateCcw, RotateCw, Plus, Clock, UserX, X, RefreshCw, ArrowRightLeft, UserCheck, Minus, BookOpen, Ban, ArrowRight, HelpCircle } from 'lucide-react';
@@ -1362,26 +1362,41 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
 
     /** allowRoomChange 는 '7단계(고사장 배치)를 고쳐도 좋다'는 승인을 받았는지입니다. */
     const applyReplan = (allowRoomChange: boolean) => {
-      const { plan, nextRow } = planFor();
-      const firstUsableRoom = rooms.find(r => r.roomName !== '' && r.roomName !== '0');
-      const firstRoomId = firstUsableRoom ? firstUsableRoom.id : rooms[0]?.id ?? '';
-      const replanned = allowRoomChange ? { ...placement, [slot]: nextRow } : placement;
-
       try {
-        const res = resetAndAutoPlaceSlot(
-          slot, firstRoomId, replanned, placementSlots, roomsAt(slot),
-          entries, students, neis, false, lockedCells[slot]
-        );
+        const firstUsableRoom = rooms.find(r => r.roomName !== '' && r.roomName !== '0');
+        const firstRoomId = firstUsableRoom ? firstUsableRoom.id : rooms[0]?.id ?? '';
+
+        let plan: RoomPlan;
+        let nextPlacement: typeof placement;
+        let nextStudents: Record<string, string>;
+
+        if (allowRoomChange) {
+          // 방부터 다시 잡고 학생을 앉힙니다. resetAndAutoPlaceSlot 은 계획을 지워 버려 못 씁니다.
+          const res = replanAndPlaceSlot({
+            ps, placement, rooms: roomsAt(slot), entries, students, neis,
+            slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot], lockedRow: lockedCells[slot],
+            roomIdSelected: firstRoomId,
+          });
+          plan = res.plan; nextPlacement = res.placement; nextStudents = res.slotStudentPlacements;
+        } else {
+          // 방은 그대로 두고(7단계 확정) 학생만 다시 나눕니다. 계획은 안내에만 씁니다.
+          plan = planFor().plan;
+          const res = resetAndAutoPlaceSlot(
+            slot, firstRoomId, placement, placementSlots, roomsAt(slot),
+            entries, students, neis, false, lockedCells[slot]
+          );
+          nextPlacement = res.placement; nextStudents = res.slotStudentPlacements;
+        }
 
         if (allowRoomChange) {
           // 승인을 받았으면 7단계 확정을 잠시 풀고 고친 뒤 곧바로 다시 확정합니다.
           // 풀어만 두고 끝내면 사용자가 모르는 사이 단계가 내려가 있습니다.
           const wasConfirmed = !!stages.step7;
           if (wasConfirmed) cancelStep7Rooms();
-          setPlacementGrid(res.placement);
+          setPlacementGrid(nextPlacement);
           if (wasConfirmed) confirmStep7Rooms();
         }
-        setSlotStudentPlacements(slot, res.slotStudentPlacements);
+        setSlotStudentPlacements(slot, nextStudents);
         setConfirmModal(null);
 
         const movedRooms = allowRoomChange && plan.moves > 0;
