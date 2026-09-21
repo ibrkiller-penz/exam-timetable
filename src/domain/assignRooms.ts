@@ -19,6 +19,11 @@
  *   말없이 넘겨 앉히면 시험 당일에야 드러납니다.
  */
 
+import {
+  CellValue, ExamRoom, PlacementSlot, SubjectBanEntry, SubjectBanKey,
+  capacityForSlot, isWaitCell, CapacityBasis,
+} from './types';
+
 /** 앉힐 자리. 정원은 그 교시에 실제로 적용되는 값입니다. */
 export interface SeatRoom {
   id: string;
@@ -190,4 +195,64 @@ export function planRooms(input: RoomPlanInput): RoomPlan {
     ok: got.unseated.length === 0 && waitShort === 0,
     moves,
   };
+}
+
+/**
+ * 앱의 자료를 규칙에 넣을 모양으로 바꿔 주는 어댑터.
+ *
+ * 화면에서 두 군데가 이 규칙을 씁니다 — '이 교시 재배치'와 '고사실 점검'.
+ * 양쪽이 각자 자료를 주무르면 곧 서로 달라지므로, 여기 한 곳에서만 합니다.
+ *
+ * 돌려주는 nextRow 는 시험 칸만 정해 둔 줄입니다. 대기 칸은 비워 두고
+ * autoPlaceSlot 이 채웁니다. 잠근 칸과 배치금지는 그대로 둡니다.
+ */
+export function planSlotRooms(args: {
+  ps: PlacementSlot;
+  row: Record<string, CellValue>;
+  rooms: ExamRoom[];
+  entries: Map<SubjectBanKey, SubjectBanEntry>;
+  slotRoomCapacity?: Record<number, Record<string, number>>;
+  slotCapacityBasis?: CapacityBasis;
+  lockedRow?: Record<string, boolean>;
+}): { plan: RoomPlan; nextRow: Record<string, CellValue> } {
+  const { ps, row, rooms, entries, lockedRow } = args;
+
+  // 이 교시에 시험 보는 과목의 분반을 모두 모읍니다. 표에 아직 안 놓인 분반도 포함합니다.
+  const bans: SeatBan[] = [...entries.values()]
+    .filter(e => ps.subjects.includes(e.subject))
+    .map(e => ({ cell: e.key, size: e.stuCount }));
+
+  const usable = rooms.filter(r => r.roomName !== '' && r.roomName !== '0');
+  const seatRooms: SeatRoom[] = usable.map(r => ({
+    id: r.id,
+    name: r.roomName,
+    capacity: capacityForSlot(r, ps.index, args.slotRoomCapacity, ps, row[r.id] || '', args.slotCapacityBasis),
+  }));
+
+  const current: Record<string, string> = {};
+  const fixed: Record<string, FixedRoom> = {};
+  for (const r of usable) {
+    const v = row[r.id];
+    if (v === '배치금지') { fixed[r.id] = 'forbidden'; continue; }
+    if (v && !isWaitCell(v)) current[r.id] = v;
+  }
+  for (const [roomId, on] of Object.entries(lockedRow ?? {})) {
+    if (!on) continue;
+    const v = row[roomId];
+    fixed[roomId] = v === '배치금지' ? 'forbidden'
+      : (v && !isWaitCell(v)) ? { exam: v }
+      : 'wait';
+  }
+
+  const plan = planRooms({ bans, rooms: seatRooms, nonTakers: ps.nonTakers, current, fixed });
+
+  const nextRow: Record<string, CellValue> = {};
+  for (const r of usable) {
+    if (fixed[r.id] === 'forbidden') { nextRow[r.id] = '배치금지'; continue; }
+    if (lockedRow?.[r.id]) { if (row[r.id]) nextRow[r.id] = row[r.id]; continue; }
+    if (plan.exam[r.id]) nextRow[r.id] = plan.exam[r.id];
+    // 나머지는 비워 둡니다. 대기 칸은 autoPlaceSlot 이 인원을 세어 채웁니다.
+  }
+
+  return { plan, nextRow };
 }
