@@ -115,7 +115,7 @@ export const Report9SeparateStudents: React.FC = () => {
       <PrintPageSize />
 
       <ReportHeader
-        num="11-8"
+        num="10-8"
         title="별도 수험생"
         actions={
           <ReportActions

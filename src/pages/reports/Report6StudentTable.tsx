@@ -106,7 +106,7 @@ export const Report6StudentTable: React.FC = () => {
       {/* PDF 생성 중 진행 모달 */}
 
       <ReportHeader
-        num="11-6"
+        num="10-6"
         title="개별 수험표 출력"
         actions={
           <ReportActions

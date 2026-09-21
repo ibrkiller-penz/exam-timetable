@@ -185,21 +185,22 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
     { id: 'step4', num: 4, label: '4. 평가과목', icon: CheckSquare, done: !!(stages.step4 ?? stages.stage2) },
     { id: 'step5', num: 5, label: '5. 학생과목', icon: Users, done: !!stages.step5 },
     { id: 'step6', num: 6, label: '6. 시간표작성', icon: Clock, done: !!(stages.step6 ?? stages.stage3) },
-    { id: 'step7', num: 7, label: '7. 고사장 배치', icon: Grid, done: !!(stages.step7 ?? stages['step7-1'] ?? stages.stage4) },
-    { id: 'step8', num: 8, label: '8. 학생 배치', icon: Users, done: !!(stages.step8 ?? stages['step7-2']) },
-    { id: 'sep', num: 9, label: '9. 별도 고사실', icon: UserCheck, done: false, optional: true, count: separateCount },
-    { id: 'step9', num: 10, label: '10. 응시현황', icon: ClipboardList, done: !!(stages.step9 ?? stages.stage5) },
+    // 고사장 배치와 학생 배치는 한 화면입니다. 방을 옮기려면 학생도 같이 옮겨야 해서,
+    // 둘로 나누면 한쪽에서 막히고 다른 쪽으로 건너가야 했습니다.
+    { id: 'step7', num: 7, label: '7. 고사장·학생 배치', icon: Grid, done: !!stages.stage4 },
+    { id: 'sep', num: 8, label: '8. 별도 고사실', icon: UserCheck, done: false, optional: true, count: separateCount },
+    { id: 'step9', num: 9, label: '9. 응시현황', icon: ClipboardList, done: !!(stages.step9 ?? stages.stage5) },
   ];
 
   const reports = [
-    { id: 'r1', label: '11-1 전체 시간표' },
-    { id: 'r2', label: '11-2 고사실 명단' },
-    { id: 'r3', label: '11-3 고사실 시간표' },
-    { id: 'r4', label: '11-4 좌석배치도' },
-    { id: 'r5', label: '11-5 학급 시간표' },
-    { id: 'r6', label: '11-6 개별 수험표 출력' },
-    { id: 'r7', label: '11-7 봉투 라벨' },
-    { id: 'r9', label: '11-8 별도 수험생' },
+    { id: 'r1', label: '10-1 전체 시간표' },
+    { id: 'r2', label: '10-2 고사실 명단' },
+    { id: 'r3', label: '10-3 고사실 시간표' },
+    { id: 'r4', label: '10-4 좌석배치도' },
+    { id: 'r5', label: '10-5 학급 시간표' },
+    { id: 'r6', label: '10-6 개별 수험표 출력' },
+    { id: 'r7', label: '10-7 봉투 라벨' },
+    { id: 'r9', label: '10-8 별도 수험생' },
   ];
 
   const p = tc.primary;

@@ -86,7 +86,7 @@ export const Report5ClassTable: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize />
       <ReportHeader
-        num="11-5"
+        num="10-5"
         title="학급 시험시간표"
         actions={
           <ReportActions

@@ -158,7 +158,7 @@ export const Report7Labels: React.FC = () => {
       {/* PDF 생성 중 진행 모달 */}
 
       <ReportHeader
-        num="11-7"
+        num="10-7"
         title="문제지 봉투 라벨 (A4 가로 2×2)"
         actions={
           <ReportActions

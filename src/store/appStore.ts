@@ -1349,7 +1349,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   swapPlacementCells: (slotIndex, roomId1, roomId2) => {
     set(state => {
-      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
+      // 확정은 하나입니다. 확정 전에는 고사실 구성을 자유롭게 고칩니다.
+      if (state.stages.stage4) throw new Error(MSG.S7_ROOMS_LOCKED);
       if (state.lockedCells?.[slotIndex]?.[roomId1] || state.lockedCells?.[slotIndex]?.[roomId2]) {
         return state;
       }
@@ -1396,7 +1397,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setPlacementCell: (slotIndex, roomId, value) => {
     set(state => {
-      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
+      // 확정은 하나입니다. 확정 전에는 고사실 구성을 자유롭게 고칩니다.
+      if (state.stages.stage4) throw new Error(MSG.S7_ROOMS_LOCKED);
       if (state.lockedCells?.[slotIndex]?.[roomId]) {
         return state;
       }
@@ -1507,7 +1509,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   setPlacementGrid: (placement) => {
     set(state => {
-      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
+      // 확정은 하나입니다. 확정 전에는 고사실 구성을 자유롭게 고칩니다.
+      if (state.stages.stage4) throw new Error(MSG.S7_ROOMS_LOCKED);
       const next = { ...state, placement };
       saveStateToIdb(next);
       return next;
@@ -1630,7 +1633,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   clearPlacementSlot: (slotIndex) => {
     set(state => {
-      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
+      // 확정은 하나입니다. 확정 전에는 고사실 구성을 자유롭게 고칩니다.
+      if (state.stages.stage4) throw new Error(MSG.S7_ROOMS_LOCKED);
       const nextPlacement = { ...state.placement, [slotIndex]: {} };
       const next = { ...state, placement: nextPlacement };
       saveStateToIdb(next);
@@ -1672,7 +1676,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
 
   clearAllPlacement: () => {
     set(state => {
-      if (state.stages.step7) throw new Error(MSG.S7_ROOMS_LOCKED);
+      // 확정은 하나입니다. 확정 전에는 고사실 구성을 자유롭게 고칩니다.
+      if (state.stages.stage4) throw new Error(MSG.S7_ROOMS_LOCKED);
       const next = { ...state, placement: {}, studentPlacements: {}, lockedCells: {} };
       saveStateToIdb(next);
       return next;

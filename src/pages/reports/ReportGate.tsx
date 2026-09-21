@@ -24,11 +24,10 @@ export const ReportGate: React.FC<{
   const stages = useAppStore(s => s.stages);
 
   const allSteps = [
-    { done: !!stages.step7, label: '7. 고사장 배치 확정', hint: '고사실과 정원을 정하고 확정합니다.' },
-    { done: !!stages.stage4, label: '8. 학생 배치 확정', hint: '학생을 앉히고 확정하면 응시현황이 만들어집니다.' },
-    { done: !!stages.stage5, label: '10. 응시현황 확정', hint: '좌석번호까지 부여하고 확정하면 인쇄물이 나옵니다.' },
+    { done: !!stages.stage4, label: '7. 고사장·학생 배치 확정', hint: '고사실과 정원을 정하고 학생을 앉힌 뒤 확정합니다.' },
+    { done: !!stages.stage5, label: '9. 응시현황 확정', hint: '좌석번호까지 부여하고 확정하면 인쇄물이 나옵니다.' },
   ];
-  const steps = until === 'placement' ? allSteps.slice(0, 2) : allSteps;
+  const steps = until === 'placement' ? allSteps.slice(0, 1) : allSteps;
 
   const next = steps.find(s => !s.done);
 

@@ -43,8 +43,9 @@ export const App: React.FC = () => {
       case 'step4': return <Step4EvalSubjects />;
       case 'step5': return <Step5StudentSubjects />;
       case 'step6': return <Step6Timetable />;
-      case 'step7': return <Step7Placement stepMode={7} />;
-      case 'step8': return <Step7Placement stepMode={8} />;
+      // 7·8단계를 하나로 합쳤습니다. 옛 주소('step8')도 같은 화면으로 보냅니다.
+      case 'step7':
+      case 'step8': return <Step7Placement />;
       // 9. 별도 고사실 (10-8에서 단계로 올라왔습니다. 옛 'r8' 주소도 그대로 받습니다.)
       case 'sep':
       case 'r8': return <Report8SeparateRoom />;

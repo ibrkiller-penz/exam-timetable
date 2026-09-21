@@ -108,7 +108,7 @@ export const Report4SeatMap: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize landscape={anyWide} />
       <ReportHeader
-        num="11-4"
+        num="10-4"
         title="고사실 좌석배치도"
         actions={
           <ReportActions

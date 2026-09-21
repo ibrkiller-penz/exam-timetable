@@ -122,7 +122,7 @@ export const Report8SeparateRoom: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize />
       <ReportHeader
-        num="9"
+        num="8"
         title="별도 고사실"
         actions={
           <ReportActions

@@ -65,7 +65,7 @@ export const Report1GradeTable: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-auto p-6 print:overflow-visible print:h-auto print:p-0">
       <PrintPageSize landscape={true} />
       <ReportHeader
-        num="11-1"
+        num="10-1"
         title="전체 시험시간표"
         actions={
           <ReportActions

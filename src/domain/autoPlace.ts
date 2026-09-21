@@ -89,6 +89,22 @@ export function getStudentsForSubjectBanEntry(
  *     분반 목록과 i번째끼리 짝지음 (분반 목록도 같은 기준으로 만들어졌습니다)
  *  3. 그래도 없으면 분반 인원 수만큼 잘라서 씀
  */
+/**
+ * 이 분반에 실제로 속한 학생. 방을 고르기 전에 '진짜 몇 명인지' 알아야 합니다.
+ * 위 banMembers 와 같은 규칙을 쓰되, 과목 학생 추리는 일까지 같이 합니다.
+ */
+export function membersOfBan(
+  entry: SubjectBanEntry,
+  entries: Map<SubjectBanKey, SubjectBanEntry>,
+  students: Student[],
+  neis?: NeisRow[]
+): Student[] {
+  const subjectStudents = students
+    .filter(st => st.subjects.includes(entry.subject))
+    .sort((a, b) => (a.ban !== b.ban ? a.ban.localeCompare(b.ban, 'ko') : a.num - b.num));
+  return banMembers(entry, entries, subjectStudents, neis);
+}
+
 function banMembers(
   entry: SubjectBanEntry,
   entries: Map<SubjectBanKey, SubjectBanEntry>,

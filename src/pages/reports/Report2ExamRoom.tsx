@@ -64,7 +64,7 @@ export const Report2ExamRoom: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize />
       <ReportHeader
-        num="11-2"
+        num="10-2"
         title="고사실 명단"
         actions={
           <ReportActions

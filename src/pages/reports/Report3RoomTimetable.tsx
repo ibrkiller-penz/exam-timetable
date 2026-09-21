@@ -57,7 +57,7 @@ export const Report3RoomTimetable: React.FC = () => {
     <div className="flex flex-col h-full bg-white overflow-auto p-6">
       <PrintPageSize landscape={true} />
       <ReportHeader
-        num="11-3"
+        num="10-3"
         title="고사실 시험시간표"
         actions={
           <ReportActions

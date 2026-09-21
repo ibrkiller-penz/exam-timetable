@@ -7,13 +7,14 @@ import { CloudModal } from '../components/CloudModal';
 import { TimetablePreviewModal } from '../components/TimetablePreviewModal';
 import { saveCloudImmediately } from '../domain/firebase';
 import { MSG } from '../domain/messages';
-import { separateRoomFor, SeparateExaminer, isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle, CapacityBasis } from '../domain/types';
+import { separateRoomFor, SeparateExaminer, isWaitCell, isForbiddenCell, parseWaitCount, Student, ExamRoom, PlacementGrid, PlacementSlot, isExtraRoom, roomsForSlot, capacityForSlot, banLetter, BanLabelStyle, CapacityBasis, CellValue } from '../domain/types';
 import { selPlacementSlots, selSubjectBanEntries } from '../store/selectors';
 import { formatBanCell, banStyleForSlot } from '../domain/banLabel';
 import { displayName } from '../domain/privacy';
 import { slotSummary, cellDerived, panelItems } from '../domain/placement';
 import { RoomFillOrder, WaitFillMode, autoPlaceSlot, autoPlaceAll, resetAndAutoPlaceSlot, getStudentListForSlotRoom, calculateStudentMovement, initSlotStudentPlacements, distributeWaitToRooms, addExamRoomFromWait, shrinkExamRoomToWait } from '../domain/autoPlace';
-import { planSlotRooms, replanAndPlaceSlot, summarizeSeating, RoomPlan, SeatingRow } from '../domain/assignRooms';
+import { planSlotRooms, summarizeSeating, RoomPlan, SeatingRow } from '../domain/assignRooms';
+import { seatSlot, SeatMode } from '../domain/seatSlot';
 import { verifySlotIntegrity, assertSlotIntegrity } from '../domain/integrity';
 import { SUBJECT_COLOR_PALETTES } from '../domain/constants';
 import { Sparkles, Trash2, Users, CheckCircle2, Lock, Unlock, Layers, AlertTriangle, RotateCcw, RotateCw, Plus, Clock, UserX, X, RefreshCw, ArrowRightLeft, UserCheck, Minus, BookOpen, Ban, ArrowRight, HelpCircle } from 'lucide-react';
@@ -216,7 +217,8 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
    * 7. 고사장 배치와 8. 학생 배치는 서로 다른 단계라 확정도 따로 관리합니다.
    * (예전에는 같은 플래그를 써서 7번을 확정하면 8번의 자동배치까지 잠겼습니다.)
    */
-  const isStageLocked = stepMode === 7 ? !!stages.step7 : !!stages.stage4;
+  // 확정은 하나입니다. 그 전에는 고사실 구성도 학생 자리도 자유롭게 고칩니다.
+  const isStageLocked = !!stages.stage4;
 
   const selectedCell = ui.selectedPlacementCell;
   const movementStats = calculateStudentMovement(placement, placementSlots, rooms, students);
@@ -1088,7 +1090,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     try {
       const state = useAppStore.getState();
       const stamp = new Date().toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      const stepName = stepMode === 7 ? '7. 고사장 배치' : '8. 학생 배치';
+      const stepName = '7. 고사장·학생 배치';
       await saveCloudImmediately(state, `[중간저장] ${stepName} — ${stamp}`);
       setAlertModal({
         isOpen: true,
@@ -1401,6 +1403,72 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
    * 알 수 없었습니다. 열다섯 교시를 하나씩 눌러 보는 수밖에 없었습니다.
    * 어느 교시가 왜 안 되는지, 무엇을 하면 되는지 여기서 한꺼번에 봅니다.
    */
+  /**
+   * 한 교시를 백지에서 짭니다. '이 교시 재배치'와 '전체 자동배치'가 같이 씁니다.
+   * 정원을 보고 방을 고르고 학생까지 한 번에 앉힙니다(seatSlot).
+   */
+  const buildSlot = (ps: PlacementSlot, mode: SeatMode, keepRow?: Record<string, CellValue>) => {
+    const forbidden: Record<string, boolean> = {};
+    for (const [rid, v] of Object.entries(placement[ps.index] ?? {})) {
+      if (v === '배치금지') forbidden[rid] = true;
+    }
+    return seatSlot({
+      ps, rooms: roomsAt(ps.index), entries, students, neis, mode, forbidden, keepRow,
+      capacityOf: (room, cell) =>
+        capacityForSlot(room, ps.index, slotRoomCapacity, ps, cell, slotCapacityBasis[ps.index]),
+    });
+  };
+
+  /**
+   * 이 교시의 학생만 다시 앉힙니다. 고사실 구성은 그대로 둡니다.
+   *
+   * 고사실을 어디에 몇 실 열지는 담당자가 정원을 보며 손으로 맞춰 둔 것입니다.
+   * 학생이 한쪽에 몰렸다고 방까지 새로 짜 버리면 그 손질이 사라집니다.
+   * 방을 바꿔야 하는 교시는 '고사실 점검'이나 '전체 자동배치'에서 다룹니다.
+   */
+  const handleReseatStudentsSlot = (slot: number) => {
+    if (isStageLocked) return;
+    const ps = placementSlots.find(s => s.index === slot);
+    if (!ps) return;
+    const compute = () => buildSlot(ps, 'ban', placement[slot] ?? {});
+
+    setConfirmModal({
+      isOpen: true,
+      message:
+        `[${ps.title}] 고사실은 그대로 두고 학생만 다시 앉힙니다.\n\n` +
+        `고사실 구성과 정원은 손대지 않습니다. 다른 교시도 그대로입니다.`,
+      preview: () => {
+        const res = compute();
+        return summarizeSeating({
+          ps, row: res.row, placements: res.placements, rooms: roomsAt(slot), students,
+          slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot],
+        });
+      },
+      onConfirm: () => {
+        pushHistory(`[${ps.title}] 학생 재배치`);
+        try {
+          const res = compute();
+          setSlotStudentPlacements(slot, res.placements);
+          // 대기실에 적힌 인원 수만 새로 씁니다. 시험실 칸은 그대로입니다.
+          setPlacementGrid({ ...placement, [slot]: res.row });
+          setConfirmModal(null);
+          setAlertModal({
+            isOpen: true,
+            isError: !res.ok,
+            message: `${res.ok ? '✅' : '⚠️'} [${ps.title}] 학생만 다시 앉혔습니다.\n\n${res.notes.join('\n')}`,
+          });
+        } catch (e) {
+          setConfirmModal(null);
+          setAlertModal({
+            isOpen: true,
+            isError: true,
+            message: `다시 앉히지 못했습니다.\n\n${e instanceof Error ? e.message : String(e)}`,
+          });
+        }
+      },
+    });
+  };
+
   const handleCheckRooms = () => {
     const rows = placementSlots
       .filter(ps => ps.subjects.length > 0)
@@ -1424,89 +1492,28 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
     const ps = placementSlots.find(s => s.index === slot);
     if (!ps) return;
 
-    /*
-     * 학생을 나누기 전에 '어느 분반이 어느 방에 들어가는가'부터 다시 짭니다.
-     *
-     * 예전에는 이 줄이 없었습니다. autoPlaceSlot 은 이미 놓인 시험 칸을 그대로
-     * 두므로, 30명 분반이 24석 방에 들어가 있으면 몇 번을 눌러도 그대로였습니다.
-     * 못 앉은 학생은 대기로 밀려나고 확정이 막혔습니다.
-     */
-    const planFor = () => planSlotRooms({
-      ps,
-      row: placement[slot] || {},
-      rooms: roomsAt(slot),
-      entries,
-      slotRoomCapacity,
-      slotCapacityBasis: slotCapacityBasis[slot],
-      lockedRow: lockedCells[slot],
-    });
-
-    /** allowRoomChange 는 '7단계(고사장 배치)를 고쳐도 좋다'는 승인을 받았는지입니다. */
     /** 적용하지 않고 결과만 계산합니다. 미리보기와 실제 적용이 같은 길을 씁니다. */
-    const computeReplan = (allowRoomChange: boolean, mode: 'ban' | 'student_id') => {
-      const firstUsableRoom = rooms.find(r => r.roomName !== '' && r.roomName !== '0');
-      return replanAndPlaceSlot({
-        ps, placement, rooms: roomsAt(slot), entries, students, neis,
-        slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot], lockedRow: lockedCells[slot],
-        roomIdSelected: firstUsableRoom ? firstUsableRoom.id : rooms[0]?.id ?? '',
-        mode,
-        // 7단계가 확정되어 있으면 고사실은 그대로 두고 학생만 다시 나눕니다.
-        keepRooms: !allowRoomChange,
-        // 잠근 고사실의 학생을 지키려면 지금 자리를 함께 넘겨야 합니다.
-        existingPlacements: studentPlacements?.[slot],
-      });
-    };
+    const computeReplan = (mode: SeatMode) => buildSlot(ps, mode);
 
-    const applyReplan = (allowRoomChange: boolean, mode: 'ban' | 'student_id') => {
+    const applyReplan = (mode: SeatMode) => {
       try {
-        const { plan, placement: nextPlacement, slotStudentPlacements: nextStudents } =
-          computeReplan(allowRoomChange, mode);
-
-        // 고사실은 7단계가 열려 있을 때만 바뀝니다.
-        if (allowRoomChange) setPlacementGrid(nextPlacement);
-        setSlotStudentPlacements(slot, nextStudents);
+        const res = computeReplan(mode);
+        setPlacementGrid({ ...placement, [slot]: res.row });
+        setSlotStudentPlacements(slot, res.placements);
         setConfirmModal(null);
 
         const how = mode === 'student_id' ? '학번순' : '분반대로';
-
-        /*
-         * 안내는 계획이 아니라 '실제로 앉은 결과'로 합니다.
-         *
-         * 계획(plan)은 방을 옮길 수 있다고 보고 세웁니다. 그런데 8단계에서는
-         * 고사실이 그대로라 계획대로 앉지 못할 수 있습니다. 계획만 보고 말하면
-         * 미리보기에는 미배치 19명이 떠 있는데 결과창은 '마쳤습니다'라고 합니다.
-         * 미리보기와 같은 셈법(summarizeSeating)으로 말합니다.
-         */
-        const savedRow = allowRoomChange ? (nextPlacement[slot] ?? {}) : (placement[slot] ?? {});
-        const seat = summarizeSeating({
-          ps, row: savedRow, placements: nextStudents, rooms: roomsAt(slot), students,
-          slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot],
-        });
-        const trouble: string[] = [];
-        if (seat.unplaced > 0) trouble.push(`자리를 못 받은 학생 ${seat.unplaced}명`);
-        if (seat.overTotal > 0) trouble.push(`정원을 넘긴 인원 ${seat.overTotal}명`);
-        const realOk = trouble.length === 0;
-        // 칸 이름만 바뀐 것은 고사실이 바뀐 것이 아닙니다(학번순은 '과목-N실'로 다시 적습니다).
-        const needsStep7 = !allowRoomChange && (plan.roomsChanged > 0 || !realOk);
-
         setAlertModal({
           isOpen: true,
-          isError: !realOk,
-          message: realOk
-            ? `✅ [${ps.title}] ${how}으로 재배치를 마쳤습니다. 다른 교시는 그대로입니다.\n\n${plan.notes.join('\n')}`
-            : `⚠️ [${ps.title}] ${how}으로 다시 나눴지만 ${trouble.join(', ')}이 남았습니다.\n\n` +
-              `${plan.notes.join('\n\n')}` +
-              (needsStep7
-                ? `\n\n고사실이 그대로여서 여기까지입니다. 방을 옮기려면 ` +
-                  `7. 고사장 배치에서 '확정 취소'를 한 뒤 그 교시를 재배치하세요.`
-                : ''),
+          isError: !res.ok,
+          message: `${res.ok ? '\u2705' : '\u26a0\ufe0f'} [${ps.title}] ${how}으로 배치했습니다.\n\n${res.notes.join('\n')}`,
         });
       } catch (e) {
         setConfirmModal(null);
         setAlertModal({
           isOpen: true,
           isError: true,
-          message: `재배치하지 못했습니다.\n\n${e instanceof Error ? e.message : String(e)}`,
+          message: `배치하지 못했습니다.\n\n${e instanceof Error ? e.message : String(e)}`,
         });
       }
     };
@@ -1515,27 +1522,16 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       isOpen: true,
       message: `[${ps.title}] 교시의 학생 배치를 초기화하고 다시 자동 배치하시겠습니까?\n\n※ 다른 교시의 학생 배치는 전혀 변경되지 않고 안전하게 유지됩니다.`,
       modePicker: true,
-      preview: (mode: 'ban' | 'student_id') => {
-        const { placement: p2, slotStudentPlacements: sp2 } = computeReplan(!stages.step7, mode);
+      preview: (mode: SeatMode) => {
+        const res = computeReplan(mode);
         return summarizeSeating({
-          ps, row: p2[slot] ?? {}, placements: sp2, rooms: roomsAt(slot), students,
+          ps, row: res.row, placements: res.placements, rooms: roomsAt(slot), students,
           slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot],
         });
       },
       onConfirm: () => {
         pushHistory(`[${ps.title}] 교시 재배치`);
-        const { plan } = planFor();
-        const roomsLocked = !!stages.step7;
-
-        /*
-         * 8단계는 7단계를 건드리지 않습니다.
-         * 7단계가 확정되어 있으면 고사실은 그대로 두고 학생만 다시 나눕니다.
-         * 고사실을 옮겨야 풀리는 교시는 그 사실을 말해 주고, 7단계에서 고치게 합니다.
-         * (한때 여기서 승인을 받아 7단계를 잠시 풀었다가 다시 잠갔는데, 단계를
-         * 넘나드는 것이 더 헷갈려 되돌렸습니다.)
-         */
-        void plan;
-        applyReplan(!roomsLocked, replanMode);
+        applyReplan(replanMode);
       },
     });
   };
@@ -1589,21 +1585,32 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       message: MSG.S7_AUTO_ALL,
       onConfirm: () => {
         pushHistory('전체 자동배치');
-        // 7. 고사장 배치를 확정해 두었으면 고사실 구성은 손대지 않고 학생만 앉힙니다.
-        // 잠가 둔 고사장을 자동배치가 다시 짜버리면 잠근 뜻이 없습니다.
-        const roomsLocked = !!stages.step7;
-        const next = roomsLocked
-          ? placement
-          : autoPlaceAll(placement, placementSlots, rooms, entries, students, undefined, lockedCells, slotRoomCapacity, slotCapacityBasis, roomFillOrder);
-        if (!roomsLocked) setPlacementGrid(next);
+        /*
+         * 교시마다 같은 규칙으로 짭니다(buildSlot). 방을 고르는 일과 학생을
+         * 앉히는 일이 한 번에 끝나므로, 정원을 넘긴 채로 넘어가지 않습니다.
+         */
+        const next: typeof placement = { ...placement };
         const allPlacements: Record<number, Record<string, string>> = {};
+        let overAll = 0;
+        const rough: string[] = [];
         for (const ps of placementSlots) {
-          const slotLocked = lockedCells[ps.index];
-          const existingPlacements = studentPlacements?.[ps.index];
-          allPlacements[ps.index] = initSlotStudentPlacements(ps.index, next[ps.index] ?? {}, placementSlots, roomsAt(ps.index), entries, students, neis, existingPlacements, slotLocked, examMode, waitMode);
+          if (ps.subjects.length === 0) continue;
+          const res = buildSlot(ps, examMode === 'student_id' ? 'student_id' : 'ban');
+          next[ps.index] = res.row;
+          allPlacements[ps.index] = res.placements;
+          overAll += res.overTotal;
+          if (res.overTotal > 0 || res.unseated.length > 0) rough.push(`${ps.title}: ${res.notes[res.notes.length - 1]}`);
         }
+        setPlacementGrid(next);
         setAllStudentPlacements(allPlacements);
         setConfirmModal(null);
+        setAlertModal({
+          isOpen: true,
+          isError: overAll > 0,
+          message: overAll === 0
+            ? `\u2705 모든 교시를 배치했습니다. 정원을 넘긴 고사실이 없습니다.`
+            : `\u26a0\ufe0f 배치했지만 정원을 모두 ${overAll}명 넘겼습니다.\n\n${rough.join('\n')}`,
+        });
       },
     });
   };
@@ -2032,19 +2039,10 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
 
   const handleConfirm = async () => {
     try {
-      // 7. 고사장 배치는 고사실 구성만 잠급니다. 응시현황 생성은 8번 확정에서 합니다.
-      if (stepMode === 7) {
-        confirmStep7Rooms();
-        await saveCloudImmediately(useAppStore.getState(), '[확정] 7단계. 고사장 배치 확정');
-        setAlertModal({
-          isOpen: true,
-          message: '✅ 고사장 배치를 확정했습니다.\n\n고사실 구성과 정원이 잠겼습니다. 이어서 8. 학생 배치에서 학생을 배정하세요.',
-        });
-        return;
-      }
-
+      // 확정 하나로 고사실 구성과 학생 자리를 함께 잠급니다.
       const notices = confirmStage4();
-      await saveCloudImmediately(useAppStore.getState(), '[확정] 8. 학생 배치 확정');
+      confirmStep7Rooms();
+      await saveCloudImmediately(useAppStore.getState(), '[확정] 7단계. 고사장·학생 배치 확정');
 
       let finalMessage = '✅ 서버에 배치가 확정 및 안전하게 저장되었습니다.\n\n';
       if (notices.length > 0) {
@@ -2061,24 +2059,18 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
        * 알 수 없어, 열다섯 교시를 하나씩 눌러 봐야 했습니다. 고사실 점검을
        * 바로 띄워 문제 교시와 조치를 한 화면에서 보여 줍니다.
        */
-      if (stepMode !== 7) {
-        setRoomCheckNote(err.message);
-        handleCheckRooms();
-      } else {
-        setAlertModal({ isOpen: true, message: err.message, isError: true });
-      }
+      setRoomCheckNote(err.message);
+      handleCheckRooms();
     }
   };
 
   const handleCancel = () => {
     setConfirmModal({
       isOpen: true,
-      message: stepMode === 7
-        ? '고사장 배치 확정을 취소하고 고사실 구성과 정원을 다시 고칠 수 있게 할까요?'
-        : (stages.stage5 ? MSG.S7_CANCEL_SEAT : MSG.S7_CANCEL_SIMPLE),
+      message: stages.stage5 ? MSG.S7_CANCEL_SEAT : MSG.S7_CANCEL_SIMPLE,
       onConfirm: () => {
-        if (stepMode === 7) cancelStep7Rooms();
-        else cancelStage4();
+        cancelStage4();
+        cancelStep7Rooms();
         setConfirmModal(null);
       },
     });
@@ -2164,10 +2156,10 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
   return (
     <div className="flex flex-col h-full bg-white overflow-hidden">
       <StageHeader
-        stageNumber={stepMode === 7 ? 7 : 8}
-        stageTitle={stepMode === 7 ? "고사장 배치" : "학생 배치"}
+        stageNumber={7}
+        stageTitle="고사장·학생 배치"
         isConfirmed={isStageLocked}
-        confirmLabel={stepMode === 7 ? "7. 고사장 배치 확정" : "8. 학생 배치 확정"}
+        confirmLabel="7. 고사장·학생 배치 확정"
         cancelLabel="확정 취소"
         onConfirm={handleConfirm}
         onCancel={handleCancel}
@@ -2281,7 +2273,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                 : '학생만 비웁니다. 7번에서 정한 고사장 구성은 그대로 남습니다.'}
             >
               <RotateCcw className="w-4 h-4 text-red-600" />
-              <span>{stepMode === 7 ? '고사장 초기화' : '학생 배치 초기화'}</span>
+              <span>배치 초기화</span>
             </button>
           </div>
         }
@@ -2522,10 +2514,10 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                         {!isStageLocked && ps.subjects.length > 0 && (
                           <div className={`mt-1 flex items-center justify-center gap-1 ${isCompactFit ? 'text-[11px]' : 'text-[12.5px]'}`}>
                             <button
-                              onClick={() => handleResetAndAutoPlaceSlot(ps.index)}
+                              onClick={() => handleReseatStudentsSlot(ps.index)}
                               className="p-0.5 text-slate-400 hover:text-[#005691] hover:bg-blue-50 rounded transition"
-                              title="이 교시 재배치 — 이 교시만 비우고 다시 자동배치합니다"
-                              aria-label="이 교시 재배치"
+                              title="이 교시 학생 재배치 — 고사실은 그대로 두고 학생만 다시 앉힙니다"
+                              aria-label="이 교시 학생 재배치"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
                             </button>
@@ -2552,7 +2544,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                               </span>
                             )}
 
-                            {stepMode === 7 && (
+                            {(
                               <button
                                 onClick={() => setBanLabelModal(ps.index)}
                                 className="px-1.5 py-0.5 bg-white hover:bg-blue-50 text-slate-600 hover:text-[#005691] border border-gray-300 rounded-md font-bold transition"
@@ -2731,7 +2723,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                 <div className="text-[10px] text-rose-500 font-semibold leading-none">
                                   (배제됨)
                                 </div>
-                                {stepMode === 7 && !isStageLocked && (
+                                {!isStageLocked && (
                                   <button
                                     type="button"
                                     onClick={e => {
@@ -2751,12 +2743,9 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                 onClick={e => {
                                   e.stopPropagation();
                                   handleCellClick(ps.index, r.id);
-                                  // 7번에서 과목-분반 글자를 누르면 그 교시의 분반 이름을 고치는 창이 열립니다.
-                                  if (stepMode === 7) {
-                                    if (!isWait && !isForbidden && cellVal) setBanLabelModal(ps.index);
-                                  } else {
-                                    handleCellDoubleClick(ps.index, r.id);
-                                  }
+                                  // 칸을 누르면 그 고사실의 학생 명단이 열립니다.
+                                  // 분반 이름은 교시 줄의 '분반 이름' 단추로 고칩니다.
+                                  handleCellDoubleClick(ps.index, r.id);
                                 }}
                               >
                                 <div className="flex flex-col items-center justify-center gap-0.5">
@@ -2800,7 +2789,24 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                     </span>
                                   )}
                                 </div>
-                                {stepMode === 7 ? (
+                                {isOverCapacity ? (
+                                  <div
+                                    className={`font-black text-white flex items-center justify-center gap-1 bg-orange-500 hover:bg-orange-600 rounded-md px-1.5 py-0.5 mt-0.5 shadow-xs transition ${
+                                      isCompactFit ? 'text-[10.5px]' : 'text-[12px]'
+                                    }`}
+                                    title={`[강제 배정] 정원(${roomCap}명)을 ${actualCount - roomCap}명 초과하여 ${actualCount}명이 강제 배정되었습니다.`}
+                                  >
+                                    <AlertTriangle className="w-3 h-3 text-amber-100 shrink-0" />
+                                    <span>{actualCount}명 (강제배정)</span>
+                                  </div>
+                                ) : (
+                                  <div className={`font-black hover:underline ${isCompactFit ? 'text-[13.5px] text-slate-800' : 'text-[16px] text-[#0f172a]'}`}>
+                                    {actualCount}명
+                                  </div>
+                                )}
+
+                                {/* 정원은 확정 전까지 여기서 바로 고칩니다. */}
+                                {!isLocked && (
                                   /* 7. 고사장 배치는 정원만 다룹니다. 실제 배정 인원은 8. 학생 배치에서 봅니다. */
                                   <div
                                     className="flex items-center justify-center gap-0.5 mt-0.5"
@@ -2862,24 +2868,10 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                       </button>
                                     )}
                                   </div>
-                                ) : isOverCapacity ? (
-                                  <div
-                                    className={`font-black text-white flex items-center justify-center gap-1 bg-orange-500 hover:bg-orange-600 rounded-md px-1.5 py-0.5 mt-0.5 shadow-xs transition ${
-                                      isCompactFit ? 'text-[10.5px]' : 'text-[12px]'
-                                    }`}
-                                    title={`[강제 배정] 정원(${roomCap}명)을 ${actualCount - roomCap}명 초과하여 ${actualCount}명이 강제 배정되었습니다.`}
-                                  >
-                                    <AlertTriangle className="w-3 h-3 text-amber-100 shrink-0" />
-                                    <span>{actualCount}명 (강제배정)</span>
-                                  </div>
-                                ) : (
-                                  <div className={`font-black hover:underline ${isCompactFit ? 'text-[13.5px] text-slate-800' : 'text-[16px] text-[#0f172a]'}`}>
-                                    {actualCount}명
-                                  </div>
                                 )}
 
-                                {/* 고사실 구성은 7. 고사장 배치에서만 바꿉니다. */}
-                                {stepMode === 7 && !isStageLocked && !isLocked && (
+                                {/* 고사실 구성도 여기서 바꿉니다. 확정 전까지는 열려 있습니다. */}
+                                {!isStageLocked && !isLocked && (
                                   isWait ? (
                                     <div className="mt-1.5 flex items-center justify-center gap-1">
                                       <button
@@ -2927,7 +2919,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                             ) : (
                               <div className="flex flex-col items-center justify-center py-1">
                                 <span className="text-gray-400 text-[14px]">-</span>
-                                {stepMode === 7 && !isStageLocked && !isLocked && (
+                                {!isStageLocked && !isLocked && (
                                   <div className="mt-0.5 flex flex-col items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                                     <button
                                       onClick={e => {
@@ -3620,7 +3612,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
             <div className="bg-[#005691] text-white px-5 py-4 flex items-center justify-between shrink-0">
               <div className="flex items-center gap-2 font-black text-[17px]">
                 <HelpCircle className="w-5 h-5" />
-                <span>{stepMode === 7 ? '7. 고사장 배치 규칙' : '8. 학생 배치 규칙'}</span>
+                <span>7. 고사장·학생 배치 규칙</span>
               </div>
               <button onClick={() => setAlgorithmHelpOpen(false)} className="p-1 hover:bg-white/20 rounded-lg transition" aria-label="닫기">
                 <X className="w-5 h-5" />
