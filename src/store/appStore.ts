@@ -190,6 +190,7 @@ interface AppStoreActions {
   // Stage 4 (Placement)
   setPlacementCell: (slotIndex: number, roomId: string, value: CellValue) => void;
   swapPlacementCells: (slotIndex: number, roomId1: string, roomId2: string) => void;
+  swapSlotRoomOccupants: (slotIndex: number, roomId1: string, roomId2: string) => void;
   setLockedCell: (slotIndex: number, roomId: string, locked: boolean) => void;
   /** 해당 교시에만 적용되는 고사실 정원을 지정합니다. capacity가 null이면 기본 정원으로 되돌립니다. */
   setSlotRoomCapacity: (slotIndex: number, roomId: string, capacity: number | null) => void;
@@ -1298,6 +1299,49 @@ export const useAppStore = create<AppStore>((set, get) => ({
     set(state => {
       const nextState = cancelStage3(state);
       const next = { ...nextState, stages: { ...nextState.stages, step6: false } };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  /**
+   * 한 교시 안에서 두 고사실의 내용을 통째로 맞바꿉니다. 8. 학생 배치에서 씁니다.
+   *
+   * 정원이 다른데 큰 무리가 좁은 방에 들어간 경우, 두 방을 맞바꾸면 끝납니다.
+   * 그런데 swapPlacementCells 는 7단계가 확정되면 거절합니다. 고사장 구성을
+   * 지키려는 것이라 옳습니다.
+   *
+   * 이 동작은 고사장 구성을 바꾸지 않습니다. 쓰는 방도, 정원도, 어느 과목을
+   * 보는지도 그대로고 두 방의 짝만 바뀝니다. 그래서 8단계에서 허용합니다.
+   *
+   * 학생만 옮기고 칸 이름을 두면 안 됩니다. 칸에 적힌 분반과 실제로 앉은
+   * 학생이 어긋나 인쇄물의 '응시분반'이 틀립니다. 학생과 이름을 함께 옮깁니다.
+   */
+  swapSlotRoomOccupants: (slotIndex, roomId1, roomId2) => {
+    set(state => {
+      if (state.stages.stage4) throw new Error(MSG.S8_STUDENTS_LOCKED);
+      if (state.lockedCells?.[slotIndex]?.[roomId1] || state.lockedCells?.[slotIndex]?.[roomId2]) return state;
+
+      const row = { ...(state.placement[slotIndex] ?? {}) };
+      const v1 = row[roomId1] ?? '';
+      const v2 = row[roomId2] ?? '';
+      // 배치금지 칸은 맞바꾸지 않습니다. 쓰지 말라고 막아 둔 방입니다.
+      if (v1 === '배치금지' || v2 === '배치금지') return state;
+
+      if (v2 === '') delete row[roomId1]; else row[roomId1] = v2;
+      if (v1 === '') delete row[roomId2]; else row[roomId2] = v1;
+
+      const sp = { ...(state.studentPlacements?.[slotIndex] ?? {}) };
+      for (const [k, rid] of Object.entries(sp)) {
+        if (rid === roomId1) sp[k] = roomId2;
+        else if (rid === roomId2) sp[k] = roomId1;
+      }
+
+      const next = {
+        ...state,
+        placement: { ...state.placement, [slotIndex]: row },
+        studentPlacements: { ...(state.studentPlacements ?? {}), [slotIndex]: sp },
+      };
       saveStateToIdb(next);
       return next;
     });
