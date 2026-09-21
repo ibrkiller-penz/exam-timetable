@@ -16,8 +16,39 @@ import { isLocal } from '../utils/electronBridge';
 const STORAGE_KEY = 'examtable.showStudentNames';
 const UNLOCK_CODE = '1004';
 
+/**
+ * 인쇄 전 확인창에서만 잠깐 켜는 가리기.
+ *
+ * 확인창은 '이 종이가 맞나'를 보는 자리지 명단을 읽는 자리가 아닙니다.
+ * 교무실 화면에 마흔 장이 한꺼번에 펼쳐지므로, 여기서만은 오프라인
+ * 버전이든 이름을 푼 기기든 가리고 보여 줍니다. 종이에는 본명이 찍힙니다.
+ *
+ * 저장하지 않습니다. 확인창이 닫히면 원래대로 돌아옵니다.
+ */
+let previewMask = false;
+const maskListeners = new Set<() => void>();
+
+/** 확인창이 켜고 끕니다. 화면이 다시 그려지도록 듣고 있는 곳에 알립니다. */
+export function setPreviewMask(on: boolean): void {
+  if (previewMask === on) return;
+  previewMask = on;
+  maskListeners.forEach(fn => fn());
+}
+
+/** 지금 확인창용으로 가리고 있는지. */
+export function isPreviewMask(): boolean {
+  return previewMask;
+}
+
+/** 가리기가 켜지고 꺼질 때 알림을 받습니다(useSyncExternalStore 용). */
+export function subscribePreviewMask(fn: () => void): () => void {
+  maskListeners.add(fn);
+  return () => { maskListeners.delete(fn); };
+}
+
 /** 이름을 그대로 보여 줄지. 오프라인 버전은 늘 보입니다. */
 export function isNameVisible(): boolean {
+  if (previewMask) return false; // 확인창이 켜 둔 동안에는 무엇보다 우선합니다.
   if (isLocal) return true;
   try {
     return localStorage.getItem(STORAGE_KEY) === '1';

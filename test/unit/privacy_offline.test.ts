@@ -47,4 +47,42 @@ describe('이름 가리기는 웹에서만', () => {
     lockNames();
     expect(displayName('가나다')).toBe('가○○');
   });
+
+  /**
+   * 인쇄 전 확인창은 여러 장을 교무실 화면에 한꺼번에 펼칩니다.
+   * 거기서만은 오프라인 버전이든 비밀번호를 푼 기기든 가리고 보여 줍니다.
+   * 종이에는 본명이 찍혀야 하므로, 확인창이 닫히면 반드시 원래대로 돌아옵니다.
+   */
+  it('확인창이 켠 가리기는 오프라인 버전과 푼 비밀번호보다 우선한다', async () => {
+    vi.doMock('../../src/utils/electronBridge', () => ({ isLocal: true, isElectron: true }));
+    const { isNameVisible, displayName, setPreviewMask, isPreviewMask } =
+      await import('../../src/domain/privacy');
+
+    expect(isNameVisible()).toBe(true); // 오프라인이라 원래는 보입니다.
+
+    setPreviewMask(true);
+    expect(isPreviewMask()).toBe(true);
+    expect(displayName('가나다')).toBe('가○○');
+
+    setPreviewMask(false);
+    expect(displayName('가나다')).toBe('가나다'); // 종이에는 본명이 찍힙니다.
+  });
+
+  it('가리기가 켜지고 꺼질 때 화면에 알린다', async () => {
+    vi.doMock('../../src/utils/electronBridge', () => ({ isLocal: false, isElectron: false }));
+    const { setPreviewMask, subscribePreviewMask } = await import('../../src/domain/privacy');
+
+    let calls = 0;
+    const stop = subscribePreviewMask(() => { calls++; });
+
+    setPreviewMask(true);
+    setPreviewMask(true);   // 같은 값이면 공연히 다시 그리지 않습니다.
+    setPreviewMask(false);
+    expect(calls).toBe(2);
+
+    stop();
+    setPreviewMask(true);
+    expect(calls).toBe(2);  // 그만 듣겠다면 더는 알리지 않습니다.
+    setPreviewMask(false);
+  });
 });

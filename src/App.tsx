@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { useAppStore } from './store/appStore';
 import { AppShell } from './components/AppShell';
+import { subscribePreviewMask, isPreviewMask } from './domain/privacy';
 
 import { Step1Neis } from './pages/Step1Neis';
 import { Step2BaseInfo } from './pages/Step2BaseInfo';
@@ -25,6 +26,10 @@ import { Report9SeparateStudents } from './pages/reports/Report9SeparateStudents
 export const App: React.FC = () => {
   const [currentTab, setCurrentTab] = useState('step1');
   const initStore = useAppStore(state => state.initStore);
+
+  // 인쇄 전 확인창이 이름 가리기를 켜고 끕니다. 이름은 화면 곳곳에서
+  // displayName() 으로 그려지므로, 켜고 끌 때 여기서 한 번 다시 그립니다.
+  useSyncExternalStore(subscribePreviewMask, isPreviewMask, isPreviewMask);
 
   useEffect(() => {
     initStore();

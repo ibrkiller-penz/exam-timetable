@@ -15,6 +15,29 @@
  */
 
 import { fitOnA4, PAGE_MARGIN_MM } from './pdfFit';
+import { confirmPrint } from './printPreview';
+import { setPreviewMask } from '../../domain/privacy';
+
+/**
+ * 다음 그림이 그려질 때까지.
+ *
+ * 창이 뒤로 가거나 다른 탭을 보고 있으면 브라우저가 requestAnimationFrame 을
+ * 멈춥니다. 그것만 기다리면 인쇄가 그 자리에서 멎어 '준비 중…' 덮개가
+ * 영영 남습니다. 시간으로도 풀어 주어 어느 쪽이든 먼저 오면 넘어갑니다.
+ */
+const nextFrame = () => new Promise<void>(resolve => {
+  let done = false;
+  const go = () => { if (!done) { done = true; resolve(); } };
+  requestAnimationFrame(go);
+  setTimeout(go, 120);
+});
+
+/**
+ * 확인창에 보여 줄 그림의 크기.
+ * 여기서는 '몇 장인지, 어느 장인지'만 보면 되므로 작게 떠서 빨리 만듭니다.
+ * 표 글자까지 보고 싶으면 확인창에서 눌러 키울 수 있습니다.
+ */
+const PREVIEW_SCALE = 1.4;
 
 /**
  * 그림을 뜨는 동안에만 붙는 표시.
@@ -27,7 +50,7 @@ export function beginCapture(): () => void {
 }
 
 /** 진행 상황을 알리는 간단한 덮개. 리액트 밖에서 쓰므로 직접 만듭니다. */
-function showBusy(): { step: (cur: number, total: number) => void; close: () => void } {
+function showBusy(label: string): { step: (cur: number, total: number) => void; close: () => void } {
   const wrap = document.createElement('div');
   wrap.className = 'no-print';
   wrap.style.cssText =
@@ -37,7 +60,7 @@ function showBusy(): { step: (cur: number, total: number) => void; close: () => 
   box.style.cssText =
     'background:#fff;border-radius:16px;padding:24px 32px;box-shadow:0 20px 40px rgba(0,0,0,.25);text-align:center;font-family:inherit';
   box.innerHTML =
-    '<p style="font-weight:900;color:#1e293b;margin:0 0 6px">인쇄 준비 중…</p>' +
+    `<p style="font-weight:900;color:#1e293b;margin:0 0 6px">${label}</p>` +
     '<p data-n style="font-weight:700;color:#64748b;margin:0;font-size:14px">1 / 1 장</p>';
 
   wrap.appendChild(box);
@@ -65,38 +88,78 @@ export interface PrintAsImageOptions {
   scale?: number;
 }
 
+/**
+ * 화면에 그려진 장들을 차례로 떠서 그림으로 돌려줍니다.
+ * 인쇄용(또렷하게)과 확인창용(작게)이 같은 길을 쓰므로 둘이 어긋나지 않습니다.
+ */
+async function capturePages(
+  pages: HTMLElement[],
+  scale: number,
+  quality: number,
+  step: (cur: number, total: number) => void,
+): Promise<string[]> {
+  const { default: html2canvas } = await import('html2canvas');
+
+  const images: string[] = [];
+  for (let i = 0; i < pages.length; i++) {
+    step(i + 1, pages.length);
+    // 한 장 뜰 때마다 화면에 숨 쉴 틈을 줍니다. 안 그러면 덮개의 숫자가 멈춰 보입니다.
+    await nextFrame();
+
+    const canvas = await html2canvas(pages[i], {
+      scale,
+      useCORS: true,
+      logging: false,
+      backgroundColor: '#ffffff',
+    });
+    images.push(canvas.toDataURL('image/jpeg', quality));
+  }
+  return images;
+}
+
 export async function printAsImage(opts: PrintAsImageOptions = {}): Promise<void> {
   const selector = opts.selector ?? '.print-page';
-  const pages = Array.from(document.querySelectorAll<HTMLElement>(selector));
+  const findPages = () => Array.from(document.querySelectorAll<HTMLElement>(selector));
 
   // 뜰 것이 없으면 예전처럼 브라우저 인쇄에 맡깁니다. 빈손으로 돌아가는 것보다 낫습니다.
-  if (pages.length === 0) {
+  if (findPages().length === 0) {
     window.print();
     return;
   }
 
-  const landscape = opts.landscape ?? pages[0].classList.contains('page-landscape');
-  const busy = showBusy();
-  const endCapture = beginCapture();
+  const landscape = opts.landscape ?? findPages()[0].classList.contains('page-landscape');
 
-  try {
-    const { default: html2canvas } = await import('html2canvas');
-
-    const images: string[] = [];
-    for (let i = 0; i < pages.length; i++) {
-      busy.step(i + 1, pages.length);
-      // 한 장 뜰 때마다 화면에 숨 쉴 틈을 줍니다. 안 그러면 덮개의 숫자가 멈춰 보입니다.
-      await new Promise(r => requestAnimationFrame(() => r(null)));
-
-      const canvas = await html2canvas(pages[i], {
-        scale: opts.scale ?? 2.5,
-        useCORS: true,
-        logging: false,
-        backgroundColor: '#ffffff',
-      });
-      images.push(canvas.toDataURL('image/jpeg', 0.94));
+  // ── 1. 이름을 가린 채 작게 떠서 확인창에 보여 줍니다 ──────────────
+  //    종이가 나가기 전에 몇 장인지, 어느 장인지 눈으로 보고 누르게 합니다.
+  let preview: string[] = [];
+  setPreviewMask(true);
+  await nextFrame();
+  await nextFrame(); // 가려진 이름이 실제로 그려질 때까지 기다립니다.
+  {
+    const busy = showBusy('미리보기 만드는 중…');
+    const endCapture = beginCapture();
+    try {
+      preview = await capturePages(findPages(), PREVIEW_SCALE, 0.8, busy.step);
+    } catch (err) {
+      // 미리보기를 못 만들어도 인쇄까지 막지는 않습니다. 확인창 없이 갑니다.
+      console.error('미리보기 실패:', err);
+      preview = [];
+    } finally {
+      endCapture();
+      busy.close();
+      setPreviewMask(false);
     }
+  }
+  await nextFrame();
+  await nextFrame(); // 본명이 돌아온 화면을 뜨기 위해 기다립니다.
 
+  if (preview.length > 0 && !(await confirmPrint(preview, landscape))) return;
+
+  // ── 2. 본명 그대로, 또렷하게 떠서 인쇄합니다 ──────────────────────
+  const busy = showBusy('인쇄 준비 중…');
+  const endCapture = beginCapture();
+  try {
+    const images = await capturePages(findPages(), opts.scale ?? 2.5, 0.94, busy.step);
     await printImages(images, landscape);
   } catch (err) {
     console.error('인쇄 준비 실패:', err);
