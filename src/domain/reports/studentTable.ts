@@ -1,7 +1,7 @@
 import { Student, AttendanceRow, ExamDay, ExamTime, ExamRoom, DayIdx, PeriodIdx, DayLabel, PeriodLabel, PlacementSlot } from '../types';
 import { isWaitSubject } from '../separate';
 import { onlySubject, hakbun } from '../util/text';
-import { calcPhysicalSeatNum } from './seatMap';
+import { calcPhysicalSeatNum, seatGridFor, SeatGridDefaults } from './seatMap';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 
@@ -28,7 +28,8 @@ export function buildStudentTableReport(
   times: ExamTime[],
   rooms: ExamRoom[],
   placementSlots: PlacementSlot[],
-  showSeat: boolean = true
+  showSeat: boolean = true,
+  seatDefaults?: SeatGridDefaults
 ): StudentTableReportData {
   const activeDays = days
     .filter(d => d.date && d.date.trim() !== '')
@@ -69,7 +70,8 @@ export function buildStudentTableReport(
           if (roomObj) {
             // 별도 응시자는 그 교실에 앞지 않으므로 좌표 계산에서도 뺀니다.
             const roomAtts = attendance.filter(a => a.day === att.day && a.period === att.period && a.examRoom === att.examRoom && !a.separateRoom);
-            pSeat = calcPhysicalSeatNum(att.seat, roomObj.cols || 5, roomAtts.length, roomObj.layoutDirection || 'col', roomObj.rows);
+            const g = seatGridFor(roomObj, seatDefaults);
+            pSeat = calcPhysicalSeatNum(att.seat, g.cols, roomAtts.length, g.direction, g.rows);
           }
         }
         grid[p][d.day] = {

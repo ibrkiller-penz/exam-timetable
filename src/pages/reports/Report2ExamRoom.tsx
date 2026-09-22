@@ -16,7 +16,13 @@ import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report2ExamRoom: React.FC = () => {
-  const { stages, days, rooms } = useAppStore();
+  const { stages, days, rooms, settings } = useAppStore();
+  // 좌석 격자 기본값은 좌석배치도와 같은 것을 씁니다. 그래야 좌석번호가 서류마다 같습니다.
+  const seatDefaults = {
+    cols: settings.seatColumns,
+    rows: settings.seatsPerColumn,
+    direction: settings.seatLayoutDirection ?? ('col' as const),
+  };
   // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
   const attendance = useAttendance();
 
@@ -28,7 +34,7 @@ export const Report2ExamRoom: React.FC = () => {
   const uniqueRooms = Array.from(new Set(attendance.map(r => r.examRoom))).filter(Boolean);
   const curRoom = selectedRoom || uniqueRooms[0] || '1-1';
 
-  const report = buildExamRoomReport(attendance, selectedDay, selectedPeriod, curRoom, rooms);
+  const report = buildExamRoomReport(attendance, selectedDay, selectedPeriod, curRoom, rooms, seatDefaults);
 
   // 한 장에 40명(20명 × 2줄)까지 싫습니다.
   // 50칸을 한 장에 욱여넣으면 줄이 눈려 읽기 힘들고, 빈 칸도 많이 남습니다.
@@ -45,7 +51,7 @@ export const Report2ExamRoom: React.FC = () => {
       // 한 실만 뽑으면 쓸 때마다 날짜·교시를 바꿔 가며 몇 번씩 눌러야 합니다.
       // 그 교시의 고사실을 전부 한 파일에, 실마다 시트 하나로 내보냅니다.
       const specs = uniqueRooms
-        .map(rn => buildExamRoomReport(attendance, selectedDay, selectedPeriod, rn, rooms))
+        .map(rn => buildExamRoomReport(attendance, selectedDay, selectedPeriod, rn, rooms, seatDefaults))
         .filter((x): x is NonNullable<typeof x> => Boolean(x))
         .map(rep => ({
           name: rep.examRoom,
@@ -112,7 +118,7 @@ export const Report2ExamRoom: React.FC = () => {
       ) : (
         <div className="print-pages flex flex-col gap-8">
           {(printingAll ? uniqueRooms : [curRoom]).map(rn => {
-            const rep = rn === curRoom ? report : buildExamRoomReport(attendance, selectedDay, selectedPeriod, rn, rooms);
+            const rep = rn === curRoom ? report : buildExamRoomReport(attendance, selectedDay, selectedPeriod, rn, rooms, seatDefaults);
             if (!rep) return null;
             const cnt = Math.max(1, Math.ceil(rep.students.length / PER_PAGE));
             const sheets = Array.from({ length: cnt }, (_, i) => rep.students.slice(i * PER_PAGE, (i + 1) * PER_PAGE));
@@ -152,7 +158,10 @@ export const Report2ExamRoom: React.FC = () => {
                     ['교시', rep.period],
                     ['고사실', rep.examRoom],
                     ['과목(단위)', rep.subject],
-                    ['응시인원', `${rep.totalStudents}명${rep.separate.length ? ` (별도 ${rep.separate.length})` : ''}`],
+                    ['응시인원',
+                      `${rep.totalStudents}명${rep.separate.length ? ` (별도 ${rep.separate.length})` : ''}` +
+                      // 좌석보다 많이 앉으면 의자를 더 놓아야 하므로 종이에 적어 둡니다.
+                      (rep.over > 0 ? ` · 좌석 ${rep.capacity}석 / ${rep.over}명 초과` : '')],
                   ]}
                 />
 

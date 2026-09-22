@@ -1,6 +1,6 @@
 import { AttendanceRow, DayLabel, PeriodLabel, ExamRoom } from '../types';
 import { isWaitSubject } from '../separate';
-import { calcPhysicalSeatNum } from './seatMap';
+import { calcPhysicalSeatNum, seatGridFor, SeatGridDefaults } from './seatMap';
 import { hakbun } from '../util/text';
 
 export interface ExamRoomReportData {
@@ -11,6 +11,10 @@ export interface ExamRoomReportData {
   isWaitRoom: boolean;
   /** 이 교실에 배정된 전체 인원 (별도 응시자 포함). */
   totalStudents: number;
+  /** 이 고사실의 좌석 수. 모르면 null. */
+  capacity: number | null;
+  /** 좌석 수를 넘겨 앉은 인원. 여기가 의자를 더 놓아야 할 곳입니다. */
+  over: number;
   /** 실제로 이 교실에 앉는 학생 (연번·좌석이 나란히). */
   students: Array<{
     seq: number;
@@ -32,7 +36,8 @@ export function buildExamRoomReport(
   day: DayLabel,
   period: PeriodLabel,
   examRoom: string,
-  rooms: ExamRoom[]
+  rooms: ExamRoom[],
+  seatDefaults?: SeatGridDefaults
 ): ExamRoomReportData | null {
   const filtered = attendance.filter(
     r => r.day === day && r.period === period && r.examRoom === examRoom
@@ -52,7 +57,8 @@ export function buildExamRoomReport(
   const students = seated.map((r, idx) => {
     let pSeat = r.seat;
     if (r.seat !== null && roomObj) {
-      pSeat = calcPhysicalSeatNum(r.seat, roomObj.cols || 5, seatedCount, roomObj.layoutDirection || 'col', roomObj.rows);
+      const g = seatGridFor(roomObj, seatDefaults);
+      pSeat = calcPhysicalSeatNum(r.seat, g.cols, seatedCount, g.direction, g.rows);
     }
     return {
       seq: idx + 1,
@@ -79,6 +85,9 @@ export function buildExamRoomReport(
     subject: first.subject,
     isWaitRoom,
     totalStudents: filtered.length,
+    capacity: roomObj ? roomObj.capacity : null,
+    // 별도 고사실로 나간 학생은 이 교실에 앉지 않으므로 세지 않습니다.
+    over: roomObj && roomObj.capacity > 0 ? Math.max(0, seatedCount - roomObj.capacity) : 0,
     students,
     separate,
   };

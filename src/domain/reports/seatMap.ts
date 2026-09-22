@@ -30,6 +30,30 @@ export interface SeatMapReportData {
 }
 
 
+/** 좌석 격자를 정할 때 쓸 기본값. 설정 화면의 값입니다. */
+export interface SeatGridDefaults {
+  cols?: number;
+  rows?: number;
+  direction?: 'col' | 'row';
+}
+
+/**
+ * 이 고사실의 좌석 격자.
+ *
+ * 고사실에 따로 저장한 값이 먼저이고, 없으면 설정의 기본값을 씁니다.
+ * 예전에는 좌석배치도만 설정의 줄 수를 쓰고 명단과 수험표는 인원으로
+ * 줄 수를 어림잡아, 같은 학생의 좌석번호가 서류마다 달랐습니다.
+ * 세 곳이 모두 이 함수를 지나갑니다.
+ */
+export const seatGridFor = (
+  room: { cols?: number; rows?: number; layoutDirection?: 'col' | 'row' } | undefined,
+  d?: SeatGridDefaults,
+): { cols: number; rows: number | undefined; direction: 'col' | 'row' } => ({
+  cols: room?.cols ?? d?.cols ?? 5,
+  rows: room?.rows ?? d?.rows,
+  direction: room?.layoutDirection ?? d?.direction ?? 'col',
+});
+
 export function calcPhysicalSeatNum(
   assignSeq: number,
   cols: number,

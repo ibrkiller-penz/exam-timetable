@@ -58,7 +58,13 @@ export const Report6StudentTable: React.FC = () => {
   }, [effScope, banStudents, selectedNum, students]);
 
   const reports = useMemo(() => {
-    return studentsToRender.map(s => buildStudentTableReport(s, attendance, days, times, rooms, placementSlots, settings.showSeatOnStudentTable));
+    // 좌석 격자 기본값은 좌석배치도와 같은 것을 씁니다. 그래야 좌석번호가 서류마다 같습니다.
+    const seatDefaults = {
+      cols: settings.seatColumns,
+      rows: settings.seatsPerColumn,
+      direction: settings.seatLayoutDirection ?? 'col' as const,
+    };
+    return studentsToRender.map(s => buildStudentTableReport(s, attendance, days, times, rooms, placementSlots, settings.showSeatOnStudentTable, seatDefaults));
   }, [studentsToRender, attendance, days, times, rooms, placementSlots, settings.showSeatOnStudentTable]);
 
   const chunkedReports = useMemo(() => {
