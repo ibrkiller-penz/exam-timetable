@@ -99,7 +99,19 @@ export const defaultCapacityBasis = (
   if (isExtraRoom(room) || !room.maxClassSize || room.maxClassSize <= 0) return 'room';
   if (slot && slot.takers === 0) return 'class';
 
-  if (cellValue) {
+  /*
+   * 칸 이름 끝의 `N반` 은 학급이 아니라 **분반 순번**입니다.
+   * `수학(4)-3반` 은 수학 세 번째 분반이지 3학년 3반이 아닙니다.
+   *
+   * 예전에는 이 숫자를 교실 번호와 그대로 견주었습니다. 그래서 세 번째 분반이
+   * 우연히 3반 교실에 들어가면 그 방만 정원이 좌석 수에서 반 인원으로 바뀌었고,
+   * 어느 분반이 어느 교실에 가느냐에 따라 정원이 오르내렸습니다.
+   *
+   * 학급이 통째로 제 교실에 앉는 교시에서만 이 규칙을 씁니다. 전원이 시험을
+   * 보는 교시(미응시 0명)가 그런 때입니다. 그 밖에는 이동수업 분반이 모여
+   * 앉는 것이므로 좌석 수가 기준입니다.
+   */
+  if (cellValue && slot && slot.nonTakers === 0) {
     const hyphen = cellValue.lastIndexOf('-');
     const banPart = hyphen === -1 ? '' : cellValue.slice(hyphen + 1).trim();
     if (banPart && banPart.replace('반', '') === room.banName.replace('반', '')) return 'class';

@@ -228,32 +228,68 @@ export function seatSlot(args: {
         .slice(0, order.length);
 
       /*
-       * 정원이 같은 방끼리는 자리를 바꿔 제 교실을 찾아 줍니다.
+       * 짝을 둘씩 바꿔 보며 다듬습니다.
        *
-       * 크기 순서로만 짝지으면 28석 방이 둘일 때 어느 쪽에 갈지가 우연히
-       * 정해져, 3반 아이들이 5반 교실에 앉는 일이 생깁니다. 정원이 같으면
-       * 넘치는 인원은 그대로이므로, 공짜로 이동만 줄일 수 있습니다.
+       * 크기 순서로만 짝지으면 두 가지가 어긋납니다. 하나는 정원이 방마다
+       * 칸에 따라 달라질 수 있다는 것이고(제 교실에 제 학급이 앉는 교시),
+       * 다른 하나는 정원이 같은 방이 여럿일 때 어느 쪽에 갈지가 우연히
+       * 정해져 3반 아이들이 5반 교실에 앉는다는 것입니다.
+       *
+       * 그래서 두 자리를 바꿔 보아 **넘치는 인원이 줄면** 바꿉니다. 넘치는
+       * 인원이 같으면 **제 교실에 앉는 학생이 많아지는 쪽**으로 바꿉니다.
+       * 바꿀 때마다 반드시 나아지므로 곧 멈춥니다.
        */
-      const groups = new Map<number, number[]>();   // 정원 -> lineup 자리 번호
-      lineup.forEach((r, i) => {
-        const c = r.capFor(order[i].cell);
-        groups.set(c, [...(groups.get(c) ?? []), i]);
-      });
-      for (const idxs of groups.values()) {
-        if (idxs.length < 2) continue;
-        const rest = [...idxs];
-        for (const i of idxs) {
-          // 이 자리에 올 분반 가운데 이 방을 제 교실로 삼는 학생이 가장 많은 것.
-          let best = rest[0], bestScore = -1;
-          for (const j of rest) {
-            const sc = homeScore(lineup[i], order[j].members);
-            if (sc > bestScore) { bestScore = sc; best = j; }
+      const overOf = (b: { cell: string; members: Student[] }, r: Room) =>
+        Math.max(0, b.members.length - r.capFor(b.cell));
+      for (let round = 0; round < order.length * order.length; round++) {
+        let swapped = false;
+        for (let i = 0; i < order.length && !swapped; i++) {
+          for (let j = i + 1; j < order.length; j++) {
+            const now = overOf(order[i], lineup[i]) + overOf(order[j], lineup[j]);
+            const alt = overOf(order[j], lineup[i]) + overOf(order[i], lineup[j]);
+            const nowHome = homeScore(lineup[i], order[i].members) + homeScore(lineup[j], order[j].members);
+            const altHome = homeScore(lineup[i], order[j].members) + homeScore(lineup[j], order[i].members);
+            if (alt < now || (alt === now && altHome > nowHome)) {
+              const t = order[i]; order[i] = order[j]; order[j] = t;
+              swapped = true;
+              break;
+            }
           }
-          if (best !== i) {
-            const t = order[i]; order[i] = order[best]; order[best] = t;
-          }
-          rest.splice(rest.indexOf(i), 1);
         }
+        if (!swapped) break;
+      }
+
+      /*
+       * 고른 방을 다 합쳐도 자리가 모자라면 큰 방으로 바꿔 끼웁니다.
+       *
+       * 정규 교실을 먼저 쓰는 것은 학생이 제 교실에 남기 때문입니다. 그래서
+       * 자리가 조금 모자란 정도면 방을 바꾸지 않고 넘친 한둘만 옆 방으로
+       * 보냅니다(아래 spillOverflow). 한국사처럼 좌석 합이 넉넉한 교시가 그렇습니다.
+       *
+       * 하지만 고른 방의 좌석을 다 합쳐도 응시자가 앉을 수 없으면 옮길 곳이
+       * 아예 없습니다. 그때만 큰 방(세미나실 같은)을 끌어옵니다.
+       * 자리가 넉넉하면 이 줄은 아무 일도 하지 않습니다.
+       */
+      const seatsOfLineup = () =>
+        order.reduce((a, b, i) => a + lineup[i].capFor(b.cell), 0);
+      const spare = pool.filter(r => !lineup.includes(r));
+      for (let round = 0; round < order.length * 2 && seatsOfLineup() < need; round++) {
+        let changed = false;
+        for (let i = 0; i < order.length && !changed; i++) {
+          if (overOf(order[i], lineup[i]) === 0) continue;
+          let best = -1, bestOver = overOf(order[i], lineup[i]);
+          for (let u = 0; u < spare.length; u++) {
+            const alt = overOf(order[i], spare[u]);
+            if (alt < bestOver) { bestOver = alt; best = u; }
+          }
+          if (best >= 0) {
+            const out = lineup[i];
+            lineup[i] = spare[best];
+            spare[best] = out;
+            changed = true;
+          }
+        }
+        if (!changed) break;
       }
 
       if (lineup.length >= order.length) {

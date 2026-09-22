@@ -308,3 +308,40 @@ describe('조용히 틀리지 않게', () => {
     expect(again).toBe(res.overTotal);
   });
 });
+
+describe('정원 기준과 방 짝짓기', () => {
+  it('분반 순번이 교실 번호와 같다고 정원 기준이 바뀌지 않는다', () => {
+    // 3-3 교실: 좌석 24석, 3반 학생 35명. `수학(4)-3반` 은 세 번째 분반일 뿐입니다.
+    const r: ExamRoom = { id: 'r3', banName: '3반', stuCount: 24, maxClassSize: 35, roomName: '3-3', capacity: 24 };
+    const 섞인교시 = slot(['수학(4)'], 30, 20);      // 미응시가 있는 보통 교시
+    for (const cell of ['수학(4)-2반', '수학(4)-3반', '수학(4)-4반']) {
+      expect(capacityForSlot(r, 1, undefined, 섞인교시, cell, undefined)).toBe(24);
+    }
+    // 전원이 시험을 보는 교시는 학급이 제 교실에 앉으므로 반 인원이 기준입니다.
+    const 전원응시 = slot(['수학(4)'], 50, 0);
+    expect(capacityForSlot(r, 1, undefined, 전원응시, '수학(4)-3반', undefined)).toBe(35);
+  });
+
+  it('짝을 바꿔 넘치는 인원을 줄인다', () => {
+    // 세 교실 모두 좌석 24석, 반 인원은 30·20·10명. 분반은 28·22·10명.
+    // 큰 것끼리 그냥 맞추면 2명이 넘치지만, 짝을 바꾸면 0명이 됩니다.
+    const rooms = [room('r1', '3-1', '1반', 24), room('r2', '3-2', '2반', 24), room('r3', '3-3', '3반', 24)];
+    rooms[0].maxClassSize = 30; rooms[1].maxClassSize = 20; rooms[2].maxClassSize = 10;
+    const ps = slot(['수학(4)'], 60, 0);
+    const entries = subjectBanEntries([
+      { subject: '수학(4)', room: 'g1', stuCount: 28, subjectSeq: 1 },
+      { subject: '수학(4)', room: 'g2', stuCount: 22, subjectSeq: 1 },
+      { subject: '수학(4)', room: 'g3', stuCount: 10, subjectSeq: 1 },
+    ]);
+    const all = [...students('1반', 1, 28, ['수학(4)']), ...students('2반', 1, 22, ['수학(4)']),
+                 ...students('3반', 1, 10, ['수학(4)'])];
+    const res = seatSlot({
+      ps, rooms, entries, students: all,
+      capacityOf: (r, cell) => capacityForSlot(r, 1, undefined, ps, cell, undefined),
+    });
+
+    expect(res.overTotal).toBe(0);
+    expect(res.moved).toEqual([]);      // 사람을 옮기지 않고도 풀립니다
+    expect(res.unseated).toEqual([]);
+  });
+});
