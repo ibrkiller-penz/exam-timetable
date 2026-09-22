@@ -1,4 +1,5 @@
 import { Student, AttendanceRow, ExamDay, ExamTime, ExamRoom, DayIdx, PeriodIdx, DayLabel, PeriodLabel, PlacementSlot } from '../types';
+import { isWaitSubject } from '../separate';
 import { onlySubject, hakbun } from '../util/text';
 import { calcPhysicalSeatNum } from './seatMap';
 import dayjs from 'dayjs';
@@ -59,7 +60,7 @@ export function buildStudentTableReport(
       const timeStr = timeObj?.time ? timeObj.time.replace(/\s/g, '') : '';
 
       if (att) {
-        if (att.subject !== '미응시') {
+        if (!isWaitSubject(att.subject)) {
           placedSubjects.add(att.subject);
         }
         let pSeat = att.seat;
@@ -72,7 +73,7 @@ export function buildStudentTableReport(
           }
         }
         grid[p][d.day] = {
-          subject: att.subject === '미응시' ? '자습' : onlySubject(att.subject),
+          subject: isWaitSubject(att.subject) ? '자습' : onlySubject(att.subject),
           // 별도 고사실에서 보는 교시는 '(별)'을 붙여, 그 시간에는
           // 소속 교실에 없다는 것을 학생이 알게 합니다.
           examRoom: att.separateRoom ? `${att.examRoom}(별)` : att.examRoom,

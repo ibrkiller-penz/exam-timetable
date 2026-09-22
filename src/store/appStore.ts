@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { isWaitSubject } from '../domain/separate';
 import { AppState, Stages, SlotKey, DayIdx, PeriodIdx, CellValue, ExamDay, ExamTime, ExamRoom, slotKey, isWaitCell, GradeId, GradeData, AppTheme, isExtraRoom, BanLabelStyle, CapacityBasis, SeparateExaminer, AttendanceRow } from '../domain/types';
 import { createInitialDays, createInitialTimes, createInitialTimetable, APP_VERSION } from '../domain/constants';
 import { MSG } from '../domain/messages';
@@ -1771,16 +1772,27 @@ export const useAppStore = create<AppStore>((set, get) => ({
         groups.get(k)!.push(r);
       }
 
-      for (const [k, g] of groups.entries()) {
-        if (k.endsWith('_미응시')) continue;
-        const perm = g.map(r => r.seq);
+      for (const g of groups.values()) {
+        // 대기실은 섞지 않습니다. 화면 안내에도 그렇게 적어 두었습니다.
+        if (g.length === 0 || isWaitSubject(g[0].subject)) continue;
+
+        /*
+         * 섞는 것은 이미 매겨진 좌석 번호끼리입니다.
+         *
+         * 예전에는 연번(seq)을 좌석에 뿌렸습니다. 연번은 별도 응시자까지 세는
+         * 번호라, 그 교실에 별도 응시자가 있으면 좌석 번호가 실제 인원보다
+         * 커집니다. 좌석배치도는 인원을 넘는 번호를 그리지 않으므로,
+         * 그 학생이 인쇄물에서 빈칸이 되어 사라졌습니다.
+         */
+        const seated = g.filter(r => !r.separateRoom && r.seat !== null);
+        const perm = seated.map(r => r.seat as number);
         for (let i = perm.length - 1; i > 0; i--) {
           const j = Math.floor(Math.random() * (i + 1));
           const temp = perm[i];
           perm[i] = perm[j];
           perm[j] = temp;
         }
-        g.forEach((r, idx) => {
+        seated.forEach((r, idx) => {
           r.seat = perm[idx];
           r.key2 = `${r.day}${r.period}${r.examRoom}_${r.seat}`;
         });

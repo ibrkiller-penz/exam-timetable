@@ -1,4 +1,5 @@
 import { AttendanceRow, DayLabel, PeriodLabel } from '../types';
+import { isWaitSubject } from '../separate';
 import { hakbun } from '../util/text';
 
 export interface SeatCell {
@@ -63,7 +64,7 @@ export function buildSeatMapReport(
   if (filtered.length === 0) return null;
 
   const first = filtered[0];
-  const isWaitRoom = first.subject === '미응시';
+  const isWaitRoom = isWaitSubject(first.subject);
   const totalStudents = filtered.length;
   
   // Use provided rows if valid (must be large enough), otherwise auto-calculate

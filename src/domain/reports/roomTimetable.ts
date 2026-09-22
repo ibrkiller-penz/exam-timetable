@@ -1,4 +1,5 @@
 import { AttendanceRow, ExamDay, ExamTime, ExamRoom, DayIdx, PeriodIdx, DayLabel, PeriodLabel } from '../types';
+import { isWaitSubject } from '../separate';
 import dayjs from 'dayjs';
 import 'dayjs/locale/ko';
 
@@ -59,7 +60,7 @@ export function buildRoomTimetableReport(
         // 응시자수에서 빼고, 몇 명이 나갔는지를 따로 알립니다.
         const sep = matched.filter(r => r.separateRoom).length;
         grid[p][d.day] = {
-          subject: first.subject === '미응시' ? '대기실' : first.subject,
+          subject: isWaitSubject(first.subject) ? '대기실' : first.subject,
           stuCount: matched.length - sep,
           separateCount: sep,
           timeStr,

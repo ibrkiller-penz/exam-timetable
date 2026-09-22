@@ -146,6 +146,14 @@ export function seatSlot(args: {
   const sum = (list: { members: Student[] }[]) => list.reduce((a, b) => a + b.members.length, 0);
   const headroom = (id: string) => (capOfRoom.get(id) ?? 0) - (seatedIn.get(id) ?? 0);
   const put = (st: Student, id: string) => {
+    /*
+     * 이미 자리를 받은 학생은 건너뜁니다.
+     *
+     * 한 학생이 두 분반에 들어 있으면(자료가 어긋났거나 한 교시에 두 과목)
+     * 나중 과목이 앞 과목을 덮어쓰고, 앉은 수는 두 번 세어집니다. 그러면
+     * 앞 과목 방은 칸만 적힌 채 비고 정원 판단도 틀어집니다.
+     */
+    if (placements[keyOf(st)]) return;
     placements[keyOf(st)] = id;
     seatedIn.set(id, (seatedIn.get(id) ?? 0) + 1);
   };
@@ -312,7 +320,7 @@ export function seatSlot(args: {
     if (have < need) {
       for (const r of pool) if (!picked.includes(r)) { picked.push(r); have += r.capFor(probe); }
     }
-    if (picked.length === 0) { unseated.push(...bansLeft.flatMap(b => b.members)); continue; }
+    if (picked.length === 0) continue;   // 자리를 못 받은 학생은 아래에서 한 번에 셉니다.
 
     picked.forEach((r, i) => {
       const cell = `${subject}-${i + 1}실`;
@@ -327,6 +335,18 @@ export function seatSlot(args: {
         `[${subject}] 좌석이 ${need - have}석 모자라 ${picked.length}실에 나눠 넘겨 앉힙니다 ` +
         `(응시 ${need}명 / 좌석 ${have}석).`
       );
+    }
+  }
+
+  /*
+   * 응시자인데 자리를 못 받은 사람이 있으면 반드시 알립니다.
+   *
+   * 과목은 듣는데 편성현황 분반 명단에 없는 학생이 그렇습니다. 예전에는
+   * 이런 학생이 조용히 빠지고도 '모두 자리를 받았습니다'라고 나왔습니다.
+   */
+  if (!keeping) {
+    for (const st of students) {
+      if (takes(st) && !placements[keyOf(st)]) unseated.push(st);
     }
   }
 
@@ -363,7 +383,24 @@ export function seatSlot(args: {
     );
   }
   if (unseated.length > 0) {
-    notes.push(`${unseated.length}명은 쓸 방이 없어 앉히지 못했습니다. 이 교시에 고사실을 열어야 합니다.`);
+    const who = unseated.slice(0, 3).map(st => `${st.ban} ${st.num}번`).join(', ');
+    const more = unseated.length > 3 ? ` 외 ${unseated.length - 3}명` : '';
+    notes.push(
+      `${unseated.length}명이 자리를 받지 못했습니다 (${who}${more}). ` +
+      `편성현황 분반 명단에 없거나, 이 교시에 쓸 고사실이 모자랍니다.`
+    );
+  }
+
+  // 칸만 적히고 사람이 없는 시험실. 칸 이름과 명단이 어긋났다는 뜻입니다.
+  const emptyExam = usable
+    .filter(r => row[r.id] && !isWaitCell(row[r.id]) && row[r.id] !== '배치금지')
+    .filter(r => (seatedIn.get(r.id) ?? 0) === 0);
+  if (emptyExam.length > 0) {
+    notes.push(
+      `사람이 없는 시험실이 ${emptyExam.length}곳 있습니다 — ` +
+      emptyExam.map(r => `${r.name}(${row[r.id]})`).join(', ') +
+      `. 칸 이름과 명단이 맞는지 보세요.`
+    );
   }
   if (overTotal === 0 && unseated.length === 0) {
     notes.unshift('모두 자리를 받았고 정원을 넘긴 고사실도 없습니다.');
@@ -457,6 +494,9 @@ export function seatSlot(args: {
 
     // 시험실을 과목별로 모읍니다. 이 교시 과목이 아닌 칸은 건드리지 않습니다.
     const bySubject = new Map<string, Room[]>();
+    const seenCell = new Map<string, string>();   // 칸 -> 먼저 나온 방 이름
+    const unknown: string[] = [];
+    const doubled: string[] = [];
     for (const r of usable) {
       const cell = cellOf.get(r.id);
       if (cell === undefined || isWaitCell(cell)) continue;
@@ -464,7 +504,25 @@ export function seatSlot(args: {
       const subject = entries.get(text as SubjectBanKey)?.subject
         ?? ps.subjects.find(s => text.startsWith(`${s}-`));
       if (!subject) continue;
+      /*
+       * 같은 칸이 두 방에 적혀 있으면 한 방은 빕니다. 확정도 '중복 편성'으로
+       * 막으므로, 조용히 넘기지 않고 짚어 줍니다.
+       */
+      const before = seenCell.get(text);
+      if (before) doubled.push(`${text}(${before}, ${r.name})`);
+      else seenCell.set(text, r.name);
+      // 편성현황에 없는 분반 이름이면 그 칸에 누구를 앉힐지 알 수 없습니다.
+      if (!entries.has(text as SubjectBanKey) && !text.endsWith('실')) unknown.push(`${r.name}(${text})`);
       bySubject.set(subject, [...(bySubject.get(subject) ?? []), r]);
+    }
+    if (doubled.length > 0) {
+      notes.push(`같은 칸이 두 곳에 적혀 있습니다 — ${doubled.join(', ')}. 한 곳은 비게 되고 확정도 막힙니다.`);
+    }
+    if (unknown.length > 0) {
+      notes.push(
+        `편성현황에서 찾지 못한 분반 칸이 있습니다 — ${unknown.join(', ')}. ` +
+        `그 칸에는 남은 학생을 채워 넣었으니, 칸 이름이 맞는지 보세요.`
+      );
     }
 
     for (const [subject, rs] of bySubject) {

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { seatSlot } from '../../src/domain/seatSlot';
 import { subjectBanEntries } from '../../src/domain/placement';
-import { ExamRoom, PlacementSlot, Student, isWaitCell } from '../../src/domain/types';
+import { ExamRoom, PlacementSlot, Student, isWaitCell, capacityForSlot } from '../../src/domain/types';
 
 /**
  * 한 교시를 백지에서 짜는 규칙.
@@ -251,5 +251,60 @@ describe('잠근 칸', () => {
     expect(seatedIn(res, 'r2')).toBe(12);
     expect(seatedIn(res, 'r1')).toBe(10);
     expect(res.unseated).toEqual([]);
+  });
+});
+
+describe('조용히 틀리지 않게', () => {
+  it('분반 명단에 없는 응시자를 반드시 알린다', () => {
+    const rooms = [room('r1', '3-1', '1반', 30), room('r2', '3-2', '2반', 30)];
+    const entries = subjectBanEntries([{ subject: '수학(4)', room: 'g1', stuCount: 5, subjectSeq: 1 }]);
+    // 2반 세 명은 수학을 듣는데 편성현황 분반 명단에 없습니다.
+    const all = [...students('1반', 1, 5, ['수학(4)']), ...students('2반', 1, 3, ['수학(4)'])];
+    const res = seatSlot({ ps: slot(['수학(4)'], 8, 0), rooms, entries, students: all, capacityOf: capOf });
+
+    expect(res.unseated).toHaveLength(3);
+    expect(res.ok).toBe(false);
+    expect(res.notes.join(' ')).toMatch(/자리를 받지 못했습니다/);
+    expect(res.notes.join(' ')).not.toMatch(/모두 자리를 받았고/);
+  });
+
+  it('한 학생을 두 번 앉히지 않는다 — 사람 없는 시험실은 알린다', () => {
+    const rooms = [room('r1', '3-1', '1반', 30), room('r2', '3-2', '2반', 30)];
+    const entries = subjectBanEntries([
+      { subject: '수학(4)', room: 'g1', stuCount: 10, subjectSeq: 1 },
+      { subject: '국어(4)', room: 'g2', stuCount: 10, subjectSeq: 1 },
+    ]);
+    // 같은 열 명이 두 과목 분반에 다 들어 있는 어긋난 자료.
+    const all = students('1반', 1, 10, ['수학(4)', '국어(4)']);
+    const res = seatSlot({ ps: slot(['수학(4)', '국어(4)'], 10, 0), rooms, entries, students: all, capacityOf: capOf });
+
+    expect(Object.keys(res.placements)).toHaveLength(10);      // 열 명이 한 자리씩
+    const total = ['r1', 'r2'].reduce((a, id) => a + seatedIn(res, id), 0);
+    expect(total).toBe(10);                                     // 두 번 세지 않습니다
+    expect(res.notes.join(' ')).toMatch(/사람이 없는 시험실이 1곳/);
+  });
+
+  it('스스로 센 초과와 원본 고사실로 다시 센 초과가 같다', () => {
+    // 정원 기준이 칸에 따라 바뀌는 방들. 두 셈이 어긋나면 확정에서 막힙니다.
+    const rooms = [room('r1', '3-1', '1반', 24), room('r2', '3-2', '2반', 24), room('r3', '3-3', '3반', 24)];
+    rooms[0].maxClassSize = 30; rooms[1].maxClassSize = 20; rooms[2].maxClassSize = 10;
+    const ps = slot(['수학(4)'], 60, 0);
+    const entries = subjectBanEntries([
+      { subject: '수학(4)', room: 'g1', stuCount: 28, subjectSeq: 1 },
+      { subject: '수학(4)', room: 'g2', stuCount: 22, subjectSeq: 1 },
+      { subject: '수학(4)', room: 'g3', stuCount: 10, subjectSeq: 1 },
+    ]);
+    const all = [...students('1반', 1, 28, ['수학(4)']), ...students('2반', 1, 22, ['수학(4)']),
+                 ...students('3반', 1, 10, ['수학(4)'])];
+    const cap = (r: ExamRoom, cell: string) => capacityForSlot(r, 1, undefined, ps, cell, undefined);
+    const res = seatSlot({ ps, rooms, entries, students: all, capacityOf: cap });
+
+    let again = 0;
+    for (const r of rooms) {
+      const cell = res.row[r.id];
+      if (!cell) continue;
+      again += Math.max(0, seatedIn(res, r.id) - cap(r, cell as string));
+    }
+    expect(again).toBe(res.overTotal);
   });
 });

@@ -1,4 +1,5 @@
 import { AttendanceRow, DayLabel, PeriodLabel, ExamRoom } from '../types';
+import { isWaitSubject } from '../separate';
 import { calcPhysicalSeatNum } from './seatMap';
 import { hakbun } from '../util/text';
 
@@ -39,7 +40,7 @@ export function buildExamRoomReport(
   if (filtered.length === 0) return null;
 
   const first = filtered[0];
-  const isWaitRoom = first.subject === '미응시';
+  const isWaitRoom = isWaitSubject(first.subject);
 
   // 별도 고사실에서 보는 학생은 이 교실에 앉지 않습니다.
   // 좌석 명단에서 빼고, 아래 안내로 따로 알립니다. 명단에 섞어 두면

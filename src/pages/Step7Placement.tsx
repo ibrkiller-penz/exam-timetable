@@ -1418,8 +1418,16 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       const v = placement[ps.index]?.[rid];
       if (on && v) lockedRow[rid] = v;
     }
+    /*
+     * 방 목록은 원본을 넘깁니다.
+     *
+     * roomsAt 은 '지금 놓여 있는 칸' 으로 정원을 미리 계산해 capacity 를 덮어쓴
+     * 사본을 돌려줍니다. 그 사본에 대고 정원을 다시 계산하면, 새로 놓는 칸이
+     * 아니라 옛 칸 기준의 값을 읽게 됩니다. 미리보기는 이상 없다는데 확정이
+     * 막히던 것이 이것입니다. 정원 계산은 아래 capacityOf 한 곳에서만 합니다.
+     */
     return seatSlot({
-      ps, rooms: roomsAt(ps.index), entries, students, neis, mode, forbidden, keepRow, lockedRow,
+      ps, rooms, entries, students, neis, mode, forbidden, keepRow, lockedRow,
       capacityOf: (room, cell) =>
         capacityForSlot(room, ps.index, slotRoomCapacity, ps, cell, slotCapacityBasis[ps.index]),
     });

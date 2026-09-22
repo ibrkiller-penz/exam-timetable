@@ -1,8 +1,22 @@
 import { AttendanceRow, PlacementSlot, SeparateExaminers, separateRoomFor, isWaitCell } from './types';
 
+/**
+ * 응시현황의 과목 자리에 들어간 값이 '대기'를 뜻하는지.
+ *
+ * 대기 학생의 과목 자리에는 칸 이름 앞부분이 들어갑니다 — `대기`, `대기2반`,
+ * 칸이 대기 칸이 아니면 `자습(대기)`. 예전 코드는 여기에 `미응시` 가 들어온다고
+ * 보고 여기저기서 `=== '미응시'` 로 견주었는데, 그런 값은 만들어지지 않아
+ * 대기실 분기가 전부 죽어 있었습니다. 대기실 명단 제목이 '고사실 응시현황표'로
+ * 나가고, 좌석 무작위에서 대기실이 빠지지 않은 것이 그 때문입니다.
+ *
+ * 판정은 이 한 곳에서만 합니다.
+ */
+export const isWaitSubject = (subject: string | undefined | null): boolean =>
+  Boolean(subject) && (isWaitCell(subject as string) || subject === '미응시' || subject === '자습(대기)' || subject === '자습');
+
 /** 그 줄이 실제로 시험을 보는 줄인지. 대기·자습 시간에는 별도실에 갈 이유가 없습니다. */
 export const isTakingRow = (r: Pick<AttendanceRow, 'subject'>): boolean =>
-  Boolean(r.subject) && !isWaitCell(r.subject) && r.subject !== '미응시' && r.subject !== '자습(대기)' && r.subject !== '자습';
+  Boolean(r.subject) && !isWaitSubject(r.subject);
 
 /**
  * 별도 고사실 지정을 응시현황에 입힙니다.

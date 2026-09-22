@@ -1,4 +1,4 @@
-import { ExamRoom, ExamDay, ExamTime, PlacementSlot, PlacementGrid, SubjectBanKey, SubjectBanEntry, isUsableRoom, isWaitCell } from '../types';
+import { ExamRoom, ExamDay, ExamTime, PlacementSlot, PlacementGrid, SubjectBanKey, SubjectBanEntry, Student, isUsableRoom, isWaitCell } from '../types';
 import { getForTime } from '../util/time';
 import { cellDerived } from '../placement';
 import { BanLabelConfig, banSuffix } from '../banLabel';
@@ -22,10 +22,27 @@ export function buildGradeTable(
   placementSlots: PlacementSlot[],
   placement: PlacementGrid,
   entries: Map<SubjectBanKey, SubjectBanEntry>,
-  banCfg?: BanLabelConfig
+  banCfg?: BanLabelConfig,
+  /**
+   * 실제로 어느 방에 몇 명이 앉았는지. 주면 이 수를 씁니다.
+   *
+   * 예전에는 칸 이름만 보고 인원을 적었습니다. 편성현황의 분반 인원이나
+   * 대기 칸 이름에 적힌 숫자였습니다. 그래서 손으로 학생을 옮기면 이 표만
+   * 옛 숫자를 보여 주었고, 학번순으로 나눈 칸(`수학(4)-1실`)은 편성현황에
+   * 없어 인원이 점으로 빠지고 인원계까지 어긋났습니다.
+   */
+  students?: Student[],
+  studentPlacements?: Record<number, Record<string, string>>
 ): { columns: ExamRoom[]; rows: GradeTableRow[] } {
   const cols = rooms.filter(isUsableRoom);
   const rows: GradeTableRow[] = [];
+
+  /** 그 교시 그 방에 실제로 앉은 사람 수. 셀 수 없으면 null. */
+  const seatedCount = (slotIndex: number, roomId: string): number | null => {
+    const sp = studentPlacements?.[slotIndex];
+    if (!sp || !students || students.length === 0) return null;
+    return students.filter(st => sp[`${st.ban}-${st.num}`] === roomId).length;
+  };
 
   for (let i = 0; i < placementSlots.length; i++) {
     const ps = placementSlots[i];
@@ -57,14 +74,16 @@ export function buildGradeTable(
         displayCount = '·';
       } else if (isWaitCell(v)) {
         displaySubj = '대기';
+        const real = seatedCount(ps.index, c.id);
         const d = cellDerived(v, entries);
-        displayCount = typeof d.stuCount === 'number' ? d.stuCount : '·';
+        displayCount = real ?? (typeof d.stuCount === 'number' ? d.stuCount : '·');
         if (typeof displayCount === 'number') slotTotal += displayCount;
       } else {
         const hyphenIdx = v.lastIndexOf('-');
         const rawSubj = hyphenIdx !== -1 ? v.slice(0, hyphenIdx).trim() : v.trim();
+        const real = seatedCount(ps.index, c.id);
         const d = cellDerived(v, entries);
-        displayCount = typeof d.stuCount === 'number' ? d.stuCount : '·';
+        displayCount = real ?? (typeof d.stuCount === 'number' ? d.stuCount : '·');
         if (typeof displayCount === 'number') slotTotal += displayCount;
 
         // 분반 표기가 있으면 고사실마다 '과목 가반'처럼 붙여 어느 분반인지 드러냅니다.

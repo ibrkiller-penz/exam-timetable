@@ -11,7 +11,7 @@ import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report1GradeTable: React.FC = () => {
-  const { meta, rooms, days, times, placement, stages, settings, slotBanLabels, slotBanLabelStyle } = useAppStore();
+  const { meta, rooms, days, times, placement, stages, settings, slotBanLabels, slotBanLabelStyle, students, studentPlacements } = useAppStore();
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
@@ -21,7 +21,7 @@ export const Report1GradeTable: React.FC = () => {
   // 배치가 하나라도 있으면 표를 만들 수 있습니다. 응시현황 확정과는 무관합니다.
   const hasPlacement = Object.values(placement || {}).some(row => Object.values(row || {}).some(v => v && v !== '배치금지'));
 
-  const { columns, rows } = buildGradeTable(rooms, days, times, placementSlots, placement, entries, banCfg);
+  const { columns, rows } = buildGradeTable(rooms, days, times, placementSlots, placement, entries, banCfg, students, studentPlacements);
 
   // 한 장에 몇 일을 실을지.
   // 4일까지는 한 장에 들어가지만, 5일은 줄이 눈려 읽기 힘들어
