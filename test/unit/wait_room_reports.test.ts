@@ -51,3 +51,37 @@ describe('대기실 가려내기', () => {
     expect(map?.isWaitRoom).toBe(true);
   });
 });
+
+describe('정원을 넘긴 고사실', () => {
+  it('명단에 좌석 수와 초과 인원을 실어 준다', () => {
+    // 28석 교실에 30명. 종이에 '좌석 28석 / 2명 초과' 가 나가야 의자를 더 놓습니다.
+    const rooms: ExamRoom[] = [{ id: 'r1', banName: '1반', stuCount: 28, maxClassSize: 28, roomName: '3-1', capacity: 28 }];
+    const rows = Array.from({ length: 30 }, (_, i) =>
+      row({ examRoom: '3-1', subject: '한국사(1)', num: i + 1, seq: i + 1, seat: i + 1 }));
+    const rep = buildExamRoomReport(rows, '1일차', '1교시', '3-1', rooms);
+
+    expect(rep?.capacity).toBe(28);
+    expect(rep?.over).toBe(2);
+  });
+
+  it('자리가 남으면 초과는 0이다', () => {
+    const rooms: ExamRoom[] = [{ id: 'r1', banName: '1반', stuCount: 28, maxClassSize: 28, roomName: '3-1', capacity: 28 }];
+    const rows = Array.from({ length: 20 }, (_, i) =>
+      row({ examRoom: '3-1', subject: '한국사(1)', num: i + 1, seq: i + 1, seat: i + 1 }));
+    const rep = buildExamRoomReport(rows, '1일차', '1교시', '3-1', rooms);
+    expect(rep?.over).toBe(0);
+  });
+
+  it('별도 고사실로 나간 학생은 좌석을 차지하지 않으므로 초과에 세지 않는다', () => {
+    const rooms: ExamRoom[] = [{ id: 'r1', banName: '1반', stuCount: 28, maxClassSize: 28, roomName: '3-1', capacity: 28 }];
+    const rows = [
+      ...Array.from({ length: 28 }, (_, i) =>
+        row({ examRoom: '3-1', subject: '한국사(1)', num: i + 1, seq: i + 1, seat: i + 1 })),
+      row({ examRoom: '3-1', subject: '한국사(1)', num: 29, seq: 29, seat: null, separateRoom: 1 as never }),
+      row({ examRoom: '3-1', subject: '한국사(1)', num: 30, seq: 30, seat: null, separateRoom: 1 as never }),
+    ];
+    const rep = buildExamRoomReport(rows, '1일차', '1교시', '3-1', rooms);
+    expect(rep?.totalStudents).toBe(30);
+    expect(rep?.over).toBe(0);
+  });
+});
