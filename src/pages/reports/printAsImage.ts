@@ -83,7 +83,7 @@ export interface PrintAsImageOptions {
   landscape?: boolean;
   /**
    * 그림을 얼마나 크게 뜰지. 클수록 글자가 또렷하지만 느려집니다.
-   * 2.5 면 A4 기준 대략 200dpi 로, 표와 한글이 깨끗하게 나옵니다.
+   * 2.5 면 A4 기준 대략 240dpi 로, 표와 한글이 깨끗하게 나옵니다.
    */
   scale?: number;
 }
@@ -97,6 +97,15 @@ async function capturePages(
   scale: number,
   quality: number,
   step: (cur: number, total: number) => void,
+  /**
+   * 어떤 그림으로 뜰지.
+   *
+   * 종이로 나가는 것은 PNG 입니다. JPEG 는 사진용 압축이라 한글 획 끝과
+   * 표 선 둘레에 번짐이 생깁니다. 글자와 선만 있는 장은 PNG 가 더 깨끗하고,
+   * 흰 바탕이 넓어 파일도 오히려 작습니다.
+   * 확인창은 눈으로 몇 장인지 보는 용도라 가볍게 JPEG 로 뜹니다.
+   */
+  type: 'image/jpeg' | 'image/png' = 'image/jpeg',
 ): Promise<string[]> {
   const { default: html2canvas } = await import('html2canvas');
 
@@ -112,7 +121,7 @@ async function capturePages(
       logging: false,
       backgroundColor: '#ffffff',
     });
-    images.push(canvas.toDataURL('image/jpeg', quality));
+    images.push(type === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
   }
   return images;
 }
@@ -159,7 +168,7 @@ export async function printAsImage(opts: PrintAsImageOptions = {}): Promise<void
   const busy = showBusy('인쇄 준비 중…');
   const endCapture = beginCapture();
   try {
-    const images = await capturePages(findPages(), opts.scale ?? 2.5, 0.94, busy.step);
+    const images = await capturePages(findPages(), opts.scale ?? 2.5, 1, busy.step, 'image/png');
     await printImages(images, landscape);
   } catch (err) {
     console.error('인쇄 준비 실패:', err);

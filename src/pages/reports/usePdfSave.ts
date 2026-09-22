@@ -55,13 +55,21 @@ export function usePdfSave() {
         const landscape = el.classList.contains('page-landscape');
 
         const canvas = await html2canvas(el, {
-          scale: 2.5,
+          // 종이에 뽑을 것이므로 화면보다 크게 뜹니다. 3배면 A4 기준 대략 290dpi 입니다.
+          scale: 3,
           useCORS: true,
           logging: false,
           backgroundColor: '#ffffff',
         });
 
-        const img = canvas.toDataURL('image/jpeg', 0.92);
+        /*
+         * PNG 로 뜹니다.
+         *
+         * JPEG 는 사진용 압축이라 한글 획 끝과 표 선 둘레에 번짐이 남습니다.
+         * 이 장들은 글자와 선뿐이고 바탕이 희어서, PNG 가 더 깨끗하면서
+         * 파일도 크게 불어나지 않습니다.
+         */
+        const img = canvas.toDataURL('image/png');
 
         // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
         const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, landscape);
@@ -71,7 +79,7 @@ export function usePdfSave() {
         } else {
           pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
         }
-        pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
+        pdf.addImage(img, 'PNG', x, y, w, h, undefined, 'FAST');
       }
 
       pdf?.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);
