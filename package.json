@@ -84,12 +84,12 @@
     "icon": "build/icon.png",
     "extraFiles": [
       {
-        "from": "실행안내.md",
-        "to": "실행안내.md"
+        "from": "docs/실행안내.txt",
+        "to": "실행안내.txt"
       },
       {
-        "from": "THIRD-PARTY-NOTICES.md",
-        "to": "함께 쓴 공개 소프트웨어.md"
+        "from": "docs/함께 쓴 공개 소프트웨어.txt",
+        "to": "함께 쓴 공개 소프트웨어.txt"
       },
       {
         "from": "LICENSE",
