@@ -33,14 +33,14 @@ export const Report7Labels: React.FC = () => {
     return buildLabels(placementSlots, placement, rooms, days, times, entries, banCfg, students, studentPlacements, separateExaminers);
   }, [placementSlots, placement, rooms, days, times, entries, settings.banLabelStyle, slotBanLabelStyle, slotBanLabels, students, studentPlacements, separateExaminers]);
 
-  // A4 가로 1장에 4개(2x2)씩 분할
-  const chunkedLabels = useMemo(() => {
-    const res = [];
-    for (let i = 0; i < labels.length; i += 4) {
-      res.push(labels.slice(i, i + 4));
-    }
-    return res;
-  }, [labels]);
+  /*
+   * A4 가로 한 장에 라벨 하나.
+   *
+   * 예전에는 한 장에 네 개(2×2)를 찍었습니다. 종이는 덜 들지만 한 장에 서로
+   * 다른 고사실 것이 섞여서, 잘라 낸 뒤 다시 분류해야 했습니다. 한 장에
+   * 하나면 자를 것도 없이 그 고사실 봉투에 그대로 붙입니다.
+   */
+  const chunkedLabels = useMemo(() => labels.map(l => [l]), [labels]);
 
   // 과목코드 가져오기 헬퍼 (시수 유무 관계없이 매칭)
   const getSubjectCode = (subj: string): string => {
@@ -98,7 +98,7 @@ export const Report7Labels: React.FC = () => {
     <div className="flex flex-col h-full bg-slate-100 overflow-auto p-4 md:p-6 print:overflow-visible print:h-auto print:p-0 print:m-0 print:bg-white print:block">
       {/* 봉투 라벨은 가로 2x2 입니다. */}
       <PrintPageSize landscape />
-      {/* 가로 2x2 인쇄 스타일 */}
+      {/* 가로 한 장에 라벨 하나. 잘라 내지 않고 그대로 봉투에 붙입니다. */}
       <style>{`
         @media print {
           @page {
@@ -134,17 +134,17 @@ export const Report7Labels: React.FC = () => {
           }
           .envelope-grid-4 {
             display: grid !important;
-            grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-            grid-template-rows: repeat(2, minmax(0, 1fr)) !important;
-            gap: 8px 10px !important;
+            grid-template-columns: minmax(0, 1fr) !important;
+            grid-template-rows: minmax(0, 1fr) !important;
+            gap: 0 !important;
             width: 100% !important;
             height: 100% !important;
             box-sizing: border-box !important;
           }
           .envelope-card {
             height: 100% !important;
-            max-height: 93mm !important;
-            padding: 8px 12px !important;
+            max-height: 195mm !important;
+            padding: 14px 20px !important;
             box-sizing: border-box !important;
             display: flex !important;
             flex-direction: column !important;
@@ -159,7 +159,7 @@ export const Report7Labels: React.FC = () => {
 
       <ReportHeader
         num="10-7"
-        title="문제지 봉투 라벨 (A4 가로 2×2)"
+        title="문제지 봉투 라벨 (A4 가로 · 한 장에 하나)"
         actions={
           <ReportActions
             disabled={!stages.stage5 || labels.length === 0}
@@ -216,7 +216,7 @@ export const Report7Labels: React.FC = () => {
             </div>
           </div>
 
-          {/* 라벨 미리보기 및 인쇄 영역 (A4 가로 297mm x 210mm, 2x2 그리드) */}
+          {/* 라벨 미리보기 및 인쇄 영역 (A4 가로 297mm x 210mm, 한 장에 하나) */}
           <div id="envelope-labels-container" className="flex flex-col gap-8 pb-10 print:block print:p-0 print:m-0 print:gap-0">
             {chunkedLabels.map((chunk, chunkIdx) => (
               <div key={chunkIdx} className="w-[297mm] mx-auto print:w-full">
@@ -227,14 +227,14 @@ export const Report7Labels: React.FC = () => {
                     제 {chunkIdx + 1} 페이지 / 총 {chunkedLabels.length} 페이지
                   </span>
                   <span className="text-xs font-bold text-[#8C867A]">
-                    연번 #{chunk[0]?.seq} ~ #{chunk[chunk.length - 1]?.seq} ({chunk.length}개 라벨)
+                    연번 #{chunk[0]?.seq} · {chunk[0]?.examRoom} · {chunk[0]?.day} {chunk[0]?.period}
                   </span>
                 </div>
 
                 <div
                   className="envelope-print-page print-page page-landscape bg-white border border-slate-300 rounded-xl shadow-sm w-full min-h-[210mm] p-5 flex flex-col justify-between mb-8 print:mb-0 print:border-none print:shadow-none print:p-0 print:m-0 print:w-full"
                 >
-                  <div className="envelope-grid-4 grid grid-cols-2 grid-rows-2 gap-4 flex-1 w-full h-full">
+                  <div className="envelope-grid-4 grid grid-cols-1 grid-rows-1 flex-1 w-full h-full">
                   {chunk.map(l => {
                     const code = getSubjectCode(l.subject);
                     const cleanSubj = onlySubject(l.subject);
@@ -246,17 +246,17 @@ export const Report7Labels: React.FC = () => {
                       >
                         {/* 상단 고사명 타이틀 */}
                         {meta?.title && (
-                          <div className="text-center font-black text-slate-800 text-[17px] md:text-[19px] border-b-2 border-slate-900 pb-1 mb-1 tracking-tight truncate">
+                          <div className="text-center font-black text-slate-800 text-[26px] md:text-[30px] border-b-2 border-slate-900 pb-2 mb-2 tracking-tight truncate">
                             {meta.title}
                           </div>
                         )}
 
                         {/* 상단 헤더: 일시 & 연번 */}
-                        <div className="flex justify-between items-center border-b border-slate-300 pb-1 mb-1">
-                          <span className="text-xs font-black text-slate-700">
+                        <div className="flex justify-between items-center border-b border-slate-300 pb-2 mb-2">
+                          <span className="text-lg font-black text-slate-700">
                             일시: {l.date} ({l.day} {l.period}) {l.time}
                           </span>
-                          <span className="text-xs font-black bg-slate-100 text-slate-800 px-2 py-0.5 rounded border border-slate-300">
+                          <span className="text-lg font-black bg-slate-100 text-slate-800 px-3 py-1 rounded border border-slate-300">
                             연번 #{l.seq}
                           </span>
                         </div>
@@ -270,33 +270,33 @@ export const Report7Labels: React.FC = () => {
                             text={cleanSubj}
                             ratio={0.8}
                             heightRatio={0.62}
-                            max={110}
+                            max={220}
                             min={16}
                             className="font-black text-slate-900 tracking-tight leading-[1.1]"
                           />
                           {code && (
-                            <span className="text-base font-black px-2 py-0.5 bg-blue-50 text-[#005691] border border-blue-200 rounded font-mono">
+                            <span className="text-2xl font-black px-3 py-1 bg-blue-50 text-[#005691] border border-blue-200 rounded font-mono">
                               【 {code} 】
                             </span>
                           )}
                         </div>
 
                         {/* 하단 정보 3칸: 고사실 / 응시분반 / 응시인원 */}
-                        <div className="grid grid-cols-3 gap-2 text-center mt-1">
-                          <div className="bg-slate-50 py-1 px-2 rounded border border-slate-200">
-                            <span className="text-[10.5px] font-bold text-[#8C867A] block">고사실</span>
-                            <strong className="text-base font-black text-blue-900 block truncate">{l.examRoom}</strong>
+                        <div className="grid grid-cols-3 gap-3 text-center mt-2">
+                          <div className="bg-slate-50 py-2 px-3 rounded border border-slate-200">
+                            <span className="text-sm font-bold text-[#8C867A] block">고사실</span>
+                            <strong className="text-3xl font-black text-blue-900 block truncate">{l.examRoom}</strong>
                           </div>
-                          <div className="bg-slate-50 py-1 px-2 rounded border border-slate-200">
-                            <span className="text-[10.5px] font-bold text-[#8C867A] block">응시분반</span>
-                            <strong className="text-sm font-bold text-slate-800 block truncate">{l.classRoom || '전체'}</strong>
+                          <div className="bg-slate-50 py-2 px-3 rounded border border-slate-200">
+                            <span className="text-sm font-bold text-[#8C867A] block">응시분반</span>
+                            <strong className="text-2xl font-bold text-slate-800 block truncate">{l.classRoom || '전체'}</strong>
                           </div>
-                          <div className="bg-[#e6f1f8] py-1 px-2 rounded border border-[#b3d4e8]">
-                            <span className="text-[10.5px] font-black text-[#005691] block">응시인원</span>
-                            <strong className="text-base font-black text-[#005691] block truncate">{l.stuCount}명</strong>
+                          <div className="bg-[#e6f1f8] py-2 px-3 rounded border border-[#b3d4e8]">
+                            <span className="text-sm font-black text-[#005691] block">응시인원</span>
+                            <strong className="text-3xl font-black text-[#005691] block truncate">{l.stuCount}명</strong>
                             {/* 별도 고사실로 나가는 인원. 봉투에서 그만큼 빼서 따로 보내야 합니다. */}
                             {l.separateCount > 0 && (
-                              <span className="text-[10px] font-black text-amber-700 block leading-tight">
+                              <span className="text-sm font-black text-amber-700 block leading-tight">
                                 별도 {l.separateCount}명 포함
                               </span>
                             )}

@@ -345,3 +345,74 @@ describe('정원 기준과 방 짝짓기', () => {
     expect(res.unseated).toEqual([]);
   });
 });
+
+describe('자습(대기) 배치', () => {
+  /** 별도실은 반 이름이 없고 학급 인원도 없습니다. */
+  const extra = (id: string, name: string, cap: number): ExamRoom =>
+    ({ id, banName: '', stuCount: cap, maxClassSize: null, roomName: name, capacity: cap });
+
+  it('제 반 교실이 비어 있으면 그대로 둔다', () => {
+    const rooms = [room('r1', '3-1', '1반', 30), room('r2', '3-2', '2반', 30), room('r3', '3-3', '3반', 30)];
+    const entries = subjectBanEntries([{ subject: '수학(4)', room: 'g1', stuCount: 10, subjectSeq: 1 }]);
+    const all = [...students('1반', 1, 10, ['수학(4)']),
+                 ...students('2반', 1, 12, ['국어(4)']), ...students('3반', 1, 9, ['국어(4)'])];
+    const res = seatSlot({ ps: slot(['수학(4)'], 10, 21), rooms, entries, students: all, capacityOf: capOf });
+
+    // 2반은 2반 교실에, 3반은 3반 교실에. 아이들이 움직이지 않습니다.
+    expect(seatedIn(res, 'r2')).toBe(12);
+    expect(seatedIn(res, 'r3')).toBe(9);
+    expect(res.row['r2']).toBe('대기2반 - 12명');
+    expect(res.row['r3']).toBe('대기3반 - 9명');
+  });
+
+  it('제 반 교실이 시험실이면 이미 연 대기실의 빈자리로 — 별도실을 열지 않는다', () => {
+    // 1·2반 교실이 시험실이 되고, 그 반 자습생 20명이 갈 곳을 찾습니다.
+    // 3·4반 교실에 빈자리가 넉넉하므로 세미나실을 열 이유가 없습니다.
+    const rooms = [
+      room('r1', '3-1', '1반', 25), room('r2', '3-2', '2반', 25),
+      room('r3', '3-3', '3반', 25), room('r4', '3-4', '4반', 25),
+      extra('extra_5', '2층 넘나들 1실', 30), extra('extra_6', '3층 세미나실', 40),
+    ];
+    const entries = subjectBanEntries([
+      { subject: '수학(4)', room: 'g1', stuCount: 24, subjectSeq: 1 },
+      { subject: '수학(4)', room: 'g2', stuCount: 24, subjectSeq: 1 },
+    ]);
+    const all = [
+      ...students('1반', 1, 24, ['수학(4)']), ...students('2반', 1, 24, ['수학(4)']),
+      ...students('1반', 25, 34, ['국어(4)']), ...students('2반', 25, 34, ['국어(4)']),  // 자습 20명
+      ...students('3반', 1, 14, ['국어(4)']), ...students('4반', 1, 13, ['국어(4)']),     // 자습 27명
+    ];
+    const res = seatSlot({ ps: slot(['수학(4)'], 48, 47), rooms, entries, students: all, capacityOf: capOf });
+
+    expect(res.row['extra_5']).toBeUndefined();   // 별도실을 열지 않습니다
+    expect(res.row['extra_6']).toBeUndefined();
+    const 대기실 = rooms.filter(r => res.row[r.id] && isWaitCell(res.row[r.id]));
+    expect(대기실.map(r => r.id).sort()).toEqual(['r3', 'r4']);
+    expect(seatedIn(res, 'r3') + seatedIn(res, 'r4')).toBe(47);
+    expect(res.unseated).toEqual([]);
+    expect(res.overTotal).toBe(0);
+  });
+
+  it('빈자리가 모자라면 방을 열되 가장 작은 것부터', () => {
+    // 자습 26명. 3반 교실(25석)이 꽉 차고 한 명이 남습니다.
+    // 마흔 석 세미나실이 아니라 서른 석 넘나들실이 열려야 합니다.
+    const rooms = [
+      room('r1', '3-1', '1반', 25), room('r2', '3-2', '2반', 25), room('r3', '3-3', '3반', 25),
+      extra('extra_5', '2층 넘나들 1실', 30), extra('extra_6', '3층 세미나실', 40),
+    ];
+    const entries = subjectBanEntries([
+      { subject: '수학(4)', room: 'g1', stuCount: 20, subjectSeq: 1 },
+      { subject: '수학(4)', room: 'g2', stuCount: 20, subjectSeq: 1 },
+    ]);
+    const all = [
+      ...students('1반', 1, 20, ['수학(4)']), ...students('2반', 1, 20, ['수학(4)']),
+      ...students('3반', 1, 26, ['국어(4)']),
+    ];
+    const res = seatSlot({ ps: slot(['수학(4)'], 40, 26), rooms, entries, students: all, capacityOf: capOf });
+
+    expect(seatedIn(res, 'r3')).toBe(25);           // 제 반 교실을 꽉 채우고
+    expect(seatedIn(res, 'extra_5')).toBe(1);       // 남은 하나는 작은 방으로
+    expect(res.row['extra_6']).toBeUndefined();     // 큰 세미나실은 그대로 둡니다
+    expect(res.overTotal).toBe(0);
+  });
+});

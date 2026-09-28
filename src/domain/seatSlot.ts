@@ -394,7 +394,7 @@ export function seatSlot(args: {
   if (waitRooms.length === 0 && nonTakers.length > 0) {
     unseated.push(...nonTakers);
   } else {
-    for (const st of [...nonTakers].sort(byNum)) put(st, bestRoom(st, waitRooms)!.id);
+    seatWaiting(waitRooms);
   }
   for (const r of waitRooms) {
     const n = seatedIn.get(r.id) ?? 0;
@@ -443,6 +443,65 @@ export function seatSlot(args: {
   }
 
   return { row, placements, moved, over, overTotal, unseated, notes, ok: unseated.length === 0 && overTotal === 0 };
+
+  /**
+   * 자습(미응시) 학생을 앉힙니다.
+   *
+   * 두 가지를 지킵니다.
+   *  1. 제 반 교실이 시험실로 안 쓰이면 거기 그대로 둡니다. 아이들이 움직이지
+   *     않고, 담임이 어디 있는지 압니다.
+   *  2. 제 반 교실이 시험실이 된 아이들은 **이미 연 대기실의 빈자리**로 넣습니다.
+   *     새 교실을 열지 않습니다.
+   *
+   * 예전에는 남는 방을 전부 대기실로 열고 인원을 고르게 흩었습니다. 그래서
+   * 스물다섯 석 교실 여섯 곳에 열댓 명씩 앉고, 쓸 일 없는 세미나실까지
+   * 열렸습니다. 감독할 선생님만 늘어납니다.
+   *
+   * 빈자리가 모자랄 때만 방을 더 엽니다. 그때도 큰 정규 교실부터 열어
+   * 여는 방 수를 가장 적게 합니다. 별도실은 마지막입니다.
+   */
+  function seatWaiting(pool: Room[]) {
+    const rest: Student[] = [];
+
+    // ① 제 반 교실이 대기실로 남아 있으면 거기로.
+    for (const st of [...nonTakers].sort(byNum)) {
+      const home = pool.find(r => r.banName === st.ban || r.name === st.ban);
+      if (home && headroom(home.id) > 0) put(st, home.id);
+      else rest.push(st);
+    }
+
+    /** 이미 사람이 들어간 방. 여기 빈자리부터 씁니다. */
+    const opened = () => pool.filter(r => (seatedIn.get(r.id) ?? 0) > 0);
+
+    for (let i = 0; i < rest.length; i++) {
+      const st = rest[i];
+      // ② 연 방 가운데 빈자리가 가장 적게 남은 곳(꽉 채우는 쪽)으로.
+      const fit = opened()
+        .filter(r => headroom(r.id) > 0)
+        .sort((a, b) => headroom(a.id) - headroom(b.id) || a.id.localeCompare(b.id))[0];
+      if (fit) { put(st, fit.id); continue; }
+
+      /*
+       * ③ 빈자리가 없으면 방을 하나 엽니다.
+       *
+       * 아직 앉힐 사람이 몇 명인지 세어, 그만큼 담을 수 있는 방 가운데
+       * **가장 작은 것**을 고릅니다. 큰 것부터 열면 한 명 때문에 마흔 석짜리
+       * 세미나실이 열립니다. 정규 교실을 별도실보다 먼저 봅니다.
+       */
+      const 남은수 = rest.length - i;
+      const 빈방 = pool.filter(r => (seatedIn.get(r.id) ?? 0) === 0 && r.capFor('대기') > 0);
+      const 급 = (r: Room) => (r.extra ? 1 : 0);
+      const 담는방 = 빈방.filter(r => r.capFor('대기') >= 남은수)
+        .sort((a, b) => 급(a) - 급(b) || a.capFor('대기') - b.capFor('대기') || a.id.localeCompare(b.id))[0];
+      const 큰방 = [...빈방].sort((a, b) => 급(a) - 급(b) || b.capFor('대기') - a.capFor('대기') || a.id.localeCompare(b.id))[0];
+      const fresh = 담는방 ?? 큰방;
+      if (fresh) { put(st, fresh.id); continue; }
+
+      // ④ 더 열 방이 없으면 가장 덜 넘친 방에 넣습니다. 자리를 잃지는 않습니다.
+      const least = [...pool].sort((a, b) => headroom(b.id) - headroom(a.id) || a.id.localeCompare(b.id))[0];
+      if (least) put(st, least.id); else unseated.push(st);
+    }
+  }
 
   /**
    * 정원을 넘긴 방에서 넘친 만큼만 빼내어, 자리가 남은 같은 과목 방으로 보냅니다.
