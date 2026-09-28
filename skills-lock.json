@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "skills": {
+    "save-conversation": {
+      "source": "mrinalwadhwa/ai",
+      "sourceType": "github",
+      "skillPath": "skills/save-conversation/SKILL.md",
+      "computedHash": "c8ef0627cb0616d61d616daa096e706ba3793592437b7130f9d3d818596dd3e9"
+    }
+  }
+}
