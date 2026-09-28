@@ -387,7 +387,8 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
             </>
           ) : (
             <>
-              {!isLocal && (
+              {/* 오프라인 배포판에는 클라우드가 아예 들어가지 않습니다(__OFFLINE__). */}
+              {!__OFFLINE__ && !isLocal && (
                 <button
                   onClick={() => setShowCloud(true)}
                   className="w-full px-3 py-2.5 bg-[#f1f5f9] hover:bg-[#e2e8f0] border border-slate-300 text-slate-700 rounded-xl flex items-center justify-center gap-2 font-black transition text-[17px] shadow-md"
@@ -500,9 +501,10 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
               </div>
             )}
 
-            {!isLocal && (
+            {!__OFFLINE__ && !isLocal && (
               <>
                 {/* 오프라인 배포판(260MB)은 GitHub 릴리스에서 받습니다.
+                    (오프라인 빌드에서는 이 덩어리가 통째로 지워지므로 주소도 남지 않습니다.)
                     호스팅에 함께 올리면 배포할 때마다 저장 용량이 쌓여 한도를 넘깁니다
                     (실제로 넘겨서 배포가 막혔습니다). 'latest' 라서 새 릴리스를 올리면
                     자동으로 최신을 가리킵니다. */}
@@ -607,7 +609,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
       )}
 
       <SettingsModal isOpen={showSettings} onClose={() => setShowSettings(false)} />
-      {!isLocal && <CloudModal isOpen={showCloud} onClose={() => setShowCloud(false)} />}
+      {!__OFFLINE__ && !isLocal && <CloudModal isOpen={showCloud} onClose={() => setShowCloud(false)} />}
     </div>
   );
 };
