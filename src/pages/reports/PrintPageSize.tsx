@@ -1,4 +1,5 @@
 import React from 'react';
+import { PAPER_MM, PaperSize } from './pdfFit';
 
 /**
  * 이 인쇄물이 쓸 용지 방향.
@@ -9,8 +10,12 @@ import React from 'react';
  *
  * 한 번에 한 가지 인쇄물만 화면에 있으므로, @page 하나를 그때그때 바꿉니다.
  */
-export const PrintPageSize: React.FC<{ landscape?: boolean }> = ({ landscape }) => (
-  <style>
-    {`@media print { @page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: ${landscape ? '10mm' : '12mm'}; } }`}
-  </style>
-);
+export const PrintPageSize: React.FC<{ landscape?: boolean; paper?: PaperSize }> = ({ landscape, paper = 'A4' }) => {
+  const [pw, ph] = PAPER_MM[paper];
+  const [w, h] = landscape ? [ph, pw] : [pw, ph];
+  return (
+    <style>
+      {`@media print { @page { size: ${w}mm ${h}mm; margin: ${landscape ? '10mm' : '12mm'}; } }`}
+    </style>
+  );
+};

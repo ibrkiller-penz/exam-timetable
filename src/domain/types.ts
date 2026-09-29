@@ -297,6 +297,8 @@ export interface Settings {
    * 없으면 A 입니다.
    */
   labelStyle?: 'A' | 'B';
+  /** 10-1 전체 시간표의 종이 크기. 게시용으로 B4 에 뽑기도 합니다. 없으면 A4. */
+  gradeTablePaper?: 'A4' | 'B4';
   /**
    * 좌석배치도 모양.
    *  - 'roster' 위 반은 좌석, 아래 반은 명렬 40칸 (감독용)

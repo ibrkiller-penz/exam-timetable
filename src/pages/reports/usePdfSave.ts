@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
-import { beginCapture } from './printAsImage';
-import { fitOnA4 } from './pdfFit';
+import { beginCapture, nextFrame } from './printAsImage';
+import { fitOnPaper, PAPER_MM, PaperSize } from './pdfFit';
 import { capturePage } from './capturePage';
 
 /**
@@ -21,14 +21,19 @@ export function usePdfSave() {
   /**
    * @param filename 저장할 파일 이름
    * @param prepare  모든 장을 먼저 화면에 그려야 할 때 (전체 저장). 끝나면 되돌리는 함수를 돌려줍니다.
+   * @param paper    종이 크기. 없으면 A4.
    */
-  const savePdf = useCallback(async (filename: string, prepare?: () => () => void) => {
+  const savePdf = useCallback(async (filename: string, prepare?: () => () => void, paper: PaperSize = 'A4') => {
     const restore = prepare?.();
     // 창이 좁아 줄어든 페이지를 원래 A4 폭으로 되돌린 뒤에 뜹니다.
     // 인쇄(printAsImage)와 같은 조건이라, PDF 와 종이가 서로 다르지 않습니다.
     const endCapture = beginCapture();
     // 화면이 다 그려진 다음에 떠야 합니다.
-    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(() => r(null))));
+    // 창이 가려져 있으면 requestAnimationFrame 이 멈춥니다. PDF 를 누르고 다른 창으로
+    // 넘어가면 저장이 '1/1장' 에서 멈춰 있었습니다. 인쇄와 같은 기다림을 씁니다
+    // (다음 그림 또는 0.12초, 먼저 오는 쪽).
+    await nextFrame();
+    await nextFrame();
 
     const pages = Array.from(document.querySelectorAll<HTMLElement>('.print-page'));
     if (pages.length === 0) {
@@ -72,12 +77,13 @@ export function usePdfSave() {
         const img = canvas.toDataURL('image/jpeg', 0.95);
 
         // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
-        const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, landscape);
+        const { x, y, w, h } = fitOnPaper(canvas.width, canvas.height, landscape, paper);
+        const format = PAPER_MM[paper];   // [폭, 높이] mm — 방향은 orientation 이 돌립니다
 
         if (!pdf) {
-          pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format: 'a4', compress: true });
+          pdf = new jsPDF({ orientation: landscape ? 'landscape' : 'portrait', unit: 'mm', format, compress: true });
         } else {
-          pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
+          pdf.addPage(format, landscape ? 'landscape' : 'portrait');
         }
         pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
       }

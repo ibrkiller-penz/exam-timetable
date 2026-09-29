@@ -11,7 +11,13 @@ import { Printer, Download} from 'lucide-react';
 import { downloadWorkbook } from '../../utils/excelStyled';
 
 export const Report1GradeTable: React.FC = () => {
-  const { meta, rooms, days, times, placement, stages, settings, slotBanLabels, slotBanLabelStyle, students, studentPlacements } = useAppStore();
+  const { meta, rooms, days, times, placement, stages, settings, slotBanLabels, slotBanLabelStyle, students, studentPlacements, updateSettings } = useAppStore();
+  /*
+   * 종이 크기. 학년실이나 교무실에 게시할 때 B4 로 뽑습니다.
+   * A4 로 만든 장을 B4 로 인쇄하면 여백이 넓고 글자가 작았습니다. B4 를 고르면
+   * 인쇄와 PDF 가 처음부터 B4 에 꽉 차게 나옵니다. 고른 것은 설정에 남습니다.
+   */
+  const paper = settings.gradeTablePaper ?? 'A4';
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
@@ -63,7 +69,7 @@ export const Report1GradeTable: React.FC = () => {
 
   return (
     <div className="flex flex-col h-full bg-white overflow-auto p-6 print:overflow-visible print:h-auto print:p-0">
-      <PrintPageSize landscape={true} />
+      <PrintPageSize landscape={true} paper={paper} />
       <ReportHeader
         num="10-1"
         title="전체 시험시간표"
@@ -72,10 +78,30 @@ export const Report1GradeTable: React.FC = () => {
             disabled={!hasPlacement}
             onExcel={exportExcel}
             pdfFilename={`${meta.title || '고사'} 전체 시험시간표.pdf`}
-            onPrint={() => printAsImage()}
+            onPrint={() => printAsImage({ paper })}
+            paper={paper}
           />
         }
       >
+        {/* 종이 크기 */}
+        <span className="inline-flex items-center gap-2 text-[13px] text-slate-500">
+          종이
+          <span className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+            {(['A4', 'B4'] as const).map(p => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => updateSettings({ gradeTablePaper: p })}
+                className={`px-3 py-1 text-[13px] font-bold transition ${
+                  paper === p ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+                aria-pressed={paper === p}
+              >
+                {p}
+              </button>
+            ))}
+          </span>
+        </span>
       </ReportHeader>
 
       {!hasPlacement ? (

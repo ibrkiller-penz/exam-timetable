@@ -1,3 +1,4 @@
+import { PaperSize } from './pdfFit';
 import React from 'react';
 import { Download, FileDown, Printer, Loader2 } from 'lucide-react';
 import { usePdfSave } from './usePdfSave';
@@ -38,7 +39,9 @@ export const ReportActions: React.FC<{
   onPrint?: () => void;
   /** 모든 장 인쇄. */
   onPrintAll?: () => void;
-}> = ({ disabled, onExcel, pdfFilename, pdfAllFilename, prepareAll, onPrint, onPrintAll }) => {
+  /** 종이 크기. 없으면 A4. */
+  paper?: PaperSize;
+}> = ({ disabled, onExcel, pdfFilename, pdfAllFilename, prepareAll, onPrint, onPrintAll, paper }) => {
   const { saving, progress, savePdf } = usePdfSave();
   const off = disabled || saving;
 
@@ -58,7 +61,7 @@ export const ReportActions: React.FC<{
 
         {pdfFilename && (
           <button
-            onClick={() => savePdf(pdfFilename)}
+            onClick={() => savePdf(pdfFilename, undefined, paper)}
             disabled={off}
             className={`${BTN} bg-slate-700 hover:bg-slate-800 text-white`}
             title="지금 보고 있는 것만 PDF 로 저장합니다."
@@ -70,7 +73,7 @@ export const ReportActions: React.FC<{
 
         {pdfAllFilename && (
           <button
-            onClick={() => savePdf(pdfAllFilename, prepareAll)}
+            onClick={() => savePdf(pdfAllFilename, prepareAll, paper)}
             disabled={off}
             className={`${BTN} bg-white text-slate-700 border border-slate-400 hover:bg-slate-50`}
             title="모든 장을 PDF 파일 하나로 저장합니다."

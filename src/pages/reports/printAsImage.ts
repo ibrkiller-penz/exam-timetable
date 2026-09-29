@@ -15,7 +15,7 @@
  */
 
 import { capturePage } from './capturePage';
-import { fitOnA4, PAGE_MARGIN_MM } from './pdfFit';
+import { PAGE_MARGIN_MM, fitOnPaper, PaperSize } from './pdfFit';
 import { confirmPrint } from './printPreview';
 import { setPreviewMask } from '../../domain/privacy';
 
@@ -26,7 +26,7 @@ import { setPreviewMask } from '../../domain/privacy';
  * 멈춥니다. 그것만 기다리면 인쇄가 그 자리에서 멎어 '준비 중…' 덮개가
  * 영영 남습니다. 시간으로도 풀어 주어 어느 쪽이든 먼저 오면 넘어갑니다.
  */
-const nextFrame = () => new Promise<void>(resolve => {
+export const nextFrame = () => new Promise<void>(resolve => {
   let done = false;
   const go = () => { if (!done) { done = true; resolve(); } };
   requestAnimationFrame(go);
@@ -77,6 +77,8 @@ function showBusy(label: string): { step: (cur: number, total: number) => void; 
 export interface PrintAsImageOptions {
   /** 어떤 요소를 한 장으로 볼지. 기본은 인쇄물 공통 클래스입니다. */
   selector?: string;
+  /** 종이 크기. 없으면 A4. 전체 시간표는 B4 로 뽑아 게시하기도 합니다. */
+  paper?: PaperSize;
   /**
    * 용지 방향. 주지 않으면 첫 장에 붙은 `page-landscape` 로 알아냅니다.
    * (한 인쇄물 안에서는 방향이 섞이지 않습니다.)
@@ -163,8 +165,10 @@ export async function printAsImage(opts: PrintAsImageOptions = {}): Promise<void
   const busy = showBusy('인쇄 준비 중…');
   const endCapture = beginCapture();
   try {
-    const images = await capturePages(findPages(), opts.scale ?? 2.5, 1, busy.step, 'image/png');
-    await printImages(images, landscape);
+    // B4 는 같은 그림을 크게 찍으므로 조금 더 촘촘히 뜹니다.
+    const scale = opts.scale ?? (opts.paper === 'B4' ? 3 : 2.5);
+    const images = await capturePages(findPages(), scale, 1, busy.step, 'image/png');
+    await printImages(images, landscape, opts.paper ?? 'A4');
   } catch (err) {
     console.error('인쇄 준비 실패:', err);
     // 그림으로 뜨지 못했더라도 인쇄 자체는 되게 합니다.
@@ -181,11 +185,11 @@ export async function printAsImage(opts: PrintAsImageOptions = {}): Promise<void
  * 한 장짜리 칸(printable area)을 정확한 mm 로 만들고, 그림은 그 안에서
  * 비율을 지킨 채 최대로 키웁니다. 칸보다 커질 수 없으니 잘릴 일이 없습니다.
  */
-function printImages(images: string[], landscape: boolean): Promise<void> {
+function printImages(images: string[], landscape: boolean, paper: PaperSize = 'A4'): Promise<void> {
   return new Promise(resolve => {
     // 여백과 비율은 PDF 저장과 같은 계산을 씁니다(pdfFit).
     const margin = PAGE_MARGIN_MM;
-    const box = fitOnA4(1, 1, landscape);
+    const box = fitOnPaper(1, 1, landscape, paper);
     const boxW = box.pageW - margin * 2;
     const boxH = box.pageH - margin * 2;
 
@@ -204,7 +208,8 @@ function printImages(images: string[], landscape: boolean): Promise<void> {
     doc.open();
     doc.write(
       '<!DOCTYPE html><html><head><meta charset="utf-8"><title>인쇄</title><style>' +
-      `@page { size: A4 ${landscape ? 'landscape' : 'portrait'}; margin: ${margin}mm; }` +
+      // 종이 크기를 숫자로 적습니다. 'B4' 라고 쓰면 브라우저가 ISO B4 로 알아듣습니다.
+      `@page { size: ${box.pageW}mm ${box.pageH}mm; margin: ${margin}mm; }` +
       'html,body { margin:0; padding:0; background:#fff; }' +
       `.sheet { width:${boxW}mm; height:${boxH - 0.5}mm; display:flex; align-items:center;` +
       ' justify-content:center; overflow:hidden; page-break-after:always; break-after:page; }' +

@@ -29,7 +29,7 @@ const Spread: React.FC<{ text: string }> = ({ text }) => (
  * 집어 들었을 때 먼저 찾는 것이 고사실이라 그 줄만 크게 둡니다.
  * 응시분반은 '2학년 사회와 문화 - A' 처럼 학년·과목·분반을 이어 적습니다.
  */
-const CoverB: React.FC<{ l: LabelRow; grade: string }> = ({ l, grade }) => {
+const CoverB: React.FC<{ l: LabelRow; grade: string; code?: string }> = ({ l, grade, code }) => {
   const d = l.date ? dayjs(l.date).locale('ko') : null;
   const 일시 = `${d && d.isValid() ? d.format('YYYY. M. D.(dd)') : l.day} ${l.period}`;
   const 과목 = onlySubject(l.subject);
@@ -37,7 +37,8 @@ const CoverB: React.FC<{ l: LabelRow; grade: string }> = ({ l, grade }) => {
   const 인원 = `${l.stuCount}명` + (l.separateCount > 0 ? ` (별도 ${l.separateCount}명 포함)` : '');
   const rows: Array<[string, string, boolean]> = [
     ['일시', 일시, false],
-    ['과목', 과목, false],
+    // 과목코드를 넣어 두었으면 과목 옆에 괄호로 붙입니다. 예) 일본어 회화 (23)
+    ['과목', code ? `${과목} (${code})` : 과목, false],
     ['고사실', l.examRoom, true],
     ['응시분반', 분반, false],
     ['응시인원', 인원, false],
@@ -326,7 +327,7 @@ export const Report7Labels: React.FC = () => {
                 >
                   <div className="envelope-grid-4 grid grid-cols-1 grid-rows-1 flex-1 w-full h-full">
                   {chunk.map(l => {
-                    if (labelStyle === 'B') return <CoverB key={l.seq} l={l} grade={activeGrade} />;
+                    if (labelStyle === 'B') return <CoverB key={l.seq} l={l} grade={activeGrade} code={getSubjectCode(l.subject)} />;
                     const code = getSubjectCode(l.subject);
                     const cleanSubj = onlySubject(l.subject);
 

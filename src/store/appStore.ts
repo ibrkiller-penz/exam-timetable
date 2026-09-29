@@ -17,7 +17,7 @@ import { loadLatestStateFromCloud } from '../domain/firebase';
 import { SAMPLE_GRADE_2, SAMPLE_GRADE_3 } from '../data/samples';
 
 export const createInitialGradeData = (grade: GradeId, defaults?: any): GradeData => {
-  const defaultTitle = grade === '2' ? '2학년 1학기 지필평가' : '3학년 1학기 지필평가';
+  const defaultTitle = grade === '2' ? '2학년 1학기 정기시험' : '3학년 1학기 정기시험';
   const defaultTheme: AppTheme = grade === '2' ? 'blue' : 'red';
   return {
     meta: {
@@ -439,7 +439,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         meta: {
           ...existing2.meta,
           sourceFileName: fileName,
-          title: existing2.meta.title || '2학년 1학기 지필평가',
+          title: existing2.meta.title || '2학년 1학기 정기시험',
           updatedAt: new Date().toISOString(),
         },
         rooms: rooms2.length > 0 ? rooms2 : existing2.rooms,
@@ -463,7 +463,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
         meta: {
           ...existing3.meta,
           sourceFileName: fileName,
-          title: existing3.meta.title || '3학년 1학기 지필평가',
+          title: existing3.meta.title || '3학년 1학기 정기시험',
           updatedAt: new Date().toISOString(),
         },
         rooms: rooms3.length > 0 ? rooms3 : existing3.rooms,
@@ -514,7 +514,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       meta: {
         ...existing.meta,
         sourceFileName: `샘플_학생편성현황_${grade}학년.xlsx`,
-        title: `${grade}학년 1학기 지필평가`,
+        title: `${grade}학년 1학기 정기시험`,
         updatedAt: new Date().toISOString(),
       },
       rooms: rooms.length > 0 ? rooms : existing.rooms,
@@ -561,7 +561,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       meta: {
         ...ex2.meta,
         sourceFileName: '샘플_학생편성현황_2학년.xlsx',
-        title: '2학년 1학기 지필평가',
+        title: '2학년 1학기 정기시험',
         updatedAt: new Date().toISOString(),
       },
       rooms: rooms2.length > 0 ? rooms2 : ex2.rooms,
@@ -583,7 +583,7 @@ export const useAppStore = create<AppStore>((set, get) => ({
       meta: {
         ...ex3.meta,
         sourceFileName: '샘플_학생편성현황_3학년.xlsx',
-        title: '3학년 1학기 지필평가',
+        title: '3학년 1학기 정기시험',
         updatedAt: new Date().toISOString(),
       },
       rooms: rooms3.length > 0 ? rooms3 : ex3.rooms,
