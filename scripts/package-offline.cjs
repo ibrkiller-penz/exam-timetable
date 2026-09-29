@@ -56,7 +56,19 @@ if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
 // 폴더 이름을 그대로 담아, 풀었을 때 '시험시간표' 한 폴더로 나오게 합니다.
 const staging = path.join(releaseDir, '시험시간표');
 if (fs.existsSync(staging)) fs.rmSync(staging, { recursive: true, force: true });
-fs.cpSync(unpacked, staging, { recursive: true });
+/*
+ * 실행하면서 생긴 것은 싣지 않습니다.
+ *
+ * 포장하기 전에 이 폴더에서 프로그램을 한 번이라도 띄우면 exe 옆에 save 폴더와
+ * renderer_debug.log 가 생깁니다. save 에는 그 컴퓨터에서 하던 작업, 곧 실제
+ * 학생 이름이 들어갈 수 있습니다. 그대로 묶으면 배포판에 학생 자료가 실려
+ * 나갑니다. 무엇이 있든 여기서 걸러 냅니다.
+ */
+const 싣지않음 = new Set(['save', 'renderer_debug.log']);
+fs.cpSync(unpacked, staging, {
+  recursive: true,
+  filter: src => !싣지않음.has(path.relative(unpacked, src).split(path.sep)[0]),
+});
 
 execFileSync('powershell.exe', [
   '-NoProfile', '-NonInteractive', '-Command',

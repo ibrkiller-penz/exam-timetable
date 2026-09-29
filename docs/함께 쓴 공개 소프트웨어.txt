@@ -15,7 +15,7 @@
   clsx                      2.1.1     MIT
   dayjs                     1.11.23   MIT
   exceljs                   4.4.0     MIT
-  html2canvas               1.4.1     MIT
+  modern-screenshot         4.7.0     MIT
   idb-keyval                6.3.0     Apache-2.0
   immer                     10.2.0    MIT
   jspdf                     4.2.1     MIT

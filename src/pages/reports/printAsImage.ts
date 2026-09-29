@@ -11,9 +11,10 @@
  *   비율 그대로 넣고 인쇄합니다. 화면에서 잘 보이면 종이에서도 똑같이
  *   나옵니다. PDF 저장이 이미 이 방식이고, 인쇄도 같은 길로 보냅니다.
  *
- * 무거운 라이브러리(html2canvas)는 인쇄를 누른 그 순간에 불러옵니다.
+ * 무거운 라이브러리(캡처 엔진)는 인쇄를 누른 그 순간에 불러옵니다.
  */
 
+import { capturePage } from './capturePage';
 import { fitOnA4, PAGE_MARGIN_MM } from './pdfFit';
 import { confirmPrint } from './printPreview';
 import { setPreviewMask } from '../../domain/privacy';
@@ -107,20 +108,14 @@ async function capturePages(
    */
   type: 'image/jpeg' | 'image/png' = 'image/jpeg',
 ): Promise<string[]> {
-  const { default: html2canvas } = await import('html2canvas');
-
   const images: string[] = [];
   for (let i = 0; i < pages.length; i++) {
     step(i + 1, pages.length);
     // 한 장 뜰 때마다 화면에 숨 쉴 틈을 줍니다. 안 그러면 덮개의 숫자가 멈춰 보입니다.
     await nextFrame();
 
-    const canvas = await html2canvas(pages[i], {
-      scale,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff',
-    });
+    // 브라우저가 화면 그대로 그리게 합니다. 글자가 밀리지 않습니다(capturePage 참고).
+    const canvas = await capturePage(pages[i], scale);
     images.push(type === 'image/png' ? canvas.toDataURL('image/png') : canvas.toDataURL('image/jpeg', quality));
   }
   return images;

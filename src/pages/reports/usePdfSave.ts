@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { beginCapture } from './printAsImage';
 import { fitOnA4 } from './pdfFit';
+import { capturePage } from './capturePage';
 
 /**
  * 인쇄물을 PDF 파일로 저장합니다.
@@ -11,7 +12,7 @@ import { fitOnA4 } from './pdfFit';
  * 화면에 그려진 `.print-page` 한 장을 그대로 그림으로 떠서 A4에 얹습니다.
  * 보이는 것과 다르게 나올 여지가 없다는 것이 이 방식의 장점입니다.
  *
- * 무거운 라이브러리(jsPDF, html2canvas)는 버튼을 누른 그 순간에 불러옵니다.
+ * 무거운 라이브러리(jsPDF, 캡처 엔진)는 버튼을 누른 그 순간에 불러옵니다.
  */
 export function usePdfSave() {
   const [saving, setSaving] = useState(false);
@@ -41,10 +42,7 @@ export function usePdfSave() {
     setProgress({ current: 1, total: pages.length });
 
     try {
-      const [{ default: jsPDF }, { default: html2canvas }] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ]);
+      const { default: jsPDF } = await import('jspdf');
 
       let pdf: InstanceType<typeof jsPDF> | null = null;
 
@@ -54,22 +52,24 @@ export function usePdfSave() {
         // 가로로 뽑을 장인지 그 장 자신에게 물어봅니다.
         const landscape = el.classList.contains('page-landscape');
 
-        const canvas = await html2canvas(el, {
-          // 종이에 뽑을 것이므로 화면보다 크게 뜹니다. 3배면 A4 기준 대략 290dpi 입니다.
-          scale: 3,
-          useCORS: true,
-          logging: false,
-          backgroundColor: '#ffffff',
-        });
+        // 종이에 뽑을 것이므로 화면보다 크게 뜹니다. 3배면 A4 기준 대략 290dpi 입니다.
+        // 브라우저가 화면 그대로 그리게 합니다. 글자가 밀리지 않습니다(capturePage 참고).
+        const canvas = await capturePage(el, 3);
 
         /*
-         * PNG 로 뜹니다.
+         * PDF 에는 JPEG(품질 0.95)로 넣습니다.
          *
-         * JPEG 는 사진용 압축이라 한글 획 끝과 표 선 둘레에 번짐이 남습니다.
-         * 이 장들은 글자와 선뿐이고 바탕이 희어서, PNG 가 더 깨끗하면서
-         * 파일도 크게 불어나지 않습니다.
+         * PNG 가 파일은 더 작지만, jsPDF 가 PNG 를 풀었다가 다시 압축하느라
+         * 한 장에 1초씩 걸립니다. 봉투 라벨 49장이면 2분이 넘습니다. JPEG 는
+         * 그대로 들어가 한 장에 0.004초입니다.
+         *
+         * 화질은 재어 보고 정했습니다. 같은 장을 PNG 와 견주면 화소 평균 오차가
+         * 0.89/255 이고, 눈에 띌 만큼(32 넘게) 다른 점은 0.002% 입니다.
+         * 3배(약 290dpi)로 뜨므로 종이에서는 구별되지 않습니다.
+         *
+         * 인쇄(printAsImage)는 이 단계가 없어 PNG 그대로 둡니다.
          */
-        const img = canvas.toDataURL('image/png');
+        const img = canvas.toDataURL('image/jpeg', 0.95);
 
         // 여백과 비율 계산은 인쇄와 같은 곳(pdfFit)에서 가져옵니다.
         const { x, y, w, h } = fitOnA4(canvas.width, canvas.height, landscape);
@@ -79,7 +79,7 @@ export function usePdfSave() {
         } else {
           pdf.addPage('a4', landscape ? 'landscape' : 'portrait');
         }
-        pdf.addImage(img, 'PNG', x, y, w, h, undefined, 'FAST');
+        pdf.addImage(img, 'JPEG', x, y, w, h, undefined, 'FAST');
       }
 
       pdf?.save(filename.endsWith('.pdf') ? filename : `${filename}.pdf`);

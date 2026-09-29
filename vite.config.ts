@@ -47,6 +47,17 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     chunkSizeWarningLimit: 1500,
+    /*
+     * 오프라인 빌드에서는 글꼴을 CSS 안에 바로 박아 넣습니다.
+     *
+     * 인쇄·PDF 는 화면 조각을 그림으로 뜨는데, 그때 글꼴 파일을 읽어 그림
+     * 안에 함께 넣어야 합니다(capturePage.ts). 실행 파일은 file:// 로 열려
+     * 글꼴 파일을 읽을 수 없으므로, 처음부터 CSS 안에 들어 있게 합니다.
+     * 인터넷 판은 파일로 두어 첫 화면이 가볍게 뜨게 합니다.
+     */
+    assetsInlineLimit: OFFLINE
+      ? (file: string) => (file.endsWith('.woff2') ? true : undefined)
+      : 4096,
     rollupOptions: {
       output: {
         manualChunks: {
