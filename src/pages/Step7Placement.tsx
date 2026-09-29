@@ -226,7 +226,12 @@ export const Step7Placement: React.FC<Step7PlacementProps> = ({ stepMode = 8 }) 
   const [confirmModal, setConfirmModal] = useState<{
     isOpen: boolean;
     message: string;
-    onConfirm: () => void;
+    /**
+     * 확인을 눌렀을 때. 방식 고르기(modePicker)가 있는 창은 **누르는 순간의**
+     * 방식을 받습니다. 창을 열 때 붙잡은 값을 쓰면, 창 안에서 학번순으로
+     * 바꿔도 분반대로가 적용되었습니다(미리보기만 학번순이었습니다).
+     */
+    onConfirm: (mode?: 'ban' | 'student_id') => void;
     modePicker?: boolean;
     /** 누르기 전에 결과를 보여 줍니다. 고른 방식에 따라 다시 셉니다. */
     preview?: (mode: 'ban' | 'student_id') => { rows: SeatingRow[]; unplaced: number; overTotal: number };
@@ -1543,9 +1548,9 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
           slotRoomCapacity, slotCapacityBasis: slotCapacityBasis[slot],
         });
       },
-      onConfirm: () => {
+      onConfirm: (mode) => {
         pushHistory(`[${ps.title}] 교시 재배치`);
-        applyReplan(replanMode);
+        applyReplan(mode ?? 'ban');
       },
     });
   };
@@ -3649,7 +3654,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
               {confirmModal.preview && <SeatingPreview result={confirmModal.preview(replanMode)} />}
             </div>
           ) : undefined}
-          onConfirm={confirmModal.onConfirm}
+          // 지금 고른 방식을 넘깁니다. 창을 열 때의 값이 아니라.
+          onConfirm={() => confirmModal.onConfirm(replanMode)}
           onCancel={() => setConfirmModal(null)}
         />
       )}
