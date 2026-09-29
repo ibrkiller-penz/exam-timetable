@@ -290,6 +290,14 @@ export interface Settings {
   seatsPerColumn: number;
   labelsPerPage: number;
   showSeatOnStudentTable: boolean;
+  /**
+   * 봉투 표지 모양.
+   *  - 'A' 과목명을 크게 (예전부터 쓰던 것)
+   *  - 'B' 다섯 줄 표 — 일시·과목·고사실·응시분반·응시인원
+   * 없으면 A 입니다.
+   */
+  labelStyle?: 'A' | 'B';
+
   seatLayoutDirection?: 'col' | 'row';
   studentTicketNotice?: string;
   /** 분반 이름 기본 표기 — 가나다(ko)가 기본입니다. */

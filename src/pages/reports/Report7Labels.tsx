@@ -11,10 +11,78 @@ import { FitText } from './FitText';
 import { beginCapture, printAsImage } from './printAsImage';
 import { fitOnA4 } from './pdfFit';
 import { Printer, Download, CheckCircle2, FileDown, Loader2 } from 'lucide-react';
+import { LabelRow } from '../../domain/types';
+import dayjs from 'dayjs';
+import 'dayjs/locale/ko';
+
+/** 글자를 칸 너비에 고르게 벌립니다. '일시' 는 양 끝에, '응시분반' 은 넷으로. */
+const Spread: React.FC<{ text: string }> = ({ text }) => (
+  <span className="flex justify-between w-full">
+    {[...text].map((c, i) => <span key={i}>{c}</span>)}
+  </span>
+);
+
+/**
+ * 봉투 표지 B — 다섯 줄 표.
+ *
+ * 학교에서 한글 문서로 만들어 쓰던 표지를 그대로 옮긴 모양입니다. 봉투를
+ * 집어 들었을 때 먼저 찾는 것이 고사실이라 그 줄만 크게 둡니다.
+ * 응시분반은 '2학년 사회와 문화 - A' 처럼 학년·과목·분반을 이어 적습니다.
+ */
+const CoverB: React.FC<{ l: LabelRow; grade: string }> = ({ l, grade }) => {
+  const d = l.date ? dayjs(l.date).locale('ko') : null;
+  const 일시 = `${d && d.isValid() ? d.format('YYYY. M. D.(dd)') : l.day} ${l.period}`;
+  const 과목 = onlySubject(l.subject);
+  const 분반 = l.classRoom ? `${grade}학년 ${과목} - ${l.classRoom}` : `${grade}학년 ${과목}`;
+  const 인원 = `${l.stuCount}명` + (l.separateCount > 0 ? ` (별도 ${l.separateCount}명 포함)` : '');
+  const rows: Array<[string, string, boolean]> = [
+    ['일시', 일시, false],
+    ['과목', 과목, false],
+    ['고사실', l.examRoom, true],
+    ['응시분반', 분반, false],
+    ['응시인원', 인원, false],
+  ];
+  const line = '1.5px solid #111827';
+  return (
+    <div className="envelope-card envelope-cover-b w-full h-full bg-white">
+      <table className="w-full h-full border-collapse table-fixed" style={{ border: '2.5px solid #111827' }}>
+        <colgroup>
+          <col style={{ width: '30%' }} />
+          <col />
+        </colgroup>
+        <tbody>
+          {rows.map(([k, v, big]) => (
+            <tr key={k} style={{ height: '20%' }}>
+              {/* 여백은 px 로 둡니다. % 로 두면 표 전체 폭의 비율이 되어 칸 안이 좁아지고,
+                  네 글자('응시분반')는 벌릴 자리가 없어 뭉칩니다. */}
+              <th className="font-medium text-slate-900 text-[44px]" style={{ border: line, padding: '0 40px' }}>
+                <Spread text={k} />
+              </th>
+              <td className="text-center text-slate-900 overflow-hidden" style={{ border: line, padding: '0 3%' }}>
+                {/* 모든 줄을 같은 크기(48px)로 두고, 한 줄에 안 들어갈 때만 그 줄을 줄입니다.
+                    고사실만 크게 — 봉투를 집어 들 때 먼저 찾는 것입니다. */}
+                <FitText
+                  text={v}
+                  grow={false}
+                  ratio={0.94}
+                  max={big ? 120 : 48}
+                  min={20}
+                  className={big ? 'font-black leading-none' : 'font-medium leading-none'}
+                />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
 
 export const Report7Labels: React.FC = () => {
   const { rooms, days, times, placement, evalSubjects, subjectCodes, setSubjectCode, stages, meta, settings, slotBanLabels, slotBanLabelStyle,
-          students, studentPlacements, separateExaminers } = useAppStore();
+          students, studentPlacements, separateExaminers, activeGrade, updateSettings } = useAppStore();
+  // 표지 모양. 고른 것은 설정에 남겨 다음에 열어도 그대로입니다.
+  const labelStyle = settings.labelStyle ?? 'A';
   const placementSlots = useAppStore(selPlacementSlots);
   const entries = useAppStore(selSubjectBanEntries);
 
@@ -152,6 +220,12 @@ export const Report7Labels: React.FC = () => {
             border: 2px solid #0f172a !important;
             border-radius: 8px !important;
           }
+          /* 표지 B 는 표가 테두리를 가집니다. 겉 테두리를 겹치지 않습니다. */
+          .envelope-cover-b {
+            border: none !important;
+            border-radius: 0 !important;
+            padding: 0 !important;
+          }
         }
       `}</style>
 
@@ -170,7 +244,23 @@ export const Report7Labels: React.FC = () => {
         }
       >
         <span className="text-[13.5px] text-slate-500">
-          라벨 <strong className="text-[#005691]">{labels.length}개</strong> · 한 장에 4칸
+          라벨 <strong className="text-[#005691]">{labels.length}개</strong> · 한 장에 하나
+        </span>
+        {/* 표지 모양 고르기 */}
+        <span className="no-print inline-flex rounded-lg border border-slate-300 overflow-hidden ml-3 align-middle">
+          {([['A', '스타일 A · 과목 크게'], ['B', '스타일 B · 표']] as const).map(([s, label]) => (
+            <button
+              key={s}
+              type="button"
+              onClick={() => updateSettings({ labelStyle: s })}
+              className={`px-3 py-1 text-[13px] font-bold transition ${
+                labelStyle === s ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+              aria-pressed={labelStyle === s}
+            >
+              {label}
+            </button>
+          ))}
         </span>
       </ReportHeader>
 
@@ -236,6 +326,7 @@ export const Report7Labels: React.FC = () => {
                 >
                   <div className="envelope-grid-4 grid grid-cols-1 grid-rows-1 flex-1 w-full h-full">
                   {chunk.map(l => {
+                    if (labelStyle === 'B') return <CoverB key={l.seq} l={l} grade={activeGrade} />;
                     const code = getSubjectCode(l.subject);
                     const cleanSubj = onlySubject(l.subject);
 

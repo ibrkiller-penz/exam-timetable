@@ -20,6 +20,12 @@ export const Report4SeatMap: React.FC = () => {
   // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
   const attendance = useAttendance();
 
+  /*
+   * 한 장을 반으로 나눠 위는 좌석, 아래는 명렬입니다. 모양은 하나로 고정합니다.
+   * 감독 선생님이 한 장으로 자리도 찾고 출결도 부릅니다.
+   */
+  const withRoster = true;
+
   const selectedDay = ui.report.day || '1일차';
   const selectedPeriod = ui.report.period || '1교시';
   const selectedRoom = ui.report.room || '';
@@ -233,11 +239,11 @@ export const Report4SeatMap: React.FC = () => {
 
           {/* 좌석 — 남는 높이를 나눠 가져 페이지를 꽉 채웁니다. */}
           <div
-            className="w-full grid gap-3 flex-1"
+            className={`w-full grid ${withRoster ? 'gap-1.5' : 'gap-3'} flex-1 min-h-0`}
             style={{ gridTemplateColumns: `repeat(${rep.columns}, minmax(0, 1fr))` }}
           >
             {rep.grid.map((col, colIdx) => (
-              <div key={colIdx} className="flex flex-col gap-3 min-h-0">
+              <div key={colIdx} className={`flex flex-col ${withRoster ? 'gap-1' : 'gap-3'} min-h-0`}>
                 <div className="text-center font-black text-[15px] text-slate-500 pb-0.5 border-b-2 border-slate-300 shrink-0">
                   {colIdx + 1}열
                 </div>
@@ -248,17 +254,17 @@ export const Report4SeatMap: React.FC = () => {
                   return (
                     <div
                       key={cell.seat}
-                      className={`px-2 py-2 text-center rounded-lg flex-1 flex flex-col items-center justify-center min-h-[58px] ${
+                      className={`px-2 ${withRoster ? 'py-0.5 min-h-0' : 'py-2 min-h-[58px]'} text-center rounded-lg flex-1 flex flex-col items-center justify-center ${
                         empty ? 'border-2 border-dashed border-gray-300 bg-gray-50/40' : 'border-2 border-gray-800 bg-white'
                       }`}
                     >
-                      <div className={`font-black text-[23px] leading-none ${empty ? 'text-gray-300' : 'text-red-700'}`}>
+                      <div className={`font-black ${withRoster ? 'text-[17px]' : 'text-[23px]'} leading-none ${empty ? 'text-gray-300' : 'text-red-700'}`}>
                         {cell.physicalSeatNum}
                       </div>
                       {!empty && (
                         <>
-                          <div className="text-[13px] text-gray-500 font-black leading-tight mt-0.5">{cell.hakbun}</div>
-                          <div className="text-[23px] font-black text-gray-900 leading-tight break-keep tracking-tight">
+                          <div className={`${withRoster ? 'text-[10.5px]' : 'text-[13px]'} text-gray-500 font-black leading-tight mt-0.5`}>{cell.hakbun}</div>
+                          <div className={`${withRoster ? 'text-[15px]' : 'text-[23px]'} font-black text-gray-900 leading-tight break-keep tracking-tight`}>
                             {displayName(cell.name)}
                           </div>
                         </>
@@ -269,6 +275,8 @@ export const Report4SeatMap: React.FC = () => {
               </div>
             ))}
           </div>
+
+          {withRoster && <SeatRoster rep={rep} />}
 
           {/* 이 교실 소속이지만 별도 고사실에서 보는 학생.
               자리에서는 빼되, 감독 선생님이 누가 없는지 알아야 합니다. */}
@@ -369,6 +377,72 @@ export const Report4SeatMap: React.FC = () => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+/**
+ * 좌석배치도 아래에 붙는 명렬.
+ *
+ * 감독 선생님이 출결을 부르고 답안지를 걷을 때 봅니다. 좌석 그림만으로는
+ * '누가 몇 번 자리'를 한눈에 훑기 어렵습니다. 학번 순으로 두 단으로 나눠
+ * 한 장에 들어가게 합니다.
+ *
+ * 좌석번호는 그림에 적힌 번호(교실에서의 실제 자리)를 그대로 씁니다.
+ * 고사실 명단·수험표와 같은 번호입니다.
+ */
+const SeatRoster: React.FC<{ rep: NonNullable<ReturnType<typeof buildSeatMapReport>> }> = ({ rep }) => {
+  // 그림의 자리 번호를 학번으로 찾습니다.
+  const seatOf = new Map<string, number>();
+  for (const col of rep.grid) for (const c of col) if (c.occupied) seatOf.set(c.hakbun, c.physicalSeatNum);
+
+  const list = [...rep.studentList].sort((a, b) => a.seq - b.seq);
+  /*
+   * 늘 40칸입니다. 왼쪽 1~20, 오른쪽 21~40. 사람이 적으면 빈 줄로 남깁니다.
+   * 칸 수가 교실마다 달라지면 장마다 좌석 그림 높이가 달라져 보기 어지럽습니다.
+   * 40명을 넘는 교실은 없지만, 넘으면 줄을 늘려 아무도 빠지지 않게 합니다.
+   */
+  const half = Math.max(20, Math.ceil(list.length / 2));
+  const cols = [list.slice(0, half), list.slice(half)];
+
+  const head = 'border border-slate-400 bg-slate-700 text-white font-black text-[12px] py-[3px]';
+  const cell = 'border border-slate-300 text-[12px] leading-none py-0';
+  return (
+    <div className="mt-3 grid grid-cols-2 gap-3 items-start shrink-0 border-t-2 border-dashed border-slate-300 pt-3">
+      {cols.map((rows, ci) => (
+        <table key={ci} className="w-full table-fixed border-collapse text-center">
+          <colgroup>
+            <col style={{ width: '14%' }} />
+            <col style={{ width: '22%' }} />
+            <col style={{ width: '26%' }} />
+            <col style={{ width: '18%' }} />
+            <col />
+          </colgroup>
+          <thead>
+            <tr>
+              <th className={head}>연번</th>
+              <th className={head}>학번</th>
+              <th className={head}>성명</th>
+              <th className={head}>좌석</th>
+              <th className={head}>비고</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Array.from({ length: half }, (_, i) => {
+              const r = rows[i];
+              return (
+                <tr key={i} className={i % 4 === 3 ? 'border-b-2 border-slate-400' : ''} style={{ height: '4.6mm' }}>
+                  <td className={`${cell} text-slate-500`}>{r ? ci * half + i + 1 : ''}</td>
+                  <td className={`${cell} font-bold`}>{r?.hakbun ?? ''}</td>
+                  <td className={`${cell} font-bold`}>{r ? displayName(r.name) : ''}</td>
+                  <td className={`${cell} font-black text-red-700`}>{r ? (seatOf.get(r.hakbun) ?? '') : ''}</td>
+                  <td className={cell}></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ))}
     </div>
   );
 };
