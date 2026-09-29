@@ -66,7 +66,7 @@ describe('예전 판에서 이미 칸이 지워진 파일도 되살린다', () =
 
     const { placement: out, restored } = restoreOrphanRooms(placement, sp, rooms, students, [ps as never]);
     expect(restored).toBe(2);
-    expect(out[1].r3).toBe('일본어Ⅰ(4)-1실');          // 시험실로 되살림
+    expect(out[1].r3).toBe('일본어Ⅰ(4)-2반');          // 옆에 1반이 있으니 이어지는 번호로
     expect(out[1].r4).toBe('대기4반 - 5명');             // 미응시자만 있으면 대기실로
     expect(out[1].r1).toBe('일본어Ⅰ(4)-1반');           // 멀쩡한 칸은 그대로
   });
@@ -119,5 +119,25 @@ describe('저장 파일 열기(loadSavedState) — 손으로 옮긴 학생이 �
     expect(row.r3).toBe('일본어Ⅰ(4)-3반');
     expect(미배치).toHaveLength(0);
     expect(st.lockedCells?.[1]?.r3).toBe(true);   // 잠금도 그대로
+  });
+
+  it('분반 두 칸 옆에 손으로 연 세 번째 고사실은 `-3반` 으로 — 스캔본의 법과 사회', async () => {
+    const { restoreOrphanRooms } = await import('../../src/domain/autoPlace');
+    const students = Array.from({ length: 30 }, (_, i) => ({ grade: '2', ban: `${(i % 3) + 1}반`, num: i + 1, name: '', subjects: ['법과 사회(4)'] }));
+    const ps = { index: 4, day: 2 as never, period: 1 as never, title: '2일차 1교시', subjects: ['법과 사회(4)'], banCounts: [], banCountTotal: 0, takers: 30, nonTakers: 0 };
+    const placement = { 4: { r1: '법과 사회(4)-1반', r2: '법과 사회(4)-2반' } };
+    const sp = { 4: Object.fromEntries(students.map((st, i) => [`${st.ban}-${st.num}`, ['r1', 'r2', 'r3'][i % 3]])) };
+    const { placement: out } = restoreOrphanRooms(placement, sp, rooms, students, [ps as never]);
+    expect(out[4].r3).toBe('법과 사회(4)-3반');
+  });
+
+  it('칸이 모두 지워진 원반(학번순) 교시는 방 순서대로 `-1실`, `-2실` … — 스캔본의 일본어 회화', async () => {
+    const { restoreOrphanRooms } = await import('../../src/domain/autoPlace');
+    const students = Array.from({ length: 40 }, (_, i) => ({ grade: '2', ban: `${(i % 4) + 1}반`, num: i + 1, name: '', subjects: ['일본어Ⅰ(4)'] }));
+    const ps = { index: 1, day: 1 as never, period: 1 as never, title: '1일차 1교시', subjects: ['일본어Ⅰ(4)'], banCounts: [], banCountTotal: 0, takers: 40, nonTakers: 0 };
+    // 저장 파일 속 학생 순서가 방 순서와 달라도(4반 학생이 먼저) 번호는 방 순서를 따릅니다.
+    const sp = { 1: Object.fromEntries([...students].reverse().map(st => [`${st.ban}-${st.num}`, `r${st.ban[0]}`])) };
+    const { placement: out } = restoreOrphanRooms({ 1: {} }, sp, rooms, students, [ps as never]);
+    expect([out[1].r1, out[1].r2, out[1].r3, out[1].r4]).toEqual(['일본어Ⅰ(4)-1실', '일본어Ⅰ(4)-2실', '일본어Ⅰ(4)-3실', '일본어Ⅰ(4)-4실']);
   });
 });

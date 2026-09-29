@@ -1155,9 +1155,12 @@ export function sanitizePlacementGrid(
  *
  * 그런 방을 찾아 칸을 다시 적습니다.
  *  - 앉은 학생이 모두 이 교시 미응시자면 대기실로.
- *  - 아니면 가장 많은 학생이 보는 과목으로 `과목-N실` 을 적습니다.
- *    원래 이름(`-3반` 이었는지 `-1실` 이었는지)은 남아 있지 않으므로, 분반을
- *    섞어 앉힌 칸이라는 뜻의 `-N실` 로 적습니다. 배치와 인원은 그대로입니다.
+ *  - 아니면 가장 많은 학생이 보는 과목으로 칸을 적습니다. 원래 이름은 남아
+ *    있지 않으므로 옆 칸을 보고 정합니다.
+ *    · 같은 과목의 `-1반`, `-2반` 이 이미 있으면, 손으로 하나 더 연 고사실이므로
+ *      이어지는 번호 `-3반` 으로 적습니다.
+ *    · 그런 칸이 없으면(학번순으로 나눈 교시) `-1실`, `-2실` … 로 적습니다.
+ *  배치와 인원은 그대로입니다. 방 순서대로 번호를 매깁니다.
  *
  * 되살린 방의 수를 함께 돌려줍니다.
  */
@@ -1188,7 +1191,8 @@ export function restoreOrphanRooms(
     }
 
     let changed = false;
-    for (const [rid, list] of orphans) {
+    const order = (rid: string) => rooms.findIndex(x => x.id === rid);
+    for (const [rid, list] of [...orphans].sort((a, b) => order(a[0]) - order(b[0]))) {
       const r = rooms.find(x => x.id === rid);
       if (!r || r.roomName === '' || r.roomName === '0') continue;
       const takers = list.filter(st => st.subjects.some(sub => ps.subjects.includes(sub)));
@@ -1202,9 +1206,11 @@ export function restoreOrphanRooms(
         }
         const subject = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
         const used = new Set(Object.values(row).filter(Boolean) as string[]);
+        const hasBan = [...used].some(v => v.startsWith(`${subject}-`) && /-\d+반$/.test(v));
+        const suffix = hasBan ? '반' : '실';
         let n = 1;
-        while (used.has(`${subject}-${n}실`)) n++;
-        row[rid] = `${subject}-${n}실`;
+        while (used.has(`${subject}-${n}${suffix}`)) n++;
+        row[rid] = `${subject}-${n}${suffix}`;
       }
       changed = true;
       restored++;
