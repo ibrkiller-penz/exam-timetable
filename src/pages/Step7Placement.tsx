@@ -2735,11 +2735,22 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                                   e.stopPropagation();
                                   setLockedCell(ps.index, r.id, !isLocked);
                                 }}
-                                className={`absolute top-1 right-1 p-0.5 rounded transition-colors ${
-                                  isLocked ? 'text-[#005691] hover:bg-[#cce3f0]' : 'text-gray-800 hover:text-[#0f172a] hover:bg-gray-50'
+                                /*
+                                 * z-20: 과목 이름 덩어리보다 위에 둡니다.
+                                 * 이름 덩어리가 자물쇠 뒤에 그려지면서 같은 자리를 덮어, 과목 이름이
+                                 * 길어 칸 끝까지 차면 자물쇠를 눌러도 학생 명단이 열렸습니다.
+                                 * 잠그고 재배치하는 흐름이 막혔던 것입니다.
+                                 */
+                                className={`absolute top-0.5 right-0.5 z-20 p-1 rounded-md transition-colors ${
+                                  isLocked ? 'text-[#005691] bg-white/80 hover:bg-[#cce3f0]' : 'text-gray-800 hover:text-[#0f172a] hover:bg-gray-50'
                                 }`}
+                                title={isLocked ? '잠금 풀기' : '잠그기 — 재배치해도 이 고사실은 그대로 둡니다'}
+                                aria-label={isLocked ? '잠금 풀기' : '잠그기'}
                               >
-                                {isLocked ? <Lock className="w-3.5 h-3.5" /> : <Unlock className="w-3 h-3 opacity-0 group-hover:opacity-100" />}
+                                {/* 크게(18px), 잠기지 않은 칸에도 흐리게 보입니다. 어디를 누르면 잠기는지 알 수 있게. */}
+                                {isLocked
+                                  ? <Lock className="w-[18px] h-[18px]" strokeWidth={2.5} />
+                                  : <Unlock className="w-[18px] h-[18px] opacity-25 group-hover:opacity-100" />}
                               </button>
                             )}
                             {isForbidden ? (
@@ -2775,7 +2786,9 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                               </div>
                             ) : cellVal ? (
                               <div
-                                className={`relative space-y-0.5 transition-colors group ${isLocked ? 'opacity-70' : ''}`}
+                                /* 양옆에 자물쇠 폭만큼 여백을 둡니다. 긴 과목 이름의 끝 글자가
+                                   자물쇠 밑에 깔려 안 보이는 일이 없게 합니다(가운데 맞춤은 그대로). */
+                                className={`relative space-y-0.5 px-5 transition-colors group ${isLocked ? 'opacity-70' : ''}`}
                                 onClick={e => {
                                   e.stopPropagation();
                                   handleCellClick(ps.index, r.id);
