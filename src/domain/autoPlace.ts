@@ -1107,11 +1107,28 @@ export function sanitizePlacementGrid(
           }
         }
       } else {
-        // Exam cell: if entries map is provided, purge any non-existent or 0-count subject ban keys
+        /*
+         * 시험 칸은 '과목 자체가 편성현황에서 사라졌을 때만' 지웁니다.
+         *
+         * 예전에는 편성현황의 분반 이름과 글자가 똑같지 않은 칸을 모두 지웠습니다.
+         * 그런데 정상인 칸도 분반 이름과 다릅니다.
+         *  - 손으로 시험실을 하나 더 열면 생기는 칸: `일본어-3반` (분반은 2개뿐)
+         *  - 학번순(원반)으로 나눈 칸: `일본어-1실`
+         * 파일을 열 때마다 이런 칸이 지워져, 거기 옮겨 둔 학생이 갈 방을 잃고
+         * 미배치로 돌아갔습니다. 손으로 맞춘 작업이 이튿날 사라진 것입니다.
+         *
+         * NEIS 를 다시 받아 과목이 아예 없어졌다면 그 칸은 남겨 둘 까닭이 없으니
+         * 그때만 지웁니다.
+         */
         if (entries && entries.size > 0 && !entries.has(val)) {
-          delete newRow[roomId];
-          rowModified = true;
-          modified = true;
+          const hyphen = val.lastIndexOf('-');
+          const subject = hyphen > 0 ? val.slice(0, hyphen).trim() : val.trim();
+          const subjectAlive = [...entries.values()].some(e => e.subject === subject);
+          if (!subjectAlive) {
+            delete newRow[roomId];
+            rowModified = true;
+            modified = true;
+          }
         }
       }
     }
@@ -1128,6 +1145,75 @@ export function sanitizePlacementGrid(
  * Get the list of students assigned to a specific slot and room.
  * Supports slotStudentPlacements directly for real-time student tracking.
  */
+/**
+ * 학생은 앉아 있는데 칸이 비어 버린 방을 되살립니다.
+ *
+ * 예전 판은 파일을 열 때 편성현황의 분반 이름과 다른 시험 칸(손으로 연
+ * `일본어-3반`, 학번순으로 나눈 `일본어-1실`)을 지웠습니다. 지운 것은 칸
+ * 이름뿐이고, 학생을 어느 방에 두었는지는 그대로 남았습니다. 그 파일이 다시
+ * 저장되었다면 '학생은 있는데 칸이 빈 방'으로 남아 미배치로 보입니다.
+ *
+ * 그런 방을 찾아 칸을 다시 적습니다.
+ *  - 앉은 학생이 모두 이 교시 미응시자면 대기실로.
+ *  - 아니면 가장 많은 학생이 보는 과목으로 `과목-N실` 을 적습니다.
+ *    원래 이름(`-3반` 이었는지 `-1실` 이었는지)은 남아 있지 않으므로, 분반을
+ *    섞어 앉힌 칸이라는 뜻의 `-N실` 로 적습니다. 배치와 인원은 그대로입니다.
+ *
+ * 되살린 방의 수를 함께 돌려줍니다.
+ */
+export function restoreOrphanRooms(
+  placement: PlacementGrid,
+  studentPlacements: Record<number, Record<string, string>> | undefined,
+  rooms: ExamRoom[],
+  students: Student[],
+  slots: PlacementSlot[],
+): { placement: PlacementGrid; restored: number } {
+  if (!studentPlacements) return { placement, restored: 0 };
+  const byKey = new Map(students.map(s => [`${s.ban}-${s.num}`, s]));
+  const next: PlacementGrid = { ...placement };
+  let restored = 0;
+
+  for (const ps of slots) {
+    const sp = studentPlacements[ps.index];
+    if (!sp) continue;
+    const row = { ...(next[ps.index] ?? {}) };
+
+    // 칸이 빈 방에 앉은 학생들을 방별로 모읍니다.
+    const orphans = new Map<string, Student[]>();
+    for (const [key, rid] of Object.entries(sp)) {
+      if (!rid || row[rid]) continue;
+      const st = byKey.get(key);
+      if (!st) continue;
+      orphans.set(rid, [...(orphans.get(rid) ?? []), st]);
+    }
+
+    let changed = false;
+    for (const [rid, list] of orphans) {
+      const r = rooms.find(x => x.id === rid);
+      if (!r || r.roomName === '' || r.roomName === '0') continue;
+      const takers = list.filter(st => st.subjects.some(sub => ps.subjects.includes(sub)));
+      if (takers.length === 0) {
+        row[rid] = r.banName ? `대기${r.banName.replace('반', '')}반 - ${list.length}명` : `대기 - ${list.length}명`;
+      } else {
+        const count = new Map<string, number>();
+        for (const st of takers) {
+          const sub = st.subjects.find(s => ps.subjects.includes(s))!;
+          count.set(sub, (count.get(sub) ?? 0) + 1);
+        }
+        const subject = [...count.entries()].sort((a, b) => b[1] - a[1])[0][0];
+        const used = new Set(Object.values(row).filter(Boolean) as string[]);
+        let n = 1;
+        while (used.has(`${subject}-${n}실`)) n++;
+        row[rid] = `${subject}-${n}실`;
+      }
+      changed = true;
+      restored++;
+    }
+    if (changed) next[ps.index] = row;
+  }
+  return { placement: next, restored };
+}
+
 export function getStudentListForSlotRoom(
   slotIndex: number,
   roomId: string,

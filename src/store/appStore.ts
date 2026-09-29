@@ -9,7 +9,7 @@ import { buildTakers, buildStudents } from '../domain/subjects';
 import { buildPlacementInfo } from '../domain/placementInfo';
 import { applySeparate } from '../domain/separate';
 import { recommendIdealTimetable, RecommendationResult } from '../domain/recommendTimetable';
-import { initSlotStudentPlacements, sanitizePlacementGrid } from '../domain/autoPlace';
+import { initSlotStudentPlacements, sanitizePlacementGrid, restoreOrphanRooms } from '../domain/autoPlace';
 import { subjectBanEntries } from '../domain/placement';
 import { selPlacementSlots, selSubjectBanEntries } from './selectors';
 import { saveStateToIdb, loadStateFromIdb, clearStateIdb, loadBaseInfoDefaults, saveBaseInfoDefaults, setStoreInitialized } from './persistence';
@@ -320,7 +320,16 @@ export const useAppStore = create<AppStore>((set, get) => ({
       }
 
       const entries = subjectBanEntries(subjectBans || []);
-      const placement = saved.placement ? sanitizePlacementGrid(saved.placement, rooms, entries) : {};
+      // 칸을 정리한 뒤, 예전 판이 칸만 지워 '학생은 있는데 칸이 빈 방'을 되살립니다.
+      const placement = saved.placement
+        ? restoreOrphanRooms(
+            sanitizePlacementGrid(saved.placement, rooms, entries),
+            saved.studentPlacements,
+            rooms,
+            students || [],
+            buildPlacementInfo(timetable, students || [], evalSubjects),
+          ).placement
+        : {};
 
       const currentTheme = settings?.theme || (activeGrade === '2' ? 'blue' : 'red');
       document.documentElement.setAttribute('data-theme', currentTheme);
@@ -661,7 +670,14 @@ export const useAppStore = create<AppStore>((set, get) => ({
     }
 
     const entries = subjectBanEntries(subjectBans || []);
-    const cleanPlacement = sanitizePlacementGrid(newState.placement || {}, newState.rooms || [], entries);
+    // 칸을 정리한 뒤, 예전 판이 칸만 지워 '학생은 있는데 칸이 빈 방'을 되살립니다.
+    const cleanPlacement = restoreOrphanRooms(
+      sanitizePlacementGrid(newState.placement || {}, newState.rooms || [], entries),
+      newState.studentPlacements,
+      newState.rooms || [],
+      students || [],
+      buildPlacementInfo(newState.timetable || createInitialTimetable(), students || [], evalSubjects),
+    ).placement;
     const cleanState: AppState = {
       ...newState,
       activeGrade,
