@@ -294,8 +294,8 @@ export const Report4SeatMap: React.FC = () => {
                       }`}
                     >
                       <div
-                        style={{ fontSize: px(withRoster ? 22 : 30) }}
-                        className={`w-[36%] shrink-0 flex items-center justify-center font-black leading-none border-r-2 ${
+                        style={{ fontSize: px(withRoster ? 22 : 27) }}
+                        className={`w-[32%] shrink-0 flex items-center justify-center font-black leading-none border-r-2 ${
                           empty ? 'text-gray-300 border-dashed border-gray-300' : 'text-red-700 border-gray-800'
                         }`}
                       >
@@ -304,8 +304,9 @@ export const Report4SeatMap: React.FC = () => {
                       <div className="flex-1 min-w-0 flex flex-col items-center justify-center px-1">
                         {!empty && (
                           <>
-                            <div style={{ fontSize: px(withRoster ? 11 : 14), lineHeight: 1.12 }} className="text-gray-500 font-black">{cell.hakbun}</div>
-                            <div style={{ fontSize: px(withRoster ? 16 : 24), lineHeight: 1.15 }} className="font-black text-gray-900 break-keep tracking-tight truncate max-w-full">
+                            {/* 학번과 이름은 같은 크기로 씁니다. 둘 다 학생이 제 자리를 확인하는 데 씁니다. */}
+                            <div style={{ fontSize: px(withRoster ? 15 : 22), lineHeight: 1.1 }} className="font-black text-gray-900 tracking-tight">{cell.hakbun}</div>
+                            <div style={{ fontSize: px(withRoster ? 15 : 22), lineHeight: 1.1 }} className="font-black text-gray-900 break-keep tracking-tight truncate max-w-full">
                               {displayName(cell.name)}
                             </div>
                           </>
@@ -473,7 +474,7 @@ const SeatRoster: React.FC<{ rep: NonNullable<ReturnType<typeof buildSeatMapRepo
             {Array.from({ length: half }, (_, i) => {
               const r = rows[i];
               return (
-                <tr key={i} className={i % 4 === 3 ? 'border-b-2 border-slate-400' : ''} style={{ height: '4.6mm' }}>
+                <tr key={i} className={i % 4 === 3 ? 'border-b-2 border-slate-400' : ''} style={{ height: '4.3mm' }}>
                   <td className={`${cell} text-slate-500`}>{r ? ci * half + i + 1 : ''}</td>
                   <td className={`${cell} font-bold`}>{r?.hakbun ?? ''}</td>
                   <td className={`${cell} font-bold`}>{r ? displayName(r.name) : ''}</td>
