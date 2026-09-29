@@ -21,10 +21,12 @@ export const Report4SeatMap: React.FC = () => {
   const attendance = useAttendance();
 
   /*
-   * 한 장을 반으로 나눠 위는 좌석, 아래는 명렬입니다. 모양은 하나로 고정합니다.
-   * 감독 선생님이 한 장으로 자리도 찾고 출결도 부릅니다.
+   * 두 모양 가운데 고릅니다. 고른 것은 설정에 남습니다.
+   *  - 좌석 + 명렬: 한 장을 반으로 나눠 위는 좌석, 아래는 명렬 40칸.
+   *    감독 선생님이 한 장으로 자리도 찾고 출결도 부릅니다. (기본)
+   *  - 좌석만: 좌석이 장 전체를 씁니다. 복도에 붙여 학생이 제 자리를 찾는 종이입니다.
    */
-  const withRoster = true;
+  const withRoster = (settings.seatMapStyle ?? 'roster') === 'roster';
 
   const selectedDay = ui.report.day || '1일차';
   const selectedPeriod = ui.report.period || '1교시';
@@ -156,6 +158,23 @@ export const Report4SeatMap: React.FC = () => {
           ))}
         </select>
 
+        {/* 좌석 + 명렬 / 좌석만 */}
+        <span className="inline-flex rounded-lg border border-slate-300 overflow-hidden">
+          {([['roster', '좌석 + 명렬'], ['seats', '좌석만']] as const).map(([v, label]) => (
+            <button
+              key={v}
+              type="button"
+              onClick={() => updateSettings({ seatMapStyle: v })}
+              className={`px-3 py-1 text-[13px] font-bold transition ${
+                (settings.seatMapStyle ?? 'roster') === v ? 'bg-[#005691] text-white' : 'bg-white text-slate-600 hover:bg-slate-50'
+              }`}
+              aria-pressed={(settings.seatMapStyle ?? 'roster') === v}
+            >
+              {label}
+            </button>
+          ))}
+        </span>
+
         <div className="flex items-center gap-1.5 text-xs">
           <span className="font-semibold text-gray-600">열수(가로):</span>
           <input
@@ -251,24 +270,47 @@ export const Report4SeatMap: React.FC = () => {
                   // 앉는 사람이 없는 자리도 칸은 그립니다. 교실의 실제 자리 모양과 같아야
                   // 학생이 제 자리를 세어 찾을 수 있습니다.
                   const empty = !cell.occupied;
+                  /*
+                   * 글자 크기는 줄 수에 맞춰 줄입니다.
+                   * 좌석+명렬은 좌석이 반 장만 쓰므로 8줄, 좌석만은 10줄을 기준으로
+                   * 그보다 줄이 많은 교실은 그만큼 작게 씁니다. 이름이 칸 밑으로
+                   * 잘려 나가지 않게 하려는 것입니다.
+                   */
+                  const k = Math.min(1, (withRoster ? 8 : 10) / Math.max(1, rep.rowsPerColumn));
+                  const px = (n: number) => `${Math.round(n * k * 10) / 10}px`;
+                  /*
+                   * 번호는 왼쪽, 세로줄 하나, 학번·이름은 오른쪽.
+                   *
+                   * 칸이 옆으로 넓고 위아래로 낮습니다. 세 줄(번호·학번·이름)을
+                   * 쌓으면 글자를 작게 써야 했습니다. 번호를 옆으로 떼어 두 줄로
+                   * 만들면 번호도 이름도 크게 쓸 수 있고, 번호만 훑어 자리를
+                   * 세기도 쉽습니다.
+                   */
                   return (
                     <div
                       key={cell.seat}
-                      className={`px-2 ${withRoster ? 'py-0.5 min-h-0' : 'py-2 min-h-[58px]'} text-center rounded-lg flex-1 flex flex-col items-center justify-center ${
+                      className={`rounded-lg flex-1 min-h-0 flex items-stretch overflow-hidden ${
                         empty ? 'border-2 border-dashed border-gray-300 bg-gray-50/40' : 'border-2 border-gray-800 bg-white'
                       }`}
                     >
-                      <div className={`font-black ${withRoster ? 'text-[17px]' : 'text-[23px]'} leading-none ${empty ? 'text-gray-300' : 'text-red-700'}`}>
+                      <div
+                        style={{ fontSize: px(withRoster ? 22 : 30) }}
+                        className={`w-[36%] shrink-0 flex items-center justify-center font-black leading-none border-r-2 ${
+                          empty ? 'text-gray-300 border-dashed border-gray-300' : 'text-red-700 border-gray-800'
+                        }`}
+                      >
                         {cell.physicalSeatNum}
                       </div>
-                      {!empty && (
-                        <>
-                          <div className={`${withRoster ? 'text-[10.5px]' : 'text-[13px]'} text-gray-500 font-black leading-tight mt-0.5`}>{cell.hakbun}</div>
-                          <div className={`${withRoster ? 'text-[15px]' : 'text-[23px]'} font-black text-gray-900 leading-tight break-keep tracking-tight`}>
-                            {displayName(cell.name)}
-                          </div>
-                        </>
-                      )}
+                      <div className="flex-1 min-w-0 flex flex-col items-center justify-center px-1">
+                        {!empty && (
+                          <>
+                            <div style={{ fontSize: px(withRoster ? 11 : 14), lineHeight: 1.12 }} className="text-gray-500 font-black">{cell.hakbun}</div>
+                            <div style={{ fontSize: px(withRoster ? 16 : 24), lineHeight: 1.15 }} className="font-black text-gray-900 break-keep tracking-tight truncate max-w-full">
+                              {displayName(cell.name)}
+                            </div>
+                          </>
+                        )}
+                      </div>
                     </div>
                   );
                 })}

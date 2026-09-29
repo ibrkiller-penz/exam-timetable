@@ -297,6 +297,13 @@ export interface Settings {
    * 없으면 A 입니다.
    */
   labelStyle?: 'A' | 'B';
+  /**
+   * 좌석배치도 모양.
+   *  - 'roster' 위 반은 좌석, 아래 반은 명렬 40칸 (감독용)
+   *  - 'seats'  좌석만 장 전체에 크게 (복도에 붙이는 것)
+   * 없으면 'roster' 입니다.
+   */
+  seatMapStyle?: 'roster' | 'seats';
 
   seatLayoutDirection?: 'col' | 'row';
   studentTicketNotice?: string;
