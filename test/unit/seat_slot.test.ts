@@ -416,3 +416,27 @@ describe('자습(대기) 배치', () => {
     expect(res.overTotal).toBe(0);
   });
 });
+
+describe('시험이 없는 교시 (전체 자습)', () => {
+  it('아무도 빠지지 않고 모두 제 반 교실에 앉는다', () => {
+    const rooms = [room('r1', '3-1', '1반', 30), room('r2', '3-2', '2반', 30), room('r3', '3-3', '3반', 30)];
+    const entries = subjectBanEntries([]);
+    const all = [
+      ...students('1반', 1, 28, ['국어(4)']),
+      ...students('2반', 1, 26, ['국어(4)']),
+      ...students('3반', 1, 27, ['국어(4)']),
+    ];
+    // 과목이 하나도 없는 교시. 응시 0명, 미응시 81명.
+    const res = seatSlot({ ps: slot([], 0, 81), rooms, entries, students: all, capacityOf: capOf });
+
+    expect(res.unseated).toEqual([]);                 // 미배치 0명
+    expect(Object.keys(res.placements)).toHaveLength(81);
+    expect(seatedIn(res, 'r1')).toBe(28);             // 제 반 교실 그대로
+    expect(seatedIn(res, 'r2')).toBe(26);
+    expect(seatedIn(res, 'r3')).toBe(27);
+    // 시험실은 한 곳도 열리지 않습니다.
+    expect(rooms.every(r => isWaitCell(res.row[r.id]))).toBe(true);
+    expect(res.overTotal).toBe(0);
+    expect(res.ok).toBe(true);
+  });
+});

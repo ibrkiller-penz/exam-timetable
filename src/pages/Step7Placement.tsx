@@ -1609,7 +1609,13 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
         let movedAll = 0;
         const rough: string[] = [];
         for (const ps of placementSlots) {
-          if (ps.subjects.length === 0) continue;
+          /*
+           * 시험이 없는 교시(전체 자습)도 배치합니다.
+           *
+           * 예전에는 여기서 건너뛰었습니다. 그래서 '시험 없음 · 전체 자습' 교시가
+           * 통째로 비고 미배치 백여 명이 남아 확정이 막혔습니다. 시험이 없어도
+           * 아이들은 어딘가에 앉아 있어야 합니다 — 제 반 교실입니다.
+           */
           const res = buildSlot(ps, examMode === 'student_id' ? 'student_id' : 'ban');
           next[ps.index] = res.row;
           allPlacements[ps.index] = res.placements;
@@ -2530,7 +2536,8 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                         </div>
                         {/* 전원이 시험을 보는 교시는 분반으로 모을지, 학급이 자기 교실에 앉을지 고릅니다. */}
                         {/* 교시 도구는 한 줄로 모아 칸이 길어지지 않게 합니다. */}
-                        {!isStageLocked && ps.subjects.length > 0 && (
+                        {/* 시험이 없는 교시(전체 자습)에도 도구를 답니다. 거기도 자리를 정해야 합니다. */}
+                        {!isStageLocked && (
                           <div className={`mt-1 flex items-center justify-center gap-1 ${isCompactFit ? 'text-[11px]' : 'text-[12.5px]'}`}>
                             <button
                               onClick={() => handleReseatStudentsSlot(ps.index)}
@@ -2539,6 +2546,16 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
                               aria-label="이 교시 학생 재배치"
                             >
                               <RefreshCw className="w-3.5 h-3.5" />
+                            </button>
+
+                            {/* 이 교시만 처음부터. 분반대로 할지 학번순으로 할지 그 자리에서 고릅니다. */}
+                            <button
+                              onClick={() => handleResetAndAutoPlaceSlot(ps.index)}
+                              className="p-0.5 text-slate-400 hover:text-[#005691] hover:bg-blue-50 rounded transition"
+                              title="이 교시 자동배치 — 고사실까지 다시 짭니다. 분반대로/학번순을 고를 수 있습니다"
+                              aria-label="이 교시 자동배치"
+                            >
+                              <Sparkles className="w-3.5 h-3.5" />
                             </button>
 
                             {stepMode === 7 && ps.nonTakers === 0 && (

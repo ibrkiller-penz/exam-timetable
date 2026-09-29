@@ -344,7 +344,17 @@ export function seatSlot(args: {
 
     // ── 좌석 합계로 앉히기. 분반을 섞되 초과를 최소로 흩습니다. ────────
     const probe = `${subject}-1실`;
-    const pool = free().sort((a, b) => b.capFor(probe) - a.capFor(probe) || a.id.localeCompare(b.id));
+    /*
+     * 정규 교실을 먼저 씁니다. 별도실은 정규 교실이 모자랄 때만입니다.
+     *
+     * 예전에는 좌석 수만 보고 골라서, 서른 석 세미나실이 스물아홉 석 교실보다
+     * 앞섰습니다. 학번순을 고르면 멀쩡한 교실을 두고 시험을 별도실에서 보게
+     * 됩니다. 분반대로 쪽은 이미 정규 교실을 먼저 쓰고 있었습니다.
+     */
+    const pool = free().sort((a, b) =>
+      (a.extra ? 1 : 0) - (b.extra ? 1 : 0) ||
+      b.capFor(probe) - a.capFor(probe) ||
+      a.id.localeCompare(b.id));
     const picked: Room[] = [];
     let have = 0;
     for (const r of pool) {
