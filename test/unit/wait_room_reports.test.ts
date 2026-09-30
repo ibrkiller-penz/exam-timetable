@@ -85,3 +85,20 @@ describe('정원을 넘긴 고사실', () => {
     expect(rep?.over).toBe(0);
   });
 });
+
+describe('개별 수험표', () => {
+  it("시험이 없는 교시는 '자습' 이 아니라 '미응시' 로 적고, 시험 교시와 가른다", async () => {
+    const { buildStudentTableReport } = await import('../../src/domain/reports/studentTable');
+    const rooms: ExamRoom[] = [{ id: 'r4', banName: '4반', stuCount: 28, maxClassSize: 28, roomName: '3-4', capacity: 28 }];
+    const st = { grade: '3', ban: '4반', num: 1, name: '가나다', subjects: ['한국사(1)'] };
+    const rows = [
+      row({ key3: '4반1번1일차1교시', examRoom: '3-4', subject: '한국사(1)' }),
+      row({ key3: '4반1번1일차2교시', period: '2교시', examRoom: '3-4', subject: '대기4반' }),
+    ];
+    const rep = buildStudentTableReport(st as never, rows, [{ day: 1 as never, date: '2026-10-12' }],
+      [{ day: 1 as never, period: 1 as never, time: '08:50 ~ 09:40' }, { day: 1 as never, period: 2 as never, time: '10:10 ~ 11:00' }],
+      rooms, [], true);
+    expect(rep.grid[1][1]).toMatchObject({ subject: '한국사', isWait: false, timeStr: '08:50~09:40' });
+    expect(rep.grid[2][1]).toMatchObject({ subject: '미응시', isWait: true, examRoom: '3-4' });
+  });
+});
