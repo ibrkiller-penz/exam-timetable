@@ -426,28 +426,28 @@ export const Report6StudentTable: React.FC = () => {
                     return (
                       <div
                         key={report.hakbun}
-                        className={`border-2 border-black rounded-xl flex flex-col justify-between bg-white text-black relative overflow-hidden ${z.card}`}
+                        className={`ticket-bw border-2 border-slate-800 rounded-xl flex flex-col justify-between bg-white relative overflow-hidden ${z.card}`}
                       >
-                        <div className={`absolute top-0 left-0 right-0 bg-black ${z.bar}`}></div>
+                        <div className={`ticket-bar absolute top-0 left-0 right-0 bg-[var(--c-primary,#005691)] ${z.bar}`}></div>
 
                         <div>
                           <div className={`text-center break-keep leading-tight ${z.headWrap}`}>
-                            <h1 className={`font-black text-black tracking-tight inline-block ${z.title}`}>
+                            <h1 className={`font-black text-[var(--c-primary,#005691)] tracking-tight inline-block ${z.title}`}>
                               {meta.title}
                             </h1>
-                            <span className={`font-black text-black ml-2 inline-block ${z.suffix}`}>
+                            <span className={`font-black text-slate-800 ml-2 inline-block ${z.suffix}`}>
                               수험표
                             </span>
                           </div>
 
-                          <div className={`flex justify-between items-end border-b border-black ${z.idRow}`}>
+                          <div className={`flex justify-between items-end border-b border-slate-300 ${z.idRow}`}>
                             <div className="flex items-center gap-2">
-                              <span className={`text-black font-bold ${z.idLabel}`}>학번</span>
-                              <strong className={`text-black tracking-wide font-black ${z.hakbun}`}>{report.hakbun}</strong>
+                              <span className={`text-[#8C867A] font-bold ${z.idLabel}`}>학번</span>
+                              <strong className={`text-red-800 tracking-wide font-black ${z.hakbun}`}>{report.hakbun}</strong>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className={`text-black font-bold ${z.idLabel}`}>성명</span>
-                              <strong className={`text-black tracking-widest font-black ${z.name}`}>{displayName(report.student.name)}</strong>
+                              <span className={`text-[#8C867A] font-bold ${z.idLabel}`}>성명</span>
+                              <strong className={`text-slate-900 tracking-widest font-black ${z.name}`}>{displayName(report.student.name)}</strong>
                             </div>
                           </div>
 
@@ -458,9 +458,9 @@ export const Report6StudentTable: React.FC = () => {
                           )}
 
                           <div className="overflow-hidden">
-                            <table className="w-full text-center border-collapse border-2 border-black table-fixed">
+                            <table className="w-full text-center border-collapse border-2 border-slate-800 table-fixed">
                               <thead>
-                                <tr className="bg-slate-200 text-black border-b-2 border-black divide-x-2 divide-black">
+                                <tr className="bg-slate-100 border-b-2 border-slate-800 divide-x-2 divide-slate-800">
                                   <th className={`w-[13%] font-black ${z.th}`}>일자</th>
                                   <th className={`w-[8%] font-black ${z.th}`}>교시</th>
                                   <th className={`w-[31%] font-black ${z.th}`}>과목</th>
@@ -469,47 +469,47 @@ export const Report6StudentTable: React.FC = () => {
                                   <th className={`w-[20%] font-black ${z.th}`}>시간</th>
                                 </tr>
                               </thead>
-                              <tbody className="divide-y divide-slate-400 border-b-2 border-black">
+                              <tbody className="divide-y divide-slate-300 border-b-2 border-slate-800">
                                 {report.activeDays.map(d => (
                                   <React.Fragment key={d.day}>
                                     {report.activePeriods.map((p, pIdx) => {
                                       const cell = report.grid[p][d.day];
                                       /*
-                                       * 시험 보는 교시가 먼저 눈에 들어와야 합니다. 학교는 보통 흑백으로
-                                       * 뽑으므로 글자는 모두 검정으로 두고, 시험 줄은 굵기·크기와 옅은
-                                       * 회색 바탕으로 가릅니다. 미응시 줄은 보통 굵기에 작게 씁니다.
+                                       * 시험 보는 교시가 먼저 눈에 들어와야 합니다. 화면에서는 색으로,
+                                       * 종이(인쇄·PDF)에서는 검정 글씨에 굵기·크기·회색 바탕으로 가릅니다
+                                       * (index.css 의 .ticket-bw). 미응시 줄은 보통 굵기에 작게 씁니다.
                                        */
                                       const isWait = !cell || cell.isWait;
                                       return (
-                                        <tr key={`${d.day}-${p}`} className={`divide-x divide-slate-400 text-black ${isWait ? '' : 'bg-[#e8e8e8]'}`}>
+                                        <tr key={`${d.day}-${p}`} className={`divide-x divide-slate-300 ${isWait ? '' : 'ticket-exam-row bg-[#eaf2fa]'}`}>
                                           {pIdx === 0 && (
                                             <td
                                               rowSpan={report.activePeriods.length}
-                                              className={`bg-white border-r-2 border-black font-black text-black align-middle ${z.cellY}`}
+                                              className={`bg-slate-50 border-r-2 border-slate-800 font-black text-slate-800 align-middle ${z.cellY}`}
                                             >
                                               <div className={z.day}>{d.day}일차</div>
-                                              <div className={`text-black font-bold ${z.date}`}>{d.dateText}</div>
+                                              <div className={`text-slate-600 font-bold ${z.date}`}>{d.dateText}</div>
                                             </td>
                                           )}
-                                          <td className={`${z.cellY} ${z.period} ${isWait ? 'font-normal' : 'font-black'}`}>{p}</td>
+                                          <td className={`${z.cellY} ${z.period} ${isWait ? 'font-normal text-slate-400' : 'font-black text-slate-900'}`}>{p}</td>
                                           {/* 과목·고사실 이름이 길면(예: '2층 넘나들실') 잘라 '…' 로 끝내지 않고,
                                               넘치는 그 칸만 글자를 줄여 다 보이게 합니다. */}
                                           <td className={`overflow-hidden px-0.5 ${z.cellY} ${
-                                            isWait ? 'font-normal' : 'font-black'
+                                            isWait ? 'font-normal text-slate-400' : 'font-black text-[#00426e]'
                                           }`} style={{ fontSize: isWait ? z.subjWait : z.subj }}>
                                             <FitCell base={isWait ? z.subjWait : z.subj} min={z.min}>{cell?.subject || '-'}</FitCell>
                                           </td>
                                           <td className={`overflow-hidden px-0.5 ${z.cellY} ${
-                                            isWait ? 'font-normal' : 'font-black'
+                                            isWait ? 'font-normal text-slate-400' : 'font-black text-red-800'
                                           }`} style={{ fontSize: z.room }}>
                                             <FitCell base={z.room} min={z.min}>{cell?.examRoom || '-'}</FitCell>
                                           </td>
-                                          <td className={`${z.cellY} ${z.seat} ${isWait ? 'font-normal' : 'font-black'}`}>
+                                          <td className={`${z.cellY} ${z.seat} ${isWait ? 'font-normal text-slate-400' : 'font-black text-blue-900'}`}>
                                             {cell?.seat || '-'}
                                           </td>
                                           {/* 비고 자리에 그 교시의 고사 시간을 적습니다. 빈 칸으로 두기보다 쓸모가 있습니다. */}
                                           <td className={`px-0.5 overflow-hidden tabular-nums ${z.cellY} ${
-                                            isWait ? 'font-normal' : 'font-bold'
+                                            isWait ? 'font-normal text-slate-400' : 'font-bold text-slate-700'
                                           }`} style={{ fontSize: z.time }}>
                                             <FitCell base={z.time} min={z.min}>{cell?.timeStr || '-'}</FitCell>
                                           </td>
@@ -523,12 +523,12 @@ export const Report6StudentTable: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className={`flex flex-col text-black font-medium ${z.notice}`}>
+                        <div className={`flex flex-col text-[#8C867A] font-medium ${z.notice}`}>
                           {(settings.studentTicketNotice ?? DEFAULT_TICKET_NOTICE)
                             .split('\n')
                             .map((line, i) => (
                               <div key={i} className="flex items-start gap-1">
-                                <span className="font-bold text-black">※</span>
+                                <span className="font-bold text-slate-700">※</span>
                                 <span>{line}</span>
                               </div>
                           ))}

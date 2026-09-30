@@ -153,6 +153,16 @@
    창이 좁으면 위의 max-width:100% 때문에 페이지가 줄어들고, 줄어든 상태로
    그림을 뜨면 표가 다시 접혀 화면에서 보던 것과 다른 종이가 나옵니다.
    뜨는 동안만 원래 A4 폭으로 되돌려, 창 크기와 상관없이 같은 결과를 냅니다. */
+/*
+ * 수험표: 화면에서는 색으로 보고, 종이로 뜰 때(인쇄·PDF 모두 .capturing)는 검정으로 뽑습니다.
+ * 학교는 보통 흑백으로 뽑는데, 파랑·빨강·흐린 회색은 흑백에서 옅게 나와 읽기 어렵습니다.
+ * 시험 보는 줄은 색 대신 옅은 회색 바탕과 굵은 글씨로 가립니다.
+ */
+.capturing .ticket-bw,
+.capturing .ticket-bw * { color: #000 !important; }
+.capturing .ticket-bw .ticket-bar { background: #000 !important; }
+.capturing .ticket-bw .ticket-exam-row { background: #e6e6e6 !important; }
+
 .capturing .print-page.page-portrait { width: 210mm !important; max-width: none !important; }
 .capturing .print-page.page-landscape { width: 297mm !important; max-width: none !important; }
 
