@@ -237,7 +237,9 @@ export const Report4SeatMap: React.FC = () => {
         <div key={rn} className={`print-page ${anyWide ? 'page-landscape' : 'page-portrait'} bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto flex flex-col`}>
           <ReportSheetHeader
             title={rep.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도'}
-            subtitle={`${rep.examRoom} · ${rep.period} · ${rep.subject}`}
+            /* 좌석+명렬은 한 장에 둘을 싣느라 자리가 모자랍니다. 부제목(고사실·교시·과목)은
+               바로 아래 정보 칸과 같은 내용이라 빼고, 그 자리를 좌석·명렬 글씨에 씁니다. */
+            subtitle={withRoster ? undefined : `${rep.examRoom} · ${rep.period} · ${rep.subject}`}
             infoColumns="1.5fr 0.9fr 1fr 1.7fr 1fr"
             emphasize={[2, 4]}
             info={[
@@ -251,7 +253,7 @@ export const Report4SeatMap: React.FC = () => {
 
           {/* 교탁 — 어느 쪽이 앞인지 한눈에 보여야 자리를 제대로 찾습니다. */}
           <div className="flex justify-center mb-3 shrink-0">
-            <div className="w-2/3 py-2 bg-gray-800 text-white text-center font-black text-[18px] rounded tracking-widest">
+            <div className={`w-2/3 bg-gray-800 text-white text-center font-black rounded tracking-widest ${withRoster ? 'py-1 text-[16px]' : 'py-2 text-[18px]'}`}>
               교 탁 (앞)
             </div>
           </div>
@@ -294,7 +296,7 @@ export const Report4SeatMap: React.FC = () => {
                       }`}
                     >
                       <div
-                        style={{ fontSize: px(withRoster ? 22 : 27) }}
+                        style={{ fontSize: px(withRoster ? 26 : 27) }}
                         className={`w-[32%] shrink-0 flex items-center justify-center font-black leading-none border-r-2 ${
                           empty ? 'text-gray-300 border-dashed border-gray-300' : 'text-red-700 border-gray-800'
                         }`}
@@ -305,8 +307,8 @@ export const Report4SeatMap: React.FC = () => {
                         {!empty && (
                           <>
                             {/* 학번과 이름은 같은 크기로 씁니다. 둘 다 학생이 제 자리를 확인하는 데 씁니다. */}
-                            <div style={{ fontSize: px(withRoster ? 15 : 22), lineHeight: 1.1 }} className="font-black text-gray-900 tracking-tight">{cell.hakbun}</div>
-                            <div style={{ fontSize: px(withRoster ? 15 : 22), lineHeight: 1.1 }} className="font-black text-gray-900 break-keep tracking-tight truncate max-w-full">
+                            <div style={{ fontSize: px(withRoster ? 17 : 22), lineHeight: 1.1 }} className="font-black text-gray-900 tracking-tight">{cell.hakbun}</div>
+                            <div style={{ fontSize: px(withRoster ? 17 : 22), lineHeight: 1.1 }} className="font-black text-gray-900 break-keep tracking-tight truncate max-w-full">
                               {displayName(cell.name)}
                             </div>
                           </>
@@ -448,8 +450,9 @@ const SeatRoster: React.FC<{ rep: NonNullable<ReturnType<typeof buildSeatMapRepo
   const half = Math.max(20, Math.ceil(list.length / 2));
   const cols = [list.slice(0, half), list.slice(half)];
 
-  const head = 'border border-slate-400 bg-slate-700 text-white font-black text-[12px] py-[3px]';
-  const cell = 'border border-slate-300 text-[12px] leading-none py-0';
+  // 뽑아 보면 12px 은 작았습니다(최희정 선생님 의견). 14px 로 키우고 줄도 그만큼 높입니다.
+  const head = 'border border-slate-400 bg-slate-700 text-white font-black text-[14px] py-[3px]';
+  const cell = 'border border-slate-300 text-[14px] leading-none py-0';
   return (
     <div className="mt-3 grid grid-cols-2 gap-3 items-start shrink-0 border-t-2 border-dashed border-slate-300 pt-3">
       {cols.map((rows, ci) => (
@@ -474,7 +477,7 @@ const SeatRoster: React.FC<{ rep: NonNullable<ReturnType<typeof buildSeatMapRepo
             {Array.from({ length: half }, (_, i) => {
               const r = rows[i];
               return (
-                <tr key={i} className={i % 4 === 3 ? 'border-b-2 border-slate-400' : ''} style={{ height: '4.3mm' }}>
+                <tr key={i} className={i % 4 === 3 ? 'border-b-2 border-slate-400' : ''} style={{ height: '5mm' }}>
                   <td className={`${cell} text-slate-500`}>{r ? ci * half + i + 1 : ''}</td>
                   <td className={`${cell} font-bold`}>{r?.hakbun ?? ''}</td>
                   <td className={`${cell} font-bold`}>{r ? displayName(r.name) : ''}</td>

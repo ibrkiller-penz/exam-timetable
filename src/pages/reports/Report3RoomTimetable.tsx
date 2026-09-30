@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { FitCell } from './FitText';
 import { useAppStore } from '../../store/appStore';
 import { useAttendance } from './useAttendance';
 import { ReportGate } from './ReportGate';
@@ -91,6 +92,11 @@ export const Report3RoomTimetable: React.FC = () => {
         {(printingAll ? rooms.filter(r => r.roomName && r.roomName !== '0') : [room]).map(rm => {
         const rep = rm.id === room.id ? report : buildRoomTimetableReport(rm, attendance, days, times);
         if (!rep) return null;
+        /*
+         * 글자 크기 배율. 하루 3교시까지는 크게(과목 28px) 쓰고, 4·5교시면 가로 A4 한 장에
+         * 들도록 교시 수에 맞춰 줄입니다. 긴 과목명은 그 칸만 더 줄어듭니다(FitCell).
+         */
+        const k = ({ 4: 0.75, 5: 0.55 } as Record<number, number>)[rep.activePeriods.length] ?? 1;
         return (
         <div key={rm.id} className="print-page page-landscape bg-white border border-gray-300 p-8 rounded-xl shadow-xs mx-auto print:border-none print:shadow-none">
           <ReportSheetHeader
@@ -104,15 +110,17 @@ export const Report3RoomTimetable: React.FC = () => {
             ]}
           />
 
-          <table className="fill-rest w-full text-[16px] text-center border-collapse border-2 border-[#005691]">
+          {/* 교실 앞문에 붙여 멀리서 읽는 종이입니다. 표가 남는 높이를 다 쓰므로 글씨도 크게 씁니다
+              (예전 13~18px 는 뽑아 보면 작았습니다 — 최희정 선생님 의견). */}
+          <table className="fill-rest w-full text-[calc(22px*var(--k))] text-center border-collapse border-2 border-[#005691]" style={{ '--k': k } as React.CSSProperties}>
             <thead>
               <tr className="bg-[#eef4f9] text-[#00426e] border-b-2 border-[#005691]">
-                <th className="py-2.5 px-2 w-20 text-[15px] font-black border-r border-[#cfe0ed]">교시</th>
-                <th className="py-2.5 px-2 w-24 text-[15px] font-black border-r border-[#cfe0ed]">구분</th>
+                <th className="py-2.5 px-2 w-24 text-[calc(20px*var(--k))] font-black border-r border-[#cfe0ed]">교시</th>
+                <th className="py-2.5 px-2 w-32 text-[calc(20px*var(--k))] font-black border-r border-[#cfe0ed]">구분</th>
                 {rep.activeDays.map(d => (
-                  <th key={d.day} className="py-2.5 px-2 font-black text-[16px] border-r border-[#cfe0ed] last:border-r-0">
+                  <th key={d.day} className="py-2.5 px-2 font-black text-[calc(24px*var(--k))] border-r border-[#cfe0ed] last:border-r-0">
                     <div>{d.label}</div>
-                    <div className="text-[13px] text-gray-600 font-semibold">{d.dateText}</div>
+                    <div className="text-[calc(18px*var(--k))] text-gray-700 font-bold">{d.dateText}</div>
                   </th>
                 ))}
               </tr>
@@ -121,26 +129,26 @@ export const Report3RoomTimetable: React.FC = () => {
               {rep.activePeriods.map(p => (
                 <React.Fragment key={p}>
                   <tr>
-                    <td rowSpan={3} className="py-2 font-black text-[19px] bg-[#f4f7fa] align-middle border-t-2 border-[#005691] border-r border-[#e2e8f0]">
+                    <td rowSpan={3} className="py-2 font-black text-[calc(28px*var(--k))] bg-[#f4f7fa] align-middle border-t-2 border-[#005691] border-r border-[#e2e8f0]">
                       {p}교시
                     </td>
-                    <td className="py-2 bg-[#f8fafc] font-bold text-[13.5px] text-slate-500 border-t-2 border-[#005691] border-b border-[#e8eef5] border-r border-[#e2e8f0]">과목</td>
+                    <td className="py-2 bg-[#f8fafc] font-bold text-[calc(19px*var(--k))] text-slate-600 border-t-2 border-[#005691] border-b border-[#e8eef5] border-r border-[#e2e8f0]">과목</td>
                     {rep.activeDays.map(d => (
-                      <td key={d.day} className="py-2.5 font-black text-[18px] text-gray-900 break-keep leading-tight border-t-2 border-[#005691] border-b border-[#e8eef5] border-r border-[#e2e8f0] last:border-r-0">
-                        {rep.grid[p][d.day]?.subject || '-'}
+                      <td key={d.day} className="py-1.5 px-1 font-black text-[calc(28px*var(--k))] text-gray-900 leading-tight overflow-hidden border-t-2 border-[#005691] border-b border-[#e8eef5] border-r border-[#e2e8f0] last:border-r-0">
+                        <FitCell base={28 * k} min={12}>{rep.grid[p][d.day]?.subject || '-'}</FitCell>
                       </td>
                     ))}
                   </tr>
 
                   <tr>
-                    <td className="py-2 bg-[#f8fafc] font-bold text-[13.5px] text-slate-500 border-b border-[#e8eef5] border-r border-[#e2e8f0]">응시자수</td>
+                    <td className="py-2 bg-[#f8fafc] font-bold text-[calc(19px*var(--k))] text-slate-600 border-b border-[#e8eef5] border-r border-[#e2e8f0]">응시자수</td>
                     {rep.activeDays.map(d => (
-                      <td key={d.day} className="py-2 font-black text-[18px] text-[#b91c1c] border-b border-[#e8eef5] border-r border-[#e2e8f0] last:border-r-0">
+                      <td key={d.day} className="py-1 font-black text-[calc(26px*var(--k))] text-[#b91c1c] border-b border-[#e8eef5] border-r border-[#e2e8f0] last:border-r-0">
                         {rep.grid[p][d.day]?.stuCount ? `${rep.grid[p][d.day].stuCount}명` : '-'}
                         {/* 별도 고사실로 간 학생은 이 교실에 없습니다.
                             감독 선생님이 인원을 맞출 때 그만큼이 빈 것을 알아야 합니다. */}
                         {rep.grid[p][d.day]?.separateCount > 0 && (
-                          <span className="block text-[12px] font-bold text-amber-700">
+                          <span className="block text-[calc(17px*var(--k))] font-bold text-amber-700">
                             별도 {rep.grid[p][d.day].separateCount}명
                           </span>
                         )}
@@ -149,9 +157,9 @@ export const Report3RoomTimetable: React.FC = () => {
                   </tr>
 
                   <tr>
-                    <td className="py-1.5 bg-[#f8fafc] text-[12.5px] text-slate-400 font-bold border-r border-[#e2e8f0]">시험시간</td>
+                    <td className="py-1.5 bg-[#f8fafc] text-[calc(18px*var(--k))] text-slate-600 font-bold border-r border-[#e2e8f0]">시험시간</td>
                     {rep.activeDays.map(d => (
-                      <td key={d.day} className="py-1.5 text-[13.5px] text-slate-500 font-semibold border-r border-[#e2e8f0] last:border-r-0">
+                      <td key={d.day} className="py-1.5 text-[calc(20px*var(--k))] text-slate-700 font-bold tabular-nums border-r border-[#e2e8f0] last:border-r-0">
                         {rep.grid[p][d.day]?.timeStr || '-'}
                       </td>
                     ))}

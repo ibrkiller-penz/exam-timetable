@@ -470,7 +470,7 @@ export const Report6StudentTable: React.FC = () => {
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-300 border-b-2 border-slate-800">
-                                {report.activeDays.map(d => (
+                                {report.activeDays.map((d, dIdx) => (
                                   <React.Fragment key={d.day}>
                                     {report.activePeriods.map((p, pIdx) => {
                                       const cell = report.grid[p][d.day];
@@ -481,7 +481,10 @@ export const Report6StudentTable: React.FC = () => {
                                        */
                                       const isWait = !cell || cell.isWait;
                                       return (
-                                        <tr key={`${d.day}-${p}`} className={`divide-x divide-slate-300 ${isWait ? '' : 'ticket-exam-row bg-[#eaf2fa]'}`}>
+                                        <tr key={`${d.day}-${p}`} className={`divide-x divide-slate-300 ${isWait ? '' : 'ticket-exam-row bg-[#eaf2fa]'} ${
+                                          // 날짜가 바뀌는 줄에 진한 선. 1일차·2일차… 가 한눈에 갈립니다(최희정 선생님 의견).
+                                          pIdx === 0 && dIdx > 0 ? '!border-t-2 !border-t-slate-800' : ''
+                                        }`}>
                                           {pIdx === 0 && (
                                             <td
                                               rowSpan={report.activePeriods.length}
