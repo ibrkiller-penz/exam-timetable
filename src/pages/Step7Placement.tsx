@@ -1099,7 +1099,12 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       await saveCloudImmediately(state, `[중간저장] ${stepName} — ${stamp}`);
       setAlertModal({
         isOpen: true,
-        message: `💾 지금까지의 작업을 저장했습니다.
+        // 오프라인판은 고칠 때마다 이 컴퓨터의 save 폴더에 저장됩니다. 되돌릴 클라우드가 없습니다.
+        message: __OFFLINE__
+          ? `💾 지금까지의 작업이 이 컴퓨터(save 폴더)에 저장되어 있습니다.
+
+확정과는 별개입니다. 이 시점을 따로 남기려면 왼쪽 [다른 이름]으로 저장하세요.`
+          : `💾 지금까지의 작업을 저장했습니다.
 
 [중간저장] ${stepName} — ${stamp}
 
@@ -2074,7 +2079,10 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
       confirmStep7Rooms();
       await saveCloudImmediately(useAppStore.getState(), '[확정] 7단계. 고사장·학생 배치 확정');
 
-      let finalMessage = '✅ 서버에 배치가 확정 및 안전하게 저장되었습니다.\n\n';
+      // 오프라인판에는 서버가 없습니다. 저장은 이 컴퓨터(save 폴더)에 됩니다.
+      let finalMessage = __OFFLINE__
+        ? '✅ 배치를 확정하고 이 컴퓨터에 저장했습니다.\n\n'
+        : '✅ 서버에 배치가 확정 및 안전하게 저장되었습니다.\n\n';
       if (notices.length > 0) {
         finalMessage += notices.join('\n');
       } else {
@@ -2269,7 +2277,7 @@ NEIS 분반대로 학생이 모여 앉고, 정원은 고사실 좌석 수를 씁
               onClick={handleSaveProgress}
               disabled={isSaving}
               className="px-3 py-2 bg-white hover:bg-gray-50 text-slate-700 border border-gray-300 rounded-xl text-[15.5px] font-bold flex items-center gap-1.5 transition disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"
-              title="확정하지 않고 지금까지의 작업만 저장합니다 (클라우드에서 이 시점으로 되돌릴 수 있습니다)"
+              title={__OFFLINE__ ? '확정하지 않고 지금까지의 작업만 저장합니다' : '확정하지 않고 지금까지의 작업만 저장합니다 (클라우드에서 이 시점으로 되돌릴 수 있습니다)'}
             >
               <span>{isSaving ? '저장 중…' : '💾 중간 저장'}</span>
             </button>
