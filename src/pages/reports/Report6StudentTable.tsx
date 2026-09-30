@@ -16,6 +16,73 @@ import { AlertTriangle, Pencil, X } from 'lucide-react';
 export const DEFAULT_TICKET_NOTICE =
   '미응시자는 원반 또는 별도로 지정된 대기실에서 자습합니다.\n고사실과 좌석번호를 반드시 확인하고 지정된 자리에 앉으세요.';
 
+/**
+ * 수험표 한 장의 글자 크기.
+ *
+ *  - 4분할(A4 한 장에 4명): 칸이 좁아 작게 씁니다. 교시가 12줄을 넘으면 조금 더 작게.
+ *  - 1명 크게(A4 한 장에 1명): 종이를 넓게 쓰고 글자를 크게 합니다. 예전에는 폭을
+ *    155mm 로 묶고 13px 로 써서, 뽑아 보면 날짜·교시·과목이 너무 작았습니다
+ *    (최희정 선생님 의견). 교시가 15줄을 넘으면 한 장에 들어가도록 조금 줄입니다.
+ *
+ * subj·subjWait·room·time 은 칸의 기본 글자 크기(px)입니다. 이름이 길면 그 칸만 줄어듭니다.
+ * 칸(td)에도 같은 크기를 적습니다. 빠뜨리면 줄 높이가 표의 기본 글자(16px)를 따라 커집니다.
+ * 시험 보는 과목(subj)은 미응시(subjWait)보다 크게 씁니다.
+ */
+function ticketSize(isSingle: boolean, totalRows: number) {
+  if (isSingle) {
+    const dense = totalRows > 15;
+    return {
+      card: 'w-full p-10 shadow-sm my-auto',
+      bar: 'h-2.5',
+      headWrap: 'mb-6 mt-2',
+      title: dense ? 'text-[34px]' : 'text-[38px]',
+      suffix: 'text-[26px]',
+      idRow: 'mb-5 pb-3 border-b-2 border-slate-400',
+      idLabel: 'text-[17px]',
+      hakbun: 'text-[30px]',
+      name: 'text-[30px]',
+      err: 'mb-3 p-2 text-[15px]',
+      th: dense ? 'py-1.5 px-2 text-[15px]' : 'py-2.5 px-2 text-[17px]',
+      cellY: dense ? 'py-[2px] leading-tight' : 'py-2 leading-tight',
+      day: dense ? 'text-[17px]' : 'text-[21px]',
+      date: dense ? 'text-[13px]' : 'text-[16px] mt-1',
+      period: dense ? 'text-[16px]' : 'text-[20px]',
+      seat: dense ? 'text-[17px]' : 'text-[22px]',
+      subj: dense ? 18 : 23,
+      subjWait: dense ? 15 : 19,
+      room: dense ? 16 : 20,
+      time: dense ? 14 : 17,
+      min: 10,
+      notice: 'mt-6 gap-1.5 text-[15px] leading-[1.4]',
+    };
+  }
+  const dense = totalRows >= 12;
+  return {
+    card: dense ? 'ticket-card-4 p-3' : 'ticket-card-4 p-4',
+    bar: 'h-1.5',
+    headWrap: dense ? 'mb-1 mt-0.5' : 'mb-1.5 mt-0.5',
+    title: dense ? 'text-[19px] md:text-[21px]' : 'text-[22px] md:text-[25px]',
+    suffix: dense ? 'text-[13px]' : 'text-[15px]',
+    idRow: dense ? 'mb-1 pb-1' : 'mb-1.5 pb-1.5',
+    idLabel: 'text-[10.5px]',
+    hakbun: dense ? 'text-[15px]' : 'text-[16px]',
+    name: dense ? 'text-[16px]' : 'text-[17px]',
+    err: 'mb-1 p-1 text-[9px]',
+    th: dense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]',
+    cellY: dense ? 'py-[0.5px] leading-tight' : 'py-[1px] leading-tight',
+    day: dense ? 'text-[9.5px] leading-tight' : 'text-[10.5px]',
+    date: dense ? 'text-[7.5px]' : 'text-[8px]',
+    period: dense ? 'text-[9.5px]' : 'text-[10px]',
+    seat: dense ? 'text-[9.5px]' : 'text-[10.5px]',
+    subj: dense ? 10 : 11,
+    subjWait: dense ? 8.5 : 9.5,
+    room: dense ? 9 : 9.5,
+    time: dense ? 8.5 : 9,
+    min: 5.5,
+    notice: dense ? 'mt-1 gap-0 text-[7.5px] leading-tight' : 'mt-1.5 gap-0.5 text-[8px] leading-tight',
+  };
+}
+
 export const Report6StudentTable: React.FC = () => {
   const { students,  days, times, rooms, stages, settings, meta, updateSettings } = useAppStore();
   // 저장된 응시현황에 별도 고사실 지정을 입혀서 씁니다.
@@ -331,66 +398,38 @@ export const Report6StudentTable: React.FC = () => {
                 <div className={isSingle ? "ticket-single-wrap w-full flex items-center justify-center my-auto" : "ticket-grid-4 grid grid-cols-2 grid-rows-2 gap-x-4 gap-y-3 flex-1 w-full h-full"}>
                   {chunk.map(report => {
                     const totalRows = report.activeDays.length * report.activePeriods.length;
-                    const isDense = !isSingle && totalRows >= 12;
+                    const z = ticketSize(isSingle, totalRows);
 
                     return (
                       <div
                         key={report.hakbun}
-                        className={`border-2 border-slate-800 rounded-xl flex flex-col justify-between bg-white relative overflow-hidden ${
-                          isSingle
-                            ? 'w-[155mm] max-w-full p-8 shadow-sm my-auto'
-                            : isDense
-                            ? 'ticket-card-4 p-3'
-                            : 'ticket-card-4 p-4'
-                        }`}
+                        className={`border-2 border-slate-800 rounded-xl flex flex-col justify-between bg-white relative overflow-hidden ${z.card}`}
                       >
-                        <div className={`absolute top-0 left-0 right-0 bg-[var(--c-primary,#005691)] ${isSingle ? 'h-2' : 'h-1.5'}`}></div>
-                        
+                        <div className={`absolute top-0 left-0 right-0 bg-[var(--c-primary,#005691)] ${z.bar}`}></div>
+
                         <div>
-                          <div className={`text-center break-keep leading-tight ${
-                            isSingle ? 'mb-4 mt-2' : isDense ? 'mb-1 mt-0.5' : 'mb-1.5 mt-0.5'
-                          }`}>
-                            <h1 className={`font-black text-[var(--c-primary,#005691)] tracking-tight inline-block ${
-                              isSingle
-                                ? 'text-[32px] md:text-[36px]'
-                                : isDense
-                                ? 'text-[19px] md:text-[21px]'
-                                : 'text-[22px] md:text-[25px]'
-                            }`}>
+                          <div className={`text-center break-keep leading-tight ${z.headWrap}`}>
+                            <h1 className={`font-black text-[var(--c-primary,#005691)] tracking-tight inline-block ${z.title}`}>
                               {meta.title}
                             </h1>
-                            <span className={`font-black text-slate-800 ml-2 inline-block ${
-                              isSingle ? 'text-[22px]' : isDense ? 'text-[13px]' : 'text-[15px]'
-                            }`}>
+                            <span className={`font-black text-slate-800 ml-2 inline-block ${z.suffix}`}>
                               수험표
                             </span>
                           </div>
 
-                          <div className={`flex justify-between items-end border-b border-slate-300 ${
-                            isSingle
-                              ? 'mb-4 pb-3 border-b-2 border-slate-400'
-                              : isDense
-                              ? 'mb-1 pb-1'
-                              : 'mb-1.5 pb-1.5'
-                          }`}>
+                          <div className={`flex justify-between items-end border-b border-slate-300 ${z.idRow}`}>
                             <div className="flex items-center gap-2">
-                              <span className={`text-[#8C867A] font-bold ${isSingle ? 'text-[13px]' : 'text-[10.5px]'}`}>학번</span>
-                              <strong className={`text-red-800 tracking-wide font-black ${
-                                isSingle ? 'text-[22px]' : isDense ? 'text-[15px]' : 'text-[16px]'
-                              }`}>{report.hakbun}</strong>
+                              <span className={`text-[#8C867A] font-bold ${z.idLabel}`}>학번</span>
+                              <strong className={`text-red-800 tracking-wide font-black ${z.hakbun}`}>{report.hakbun}</strong>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className={`text-[#8C867A] font-bold ${isSingle ? 'text-[13px]' : 'text-[10.5px]'}`}>성명</span>
-                              <strong className={`text-slate-900 tracking-widest font-black ${
-                                isSingle ? 'text-[24px]' : isDense ? 'text-[16px]' : 'text-[17px]'
-                              }`}>{displayName(report.student.name)}</strong>
+                              <span className={`text-[#8C867A] font-bold ${z.idLabel}`}>성명</span>
+                              <strong className={`text-slate-900 tracking-widest font-black ${z.name}`}>{displayName(report.student.name)}</strong>
                             </div>
                           </div>
 
                           {report.unplacedSubjects.length > 0 && (
-                            <div className={`bg-rose-50 rounded border border-rose-200 text-rose-600 font-bold flex items-center justify-center gap-1.5 ${
-                              isSingle ? 'mb-3 p-2 text-[12px]' : 'mb-1 p-1 text-[9px]'
-                            }`}>
+                            <div className={`bg-rose-50 rounded border border-rose-200 text-rose-600 font-bold flex items-center justify-center gap-1.5 ${z.err}`}>
                               <AlertTriangle className={isSingle ? "w-4 h-4" : "w-3 h-3"} /> 오류: {report.unplacedSubjects.join(', ')} 미배치
                             </div>
                           )}
@@ -399,70 +438,57 @@ export const Report6StudentTable: React.FC = () => {
                             <table className="w-full text-center border-collapse border-2 border-slate-800 table-fixed">
                               <thead>
                                 <tr className="bg-slate-100 border-b-2 border-slate-800 divide-x-2 divide-slate-800">
-                                  <th className={`w-[13%] font-black ${
-                                    isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
-                                  }`}>일자</th>
-                                  <th className={`w-[8%] font-black ${
-                                    isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
-                                  }`}>교시</th>
-                                  <th className={`w-[31%] font-black ${
-                                    isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
-                                  }`}>과목</th>
-                                  <th className={`w-[20%] font-black ${
-                                    isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
-                                  }`}>고사실</th>
-                                  <th className={`w-[8%] font-black ${
-                                    isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
-                                  }`}>좌석</th>
-                                  <th className={`w-[20%] font-black ${
-                                    isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
-                                  }`}>시간</th>
+                                  <th className={`w-[13%] font-black ${z.th}`}>일자</th>
+                                  <th className={`w-[8%] font-black ${z.th}`}>교시</th>
+                                  <th className={`w-[31%] font-black ${z.th}`}>과목</th>
+                                  <th className={`w-[20%] font-black ${z.th}`}>고사실</th>
+                                  <th className={`w-[8%] font-black ${z.th}`}>좌석</th>
+                                  <th className={`w-[20%] font-black ${z.th}`}>시간</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-300 border-b-2 border-slate-800">
-                                {report.activeDays.map((d, dIdx) => (
+                                {report.activeDays.map(d => (
                                   <React.Fragment key={d.day}>
                                     {report.activePeriods.map((p, pIdx) => {
                                       const cell = report.grid[p][d.day];
-                                      const isWait = cell?.subject === '자습(대기)' || cell?.subject?.startsWith('대기');
+                                      /*
+                                       * 시험 보는 교시가 먼저 눈에 들어와야 합니다. 흑백으로 뽑아도
+                                       * 구분되도록 색만이 아니라 굵기·크기·바탕으로도 가릅니다.
+                                       * 미응시 교시는 흐리게 둡니다.
+                                       */
+                                      const isWait = !cell || cell.isWait;
                                       return (
-                                        <tr key={`${d.day}-${p}`} className="divide-x divide-slate-300">
+                                        <tr key={`${d.day}-${p}`} className={`divide-x divide-slate-300 ${isWait ? '' : 'bg-[#eaf2fa]'}`}>
                                           {pIdx === 0 && (
                                             <td
                                               rowSpan={report.activePeriods.length}
-                                              className={`bg-slate-50 border-r-2 border-slate-800 font-black text-slate-800 align-middle ${
-                                                isSingle ? 'py-2' : isDense ? 'py-[0.5px]' : 'py-[1px]'
-                                              }`}
+                                              className={`bg-slate-50 border-r-2 border-slate-800 font-black text-slate-800 align-middle ${z.cellY}`}
                                             >
-                                              <div className={isSingle ? "text-[14px]" : isDense ? "text-[9.5px] leading-tight" : "text-[10.5px]"}>{d.day}일차</div>
-                                              <div className={`text-[#8C867A] ${isSingle ? "text-[10px] mt-0.5" : isDense ? "text-[7.5px]" : "text-[8px]"}`}>{d.dateText}</div>
+                                              <div className={z.day}>{d.day}일차</div>
+                                              <div className={`text-slate-600 font-bold ${z.date}`}>{d.dateText}</div>
                                             </td>
                                           )}
-                                          <td className={`font-bold bg-slate-50 ${
-                                            isSingle ? 'py-2 text-[13px]' : isDense ? 'py-[0.5px] text-[9.5px]' : 'py-[1px] text-[10px]'
-                                          }`}>{p}</td>
+                                          <td className={`font-bold ${z.cellY} ${z.period} ${isWait ? 'text-slate-400' : 'text-slate-900'}`}>{p}</td>
                                           {/* 과목·고사실 이름이 길면(예: '2층 넘나들실') 잘라 '…' 로 끝내지 않고,
                                               넘치는 그 칸만 글자를 줄여 다 보이게 합니다. */}
-                                          <td className={`font-black overflow-hidden px-0.5 ${
-                                            isSingle ? 'py-2 text-[13.5px]' : isDense ? 'py-[0.5px] text-[9.5px]' : 'py-[1px] text-[10.5px]'
-                                          } ${isWait ? 'text-amber-700' : 'text-slate-900'}`}>
-                                            <FitCell base={isSingle ? 13.5 : isDense ? 9.5 : 10.5} min={isSingle ? 8 : 5.5}>{cell?.subject || '-'}</FitCell>
+                                          <td className={`overflow-hidden px-0.5 ${z.cellY} ${
+                                            isWait ? 'font-medium text-slate-400' : 'font-black text-[#00426e]'
+                                          }`} style={{ fontSize: isWait ? z.subjWait : z.subj }}>
+                                            <FitCell base={isWait ? z.subjWait : z.subj} min={z.min}>{cell?.subject || '-'}</FitCell>
                                           </td>
-                                          <td className={`font-bold overflow-hidden px-0.5 ${
-                                            isSingle ? 'py-2 text-[13px]' : isDense ? 'py-[0.5px] text-[9px]' : 'py-[1px] text-[9.5px]'
-                                          } ${isWait ? 'text-amber-800' : 'text-red-800'}`}>
-                                            <FitCell base={isSingle ? 13 : isDense ? 9 : 9.5} min={isSingle ? 8 : 5.5}>{cell?.examRoom || '-'}</FitCell>
+                                          <td className={`overflow-hidden px-0.5 ${z.cellY} ${
+                                            isWait ? 'font-medium text-slate-400' : 'font-black text-red-800'
+                                          }`} style={{ fontSize: z.room }}>
+                                            <FitCell base={z.room} min={z.min}>{cell?.examRoom || '-'}</FitCell>
                                           </td>
-                                          <td className={`font-black text-blue-900 ${
-                                            isSingle ? 'py-2 text-[13.5px]' : isDense ? 'py-[0.5px] text-[9.5px]' : 'py-[1px] text-[10.5px]'
-                                          }`}>
+                                          <td className={`${z.cellY} ${z.seat} ${isWait ? 'font-medium text-slate-400' : 'font-black text-blue-900'}`}>
                                             {cell?.seat || '-'}
                                           </td>
                                           {/* 비고 자리에 그 교시의 고사 시간을 적습니다. 빈 칸으로 두기보다 쓸모가 있습니다. */}
-                                          <td className={`font-medium text-slate-600 px-0.5 overflow-hidden tabular-nums ${
-                                            isSingle ? 'py-2 text-[12px]' : isDense ? 'py-[0.5px] text-[8.5px]' : 'py-[1px] text-[9px]'
-                                          }`}>
-                                            <FitCell base={isSingle ? 12 : isDense ? 8.5 : 9} min={5}>{cell?.timeStr || '-'}</FitCell>
+                                          <td className={`px-0.5 overflow-hidden tabular-nums ${z.cellY} ${
+                                            isWait ? 'font-medium text-slate-400' : 'font-bold text-slate-700'
+                                          }`} style={{ fontSize: z.time }}>
+                                            <FitCell base={z.time} min={z.min}>{cell?.timeStr || '-'}</FitCell>
                                           </td>
                                         </tr>
                                       );
@@ -474,13 +500,7 @@ export const Report6StudentTable: React.FC = () => {
                           </div>
                         </div>
 
-                        <div className={`flex flex-col text-[#8C867A] font-medium ${
-                          isSingle
-                            ? 'mt-5 gap-1 text-[11px] leading-[1.3]'
-                            : isDense
-                            ? 'mt-1 gap-0 text-[7.5px] leading-tight'
-                            : 'mt-1.5 gap-0.5 text-[8px] leading-tight'
-                        }`}>
+                        <div className={`flex flex-col text-[#8C867A] font-medium ${z.notice}`}>
                           {(settings.studentTicketNotice ?? DEFAULT_TICKET_NOTICE)
                             .split('\n')
                             .map((line, i) => (

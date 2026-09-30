@@ -315,7 +315,7 @@ describe.skipIf(!state)('11번 인쇄물 — 원자료·응시현황·인쇄물 
         const att = attendance.find(a => a.key3 === `${st.ban}${st.num}번${d.day}일차${p}교시`);
         const cell = rep.grid[p][d.day];
         if (!att) continue;
-        const es = att.subject === '미응시' ? '자습' : onlySubject(att.subject);
+        const es = att.subject === '미응시' ? '미응시' : onlySubject(att.subject);
         const er = att.separateRoom ? `${att.examRoom}(별)` : att.examRoom;
         if (cell.subject !== es) problems.push(`${st.ban} ${st.num}번 ${d.day}일차 ${p}교시: 과목 '${cell.subject}' vs '${es}'`);
         if (cell.examRoom !== er) problems.push(`${st.ban} ${st.num}번 ${d.day}일차 ${p}교시: 고사실 '${cell.examRoom}' vs '${er}'`);

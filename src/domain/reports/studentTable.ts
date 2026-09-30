@@ -10,6 +10,8 @@ export interface StudentTableCell {
   examRoom: string;
   seat: number | null;
   timeStr: string;
+  /** 이 교시에 시험을 보지 않는다(미응시). 수험표에서 흐리게 씁니다. */
+  isWait: boolean;
 }
 
 export interface StudentTableReportData {
@@ -75,19 +77,23 @@ export function buildStudentTableReport(
           }
         }
         grid[p][d.day] = {
-          subject: isWaitSubject(att.subject) ? '자습' : onlySubject(att.subject),
+          // 시험이 없는 교시는 '미응시' 로 적습니다. '자습' 은 학생이 헷갈려 했습니다
+          // (최희정 선생님 의견). 어디서 자습하는지는 고사실 칸에 있습니다.
+          subject: isWaitSubject(att.subject) ? '미응시' : onlySubject(att.subject),
           // 별도 고사실에서 보는 교시는 '(별)'을 붙여, 그 시간에는
           // 소속 교실에 없다는 것을 학생이 알게 합니다.
           examRoom: att.separateRoom ? `${att.examRoom}(별)` : att.examRoom,
           seat: showSeat ? pSeat : null,
           timeStr,
+          isWait: isWaitSubject(att.subject),
         };
       } else {
         grid[p][d.day] = {
-          subject: '자습',
+          subject: '미응시',
           examRoom: defaultRoom,
           seat: null,
           timeStr: '',
+          isWait: true,
         };
       }
     }
