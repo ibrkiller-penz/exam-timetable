@@ -463,10 +463,10 @@ export const Report6StudentTable: React.FC = () => {
                                 <tr className="bg-slate-100 border-b-2 border-slate-800 divide-x-2 divide-slate-800">
                                   <th className={`w-[13%] font-black ${z.th}`}>일자</th>
                                   <th className={`w-[8%] font-black ${z.th}`}>교시</th>
+                                  <th className={`w-[20%] font-black ${z.th}`}>시간</th>
                                   <th className={`w-[31%] font-black ${z.th}`}>과목</th>
                                   <th className={`w-[20%] font-black ${z.th}`}>고사실</th>
                                   <th className={`w-[8%] font-black ${z.th}`}>좌석</th>
-                                  <th className={`w-[20%] font-black ${z.th}`}>시간</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-300 border-b-2 border-slate-800">
@@ -492,6 +492,12 @@ export const Report6StudentTable: React.FC = () => {
                                             </td>
                                           )}
                                           <td className={`${z.cellY} ${z.period} ${isWait ? 'font-normal text-slate-400' : 'font-black text-slate-900'}`}>{p}</td>
+                                          {/* 고사 시간. 비고 자리였던 것을 교시 바로 뒤로 옮겼습니다 — 일자·교시·시간·과목·고사실·좌석 순으로 읽힙니다. */}
+                                          <td className={`px-0.5 overflow-hidden tabular-nums ${z.cellY} ${
+                                            isWait ? 'font-normal text-slate-400' : 'font-bold text-slate-700'
+                                          }`} style={{ fontSize: z.time }}>
+                                            <FitCell base={z.time} min={z.min}>{cell?.timeStr || '-'}</FitCell>
+                                          </td>
                                           {/* 과목·고사실 이름이 길면(예: '2층 넘나들실') 잘라 '…' 로 끝내지 않고,
                                               넘치는 그 칸만 글자를 줄여 다 보이게 합니다. */}
                                           <td className={`overflow-hidden px-0.5 ${z.cellY} ${
@@ -506,12 +512,6 @@ export const Report6StudentTable: React.FC = () => {
                                           </td>
                                           <td className={`${z.cellY} ${z.seat} ${isWait ? 'font-normal text-slate-400' : 'font-black text-blue-900'}`}>
                                             {cell?.seat || '-'}
-                                          </td>
-                                          {/* 비고 자리에 그 교시의 고사 시간을 적습니다. 빈 칸으로 두기보다 쓸모가 있습니다. */}
-                                          <td className={`px-0.5 overflow-hidden tabular-nums ${z.cellY} ${
-                                            isWait ? 'font-normal text-slate-400' : 'font-bold text-slate-700'
-                                          }`} style={{ fontSize: z.time }}>
-                                            <FitCell base={z.time} min={z.min}>{cell?.timeStr || '-'}</FitCell>
                                           </td>
                                         </tr>
                                       );
