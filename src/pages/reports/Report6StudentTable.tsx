@@ -9,6 +9,7 @@ import { buildStudentTableReport } from '../../domain/reports/studentTable';
 import { printAsImage } from './printAsImage';
 import { ReportActions } from './ReportActions';
 import { ReportHeader, HeaderDivider } from './ReportHeader';
+import { FitCell } from './FitText';
 import { AlertTriangle, Pencil, X } from 'lucide-react';
 
 /** 수험표 아래에 찍히는 기본 안내. 학교마다 고쳐 쓰므로 설정에 담습니다. */
@@ -398,24 +399,24 @@ export const Report6StudentTable: React.FC = () => {
                             <table className="w-full text-center border-collapse border-2 border-slate-800 table-fixed">
                               <thead>
                                 <tr className="bg-slate-100 border-b-2 border-slate-800 divide-x-2 divide-slate-800">
-                                  <th className={`w-[15%] font-black ${
+                                  <th className={`w-[13%] font-black ${
                                     isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
                                   }`}>일자</th>
-                                  <th className={`w-[10%] font-black ${
+                                  <th className={`w-[8%] font-black ${
                                     isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
                                   }`}>교시</th>
-                                  <th className={`w-[32%] font-black ${
+                                  <th className={`w-[31%] font-black ${
                                     isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
                                   }`}>과목</th>
-                                  <th className={`w-[15%] font-black ${
+                                  <th className={`w-[20%] font-black ${
                                     isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
                                   }`}>고사실</th>
-                                  <th className={`w-[10%] font-black ${
+                                  <th className={`w-[8%] font-black ${
                                     isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
                                   }`}>좌석</th>
-                                  <th className={`w-[18%] font-black ${
+                                  <th className={`w-[20%] font-black ${
                                     isSingle ? 'py-2.5 px-2 text-[13px]' : isDense ? 'py-[1px] px-0.5 text-[9px]' : 'py-[1.5px] px-1 text-[9.5px]'
-                                  }`}>비고</th>
+                                  }`}>시간</th>
                                 </tr>
                               </thead>
                               <tbody className="divide-y divide-slate-300 border-b-2 border-slate-800">
@@ -440,25 +441,28 @@ export const Report6StudentTable: React.FC = () => {
                                           <td className={`font-bold bg-slate-50 ${
                                             isSingle ? 'py-2 text-[13px]' : isDense ? 'py-[0.5px] text-[9.5px]' : 'py-[1px] text-[10px]'
                                           }`}>{p}</td>
-                                          <td className={`font-black truncate px-0.5 ${
+                                          {/* 과목·고사실 이름이 길면(예: '2층 넘나들실') 잘라 '…' 로 끝내지 않고,
+                                              넘치는 그 칸만 글자를 줄여 다 보이게 합니다. */}
+                                          <td className={`font-black overflow-hidden px-0.5 ${
                                             isSingle ? 'py-2 text-[13.5px]' : isDense ? 'py-[0.5px] text-[9.5px]' : 'py-[1px] text-[10.5px]'
                                           } ${isWait ? 'text-amber-700' : 'text-slate-900'}`}>
-                                            {cell?.subject || '-'}
+                                            <FitCell base={isSingle ? 13.5 : isDense ? 9.5 : 10.5} min={isSingle ? 8 : 5.5}>{cell?.subject || '-'}</FitCell>
                                           </td>
-                                          <td className={`font-bold truncate px-0.5 ${
+                                          <td className={`font-bold overflow-hidden px-0.5 ${
                                             isSingle ? 'py-2 text-[13px]' : isDense ? 'py-[0.5px] text-[9px]' : 'py-[1px] text-[9.5px]'
                                           } ${isWait ? 'text-amber-800' : 'text-red-800'}`}>
-                                            {cell?.examRoom || '-'}
+                                            <FitCell base={isSingle ? 13 : isDense ? 9 : 9.5} min={isSingle ? 8 : 5.5}>{cell?.examRoom || '-'}</FitCell>
                                           </td>
                                           <td className={`font-black text-blue-900 ${
                                             isSingle ? 'py-2 text-[13.5px]' : isDense ? 'py-[0.5px] text-[9.5px]' : 'py-[1px] text-[10.5px]'
                                           }`}>
                                             {cell?.seat || '-'}
                                           </td>
-                                          <td className={`font-medium text-[#8C867A] px-0.5 truncate ${
+                                          {/* 비고 자리에 그 교시의 고사 시간을 적습니다. 빈 칸으로 두기보다 쓸모가 있습니다. */}
+                                          <td className={`font-medium text-slate-600 px-0.5 overflow-hidden tabular-nums ${
                                             isSingle ? 'py-2 text-[12px]' : isDense ? 'py-[0.5px] text-[8.5px]' : 'py-[1px] text-[9px]'
                                           }`}>
-                                            
+                                            <FitCell base={isSingle ? 12 : isDense ? 8.5 : 9} min={5}>{cell?.timeStr || '-'}</FitCell>
                                           </td>
                                         </tr>
                                       );
