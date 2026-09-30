@@ -309,6 +309,11 @@ export interface Settings {
 
   seatLayoutDirection?: 'col' | 'row';
   studentTicketNotice?: string;
+  /**
+   * 수험표 하단 유의사항의 글자 크기. 없으면 'M'(보통).
+   * 4분할과 1명 크게에서 실제 크기는 다르고, 셋의 비율만 같습니다.
+   */
+  studentTicketNoticeSize?: 'S' | 'M' | 'L';
   /** 분반 이름 기본 표기 — 가나다(ko)가 기본입니다. */
   banLabelStyle?: BanLabelStyle;
   /** 별도 고사장을 몇 실 운영하는지. 보통 2실이고 학교마다 다릅니다. */
