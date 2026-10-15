@@ -183,7 +183,7 @@ export const AppShell: React.FC<AppShellProps> = ({ currentTab, onTabChange, chi
     { id: 'step2', num: 2, label: '2. 기초정보', icon: Calendar, done: !!stages.step2 },
     { id: 'step3', num: 3, label: '3. 과목현황', icon: Layers, done: !!stages.step3 },
     { id: 'step4', num: 4, label: '4. 평가과목', icon: CheckSquare, done: !!(stages.step4 ?? stages.stage2) },
-    { id: 'step5', num: 5, label: '5. 학생과목', icon: Users, done: !!stages.step5 },
+    { id: 'step5', num: 5, label: '5. 학생과목(위탁)', icon: Users, done: !!stages.step5 },
     { id: 'step6', num: 6, label: '6. 시간표작성', icon: Clock, done: !!(stages.step6 ?? stages.stage3) },
     // 고사장 배치와 학생 배치는 한 화면입니다. 방을 옮기려면 학생도 같이 옮겨야 해서,
     // 둘로 나누면 한쪽에서 막히고 다른 쪽으로 건너가야 했습니다.

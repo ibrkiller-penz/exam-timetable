@@ -4,6 +4,7 @@ import { StageHeader } from '../components/StageHeader';
 import { StepHelp } from '../components/StepHelp';
 import { MSG } from '../domain/messages';
 import { Search } from 'lucide-react';
+import { AlertModal } from '../components/AlertModal';
 import { buildStudents } from '../domain/subjects';
 import { Student } from '../domain/types';
 
@@ -12,6 +13,7 @@ export const Step5StudentSubjects: React.FC = () => {
   const consigned = consignedStudents ?? {};
   const keyOf = (s: { ban: string; num: number }) => `${s.ban}-${s.num}`;
   const [searchTerm, setSearchTerm] = useState('');
+  const [notice, setNotice] = useState<string | null>(null);
 
   const displayStudents = useMemo<Student[]>(() => {
     if (students && students.length > 0) return students;
@@ -48,7 +50,7 @@ export const Step5StudentSubjects: React.FC = () => {
         stageNumber={5}
         stageTitle="학생별 평가 과목 현황 (조회)"
         help={
-          <StepHelp title="5. 학생과목">
+          <StepHelp title="5. 학생과목(위탁)">
             <p>학생 한 명 한 명이 <strong>어떤 평가 과목을 듣는지</strong> 보여 주는 화면입니다. 고치는 곳이 아니라 확인하는 곳입니다.</p>
             <p>여기가 맞아야 뒤가 다 맞습니다.</p>
             <ul>
@@ -62,7 +64,10 @@ export const Step5StudentSubjects: React.FC = () => {
         isConfirmed={!!stages.step5}
         confirmLabel="학생과목 확인"
         cancelLabel="확인 취소"
-        onConfirm={() => setStepConfirmed(5, true)}
+        onConfirm={() => {
+          setStepConfirmed(5, true);
+          setNotice(`위탁학생이 ${consignedCount}명입니다.`);
+        }}
         onCancel={() => setStepConfirmed(5, false)}
         guideMessage={MSG.S5_READONLY}
       />
@@ -150,6 +155,7 @@ export const Step5StudentSubjects: React.FC = () => {
           </table>
         </div>
       </div>
+      {notice && <AlertModal isOpen message={notice} onClose={() => setNotice(null)} />}
     </div>
   );
 };
