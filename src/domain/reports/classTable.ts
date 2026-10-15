@@ -6,6 +6,8 @@ export interface ClassTableStudentRow {
   num: number;
   name: string;
   periods: Record<PeriodIdx, { subject: string; room: string }>;
+  /** 비고. 그날 별도 고사실에서 보는 교시가 있으면 '별도', 위탁 학생이면 '위탁'. */
+  note: string;
 }
 
 export interface ClassTableReportData {
@@ -37,6 +39,8 @@ export function buildClassTableReport(
 
   const studentRows: ClassTableStudentRow[] = banStudents.map(s => {
     const periodMap: Record<PeriodIdx, { subject: string; room: string }> = {} as any;
+    let separate = false;
+    let consigned = false;
 
     for (const p of activePeriods) {
       const pLabel: PeriodLabel = `${p}교시`;
@@ -44,6 +48,8 @@ export function buildClassTableReport(
       const att = attendance.find(a => a.key3 === k3);
 
       if (att) {
+        if (att.separateRoom) separate = true;
+        if (att.consigned) consigned = true;
         periodMap[p] = {
           subject: isWaitSubject(att.subject) ? '미응시' : onlySubject(att.subject),
           // 별도 고사실에서 보는 교시는 '(별)'을 붙입니다. 소속은 그대로 이 고사실이지만,
@@ -62,6 +68,7 @@ export function buildClassTableReport(
       num: s.num,
       name: s.name,
       periods: periodMap,
+      note: [separate ? '별도' : '', consigned ? '위탁' : ''].filter(Boolean).join('·'),
     };
   });
 
