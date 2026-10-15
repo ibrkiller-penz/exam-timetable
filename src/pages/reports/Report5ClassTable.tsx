@@ -66,6 +66,7 @@ export const Report5ClassTable: React.FC = () => {
         report.activePeriods.forEach(p => header.push(`${p}교시
 과목명`, `${p}교시
 고사실`));
+        header.push('비고');
         downloadWorkbook([{
           name: `${report.ban} ${report.day}일차`,
           title: `${report.ban} 시험시간표`,
@@ -75,8 +76,9 @@ export const Report5ClassTable: React.FC = () => {
             s.num,
             displayName(s.name),
             ...report.activePeriods.flatMap(p => [s.periods[p]?.subject || '-', s.periods[p]?.room || '-']),
+            s.note,
           ]),
-          widths: [7, 12, ...report.activePeriods.flatMap(() => [18, 11])],
+          widths: [7, 12, ...report.activePeriods.flatMap(() => [18, 11]), 10],
           numericCols: [0],
           landscape: report.activePeriods.length >= 3,
         }], `${report.ban} 시험시간표 ${report.day}일차.xlsx`);
@@ -183,13 +185,14 @@ export const Report5ClassTable: React.FC = () => {
                   {/* 칸 너비를 못 박아 종이 폭을 다 쓰게 합니다. */}
                   <colgroup>
                     <col style={{ width: '7%' }} />
-                    <col style={{ width: '13%' }} />
+                    <col style={{ width: '12%' }} />
                     {report.activePeriods.map(p => (
                       <React.Fragment key={p}>
-                        <col style={{ width: `${(80 / report.activePeriods.length) * 0.62}%` }} />
-                        <col style={{ width: `${(80 / report.activePeriods.length) * 0.38}%` }} />
+                        <col style={{ width: `${(72 / report.activePeriods.length) * 0.62}%` }} />
+                        <col style={{ width: `${(72 / report.activePeriods.length) * 0.38}%` }} />
                       </React.Fragment>
                     ))}
+                    <col style={{ width: '9%' }} />
                   </colgroup>
                   <thead>
                     <tr className="bg-gray-100">
@@ -200,6 +203,7 @@ export const Report5ClassTable: React.FC = () => {
                           {p}교시
                         </th>
                       ))}
+                      <th rowSpan={2} className="py-2 px-1 font-black text-[15px]">비고</th>
                     </tr>
                     <tr className="bg-gray-50">
                       {report.activePeriods.map(p => (
@@ -225,6 +229,7 @@ export const Report5ClassTable: React.FC = () => {
                             </React.Fragment>
                           );
                         })}
+                        <td className="font-black text-slate-800 whitespace-nowrap"><FitCell base={15}>{st.note}</FitCell></td>
                       </tr>
                     ))}
                     {/* 모자라는 줄은 빈 줄로 채웁니다. 표 크기가 반마다 달라지지 않게. */}
@@ -238,6 +243,7 @@ export const Report5ClassTable: React.FC = () => {
                             <td />
                           </React.Fragment>
                         ))}
+                        <td />
                       </tr>
                     ))}
                   </tbody>
