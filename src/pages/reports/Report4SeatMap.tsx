@@ -482,7 +482,7 @@ const SeatRoster: React.FC<{ rep: NonNullable<ReturnType<typeof buildSeatMapRepo
                   <td className={`${cell} font-bold`}>{r?.hakbun ?? ''}</td>
                   <td className={`${cell} font-bold`}>{r ? displayName(r.name) : ''}</td>
                   <td className={`${cell} font-black text-red-700`}>{r ? (seatOf.get(r.hakbun) ?? '') : ''}</td>
-                  <td className={cell}></td>
+                  <td className={`${cell} font-bold`}>{r?.note ?? ''}</td>
                 </tr>
               );
             })}

@@ -65,7 +65,7 @@ export function buildExamRoomReport(
       hakbun: hakbun(r.grade, r.ban, r.num),
       name: r.name,
       seat: pSeat,
-      note: '',
+      note: r.consigned ? '위탁' : '',
     };
   });
 

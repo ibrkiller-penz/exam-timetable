@@ -65,6 +65,7 @@ export const createInitialGradeData = (grade: GradeId, defaults?: any): GradeDat
     slotCapacityBasis: {},
     attendance: [],
     separateExaminers: {},
+    consignedStudents: {},
     subjectCodes: {},
     ui: {
       selectedTimetableSlot: null,
@@ -107,6 +108,7 @@ export const extractGradeData = (state: AppState): GradeData => {
     slotCapacityBasis: state.slotCapacityBasis,
     attendance: state.attendance,
     separateExaminers: state.separateExaminers,
+    consignedStudents: state.consignedStudents,
     subjectCodes: state.subjectCodes,
     ui: state.ui,
   };
@@ -211,6 +213,8 @@ interface AppStoreActions {
   setSeparateExaminer: (studentKey: string, entry: SeparateExaminer | null) => void;
   /** 지정된 별도 응시자를 응시현황에 다시 반영하고, 바뀐 줄 수를 돌려줍니다. */
   syncSeparateExaminers: () => number;
+  /** 위탁 학생 표시를 켜거나 끕니다. 키는 `반-번호`. 배치·좌석과는 상관없이 비고에만 나갑니다. */
+  setConsigned: (keys: string[], on: boolean) => void;
   /** 모든 칸의 잠금 상태를 한꺼번에 바꿉니다. */
   setAllLockedCells: (locked: Record<number, Record<string, boolean>>) => void;
   confirmStage4: () => string[]; // returns notices
@@ -1669,6 +1673,19 @@ export const useAppStore = create<AppStore>((set, get) => ({
       // 지정하게 되는데, 표시가 응시현황에 남지 않으면 명단 비고도 좌석배치도도
       // 그대로입니다. 지정하는 즉시 반영합니다.
       const next = { ...state, separateExaminers: nextMap, attendance: applySeparateToAttendance(state, nextMap) };
+      saveStateToIdb(next);
+      return next;
+    });
+  },
+
+  setConsigned: (keys, on) => {
+    set(state => {
+      const nextMap = { ...(state.consignedStudents ?? {}) };
+      for (const k of keys) {
+        if (on) nextMap[k] = true;
+        else delete nextMap[k];
+      }
+      const next = { ...state, consignedStudents: nextMap };
       saveStateToIdb(next);
       return next;
     });
