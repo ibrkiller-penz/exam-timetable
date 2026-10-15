@@ -234,6 +234,9 @@ export interface SeparateExaminer {
   slots: 'all' | number[];
 }
 
+/** 위탁 학생으로 미리 표시한 학생. 키는 `반-번호`. 명단·좌석배치도 비고에 '위탁'으로 나갑니다. */
+export type ConsignedStudents = Record<string, true>;
+
 /** 별도 응시자 모음. 키는 `반-번호`. */
 export type SeparateExaminers = Record<string, SeparateExaminer>;
 
@@ -262,6 +265,8 @@ export interface AttendanceRow {
   seat: number | null;
   /** 몇 번 별도실에서 따로 보는지. 없으면 제 고사실에서 봅니다. */
   separateRoom?: number;
+  /** 위탁 학생인지. 저장하지 않고 인쇄물이 보여 줄 때 위탁 표시를 입힙니다. */
+  consigned?: boolean;
 }
 
 export interface LabelRow {
@@ -369,6 +374,7 @@ export interface GradeData {
   slotCapacityBasis?: SlotCapacityBasis;
   attendance: AttendanceRow[];
   separateExaminers?: SeparateExaminers;
+  consignedStudents?: ConsignedStudents;
   subjectCodes: Record<string, string>;
   ui: {
     selectedTimetableSlot: SlotKey | null;
@@ -397,6 +403,7 @@ export interface AppState {
   slotCapacityBasis?: SlotCapacityBasis;
   attendance: AttendanceRow[];
   separateExaminers?: SeparateExaminers;
+  consignedStudents?: ConsignedStudents;
   subjectCodes: Record<string, string>;
   ui: {
     selectedTimetableSlot: SlotKey | null;

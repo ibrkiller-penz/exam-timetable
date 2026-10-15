@@ -26,6 +26,7 @@ export interface SeatMapReportData {
     hakbun: string;
     name: string;
     seat: number | null;
+    note: string;
   }>;
 }
 
@@ -133,6 +134,7 @@ export function buildSeatMapReport(
       hakbun: hakbun(r.grade, r.ban, r.num),
       name: r.name,
       seat: r.seat,
+      note: r.consigned ? '위탁' : '',
     }));
 
   return {

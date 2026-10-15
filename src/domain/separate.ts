@@ -1,4 +1,4 @@
-import { AttendanceRow, PlacementSlot, SeparateExaminers, separateRoomFor, isWaitCell } from './types';
+import { AttendanceRow, PlacementSlot, SeparateExaminers, ConsignedStudents, separateRoomFor, isWaitCell } from './types';
 
 /**
  * 응시현황의 과목 자리에 들어간 값이 '대기'를 뜻하는지.
@@ -77,3 +77,24 @@ function renumberSeats(rows: AttendanceRow[]): AttendanceRow[] {
       return r.seat === n ? r : { ...r, seat: n, key2: `${r.day}${r.period}${r.examRoom}_${n}` };
     });
 }
+
+/**
+ * 위탁 학생 표시를 응시현황에 입힙니다. 좌석은 건드리지 않습니다.
+ * 위탁 표시는 응시현황을 만든 뒤에도 고칠 수 있어야 하므로, 저장된 줄에 넣지 않고 보여 줄 때마다 입힙니다.
+ */
+export function applyConsigned(attendance: AttendanceRow[], map: ConsignedStudents | undefined): AttendanceRow[] {
+  const has = map && Object.keys(map).length > 0;
+  if (!has && !attendance.some(r => r.consigned)) return attendance;
+  return attendance.map(r => {
+    const on = Boolean(map?.[`${r.ban}-${r.num}`]);
+    if (on === Boolean(r.consigned)) return r;
+    return { ...r, consigned: on || undefined };
+  });
+}
+
+/** 명단 비고에 적을 말. 별도 고사실과 위탁을 함께 적습니다. */
+export const attendanceNote = (r: Pick<AttendanceRow, 'separateRoom' | 'consigned'>): string =>
+  [
+    r.separateRoom ? (r.separateRoom > 1 ? `별도 ${r.separateRoom}실` : '별도') : '',
+    r.consigned ? '위탁' : '',
+  ].filter(Boolean).join(' · ');

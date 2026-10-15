@@ -8,11 +8,13 @@ import { AlertModal } from '../components/AlertModal';
 import { MSG } from '../domain/messages';
 import { displayName } from '../domain/privacy';
 import { downloadWorkbook } from '../utils/excelStyled';
+import { attendanceNote } from '../domain/separate';
 import { Shuffle, ArrowDown10, Download, Search } from 'lucide-react';
 
 export const Step8Attendance: React.FC = () => {
   const {
     attendance,
+    consignedStudents,
     stages,
     updateAttendanceSeat,
     setAttendanceBySeq,
@@ -156,7 +158,7 @@ export const Step8Attendance: React.FC = () => {
                 rows: attendance.map(r => [
                   r.day, r.period, r.examRoom, r.subject, r.grade, r.ban, r.num,
                   displayName(r.name), r.classRoom, r.seq, r.seat ?? '',
-                  r.separateRoom ? (r.separateRoom > 1 ? `별도 ${r.separateRoom}실` : '별도') : '',
+                  attendanceNote({ ...r, consigned: Boolean(consignedStudents?.[`${r.ban}-${r.num}`]) }),
                 ]),
                 widths: [8, 8, 10, 20, 7, 7, 7, 12, 12, 8, 10, 11],
                 numericCols: [6, 9, 10],
