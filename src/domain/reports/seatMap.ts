@@ -17,7 +17,10 @@ export interface SeatMapReportData {
   examRoom: string;
   subject: string;
   isWaitRoom: boolean;
+  /** 이 교실에 앉는 인원. 좌석 격자 크기를 정합니다. */
   totalStudents: number;
+  /** 이 교실 소속이지만 별도 고사실에서 보는 인원. 응시인원에는 '(별도 n)'으로 함께 적습니다. */
+  separateCount: number;
   columns: number;
   rowsPerColumn: number;
   grid: SeatCell[][]; // [column][row] (from front row to back)
@@ -87,6 +90,9 @@ export function buildSeatMapReport(
     r => r.day === day && r.period === period && r.examRoom === examRoom
   );
   if (filtered.length === 0) return null;
+  const separateCount = attendance.filter(
+    r => r.separateRoom && r.day === day && r.period === period && r.examRoom === examRoom
+  ).length;
 
   const first = filtered[0];
   const isWaitRoom = isWaitSubject(first.subject);
@@ -144,6 +150,7 @@ export function buildSeatMapReport(
     subject: first.subject,
     isWaitRoom,
     totalStudents,
+    separateCount,
     columns: cols,
     rowsPerColumn,
     grid,

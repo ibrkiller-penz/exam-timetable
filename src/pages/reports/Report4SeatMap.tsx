@@ -100,7 +100,7 @@ export const Report4SeatMap: React.FC = () => {
         return {
           name: rn,
           title: rep.isWaitRoom ? '대기실 좌석배치도' : '고사실 좌석배치도',
-          subtitle: `${dayDate || ''} ${rep.period} · ${rep.examRoom} · ${rep.subject} · ${rep.totalStudents}명 — 위쪽이 교탁입니다.`,
+          subtitle: `${dayDate || ''} ${rep.period} · ${rep.examRoom} · ${rep.subject} · ${seatMapHeadcount(rep)} — 위쪽이 교탁입니다.`,
           headers: [rep.grid.map((_, i) => `${i + 1}열`)],
           rows: body,
           widths: rep.grid.map(() => 15),
@@ -247,7 +247,8 @@ export const Report4SeatMap: React.FC = () => {
               ['교시', rep.period],
               ['고사실', rep.examRoom],
               ['과목(단위)', rep.subject],
-              ['응시인원', `${rep.totalStudents}명`],
+              // 고사실 명단과 같이 별도 학생까지 센 인원을 적고, 별도 인원을 괄호로 밝힙니다.
+              ['응시인원', seatMapHeadcount(rep)],
             ]}
           />
 
@@ -492,3 +493,7 @@ const SeatRoster: React.FC<{ rep: NonNullable<ReturnType<typeof buildSeatMapRepo
     </div>
   );
 };
+
+/** 응시인원. 고사실 명단과 같은 모양 — '27명 (별도 1)'. */
+const seatMapHeadcount = (rep: { totalStudents: number; separateCount: number }) =>
+  `${rep.totalStudents + rep.separateCount}명${rep.separateCount ? ` (별도 ${rep.separateCount})` : ''}`;
