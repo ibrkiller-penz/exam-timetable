@@ -65,6 +65,5 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           projectId: firsttest-5db1f # 호스팅 프로젝트. 자료 쪽(examtable-app)이 아닙니다.
           channelId: live
-          # latest 를 쓰면 15.35.0(2026-11-04)부터 배포 전에 서비스 사용 권한(serviceusage)을
-          # 확인하다 403 으로 멈춥니다. 서비스 계정에 그 권한이 없어서입니다. 되던 판으로 묶어 둡니다.
-          firebaseToolsVersion: 15.34.2
+          # 서비스 계정에는 'Service Usage Consumer' 역할이 있어야 합니다.
+          # 없으면 firebasehosting 서비스를 확인하다 403 으로 멈춥니다(2026-11).
