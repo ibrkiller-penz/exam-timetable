@@ -29,3 +29,4 @@ describe('위탁 학생 표시', () => {
     expect(attendanceNote({ consigned: true })).toBe('위탁');
   });
 });
+
