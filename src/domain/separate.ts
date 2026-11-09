@@ -46,6 +46,9 @@ export function applySeparate(
   }
 
   const slotOf = new Map(slots.map(ps => [`${ps.day}일차${ps.period}교시`, ps.index]));
+  // 지정 키는 나이스 반 이름 그대로(`1 반-3`처럼 공백이 있을 수 있음)인데, 응시현황의 반은
+  // 공백을 뺀 값입니다. 키를 같은 모양으로 맞추지 않으면 지정이 있어도 찾지 못하고 표시를 걷어냅니다.
+  const norm = normalizeKeys(map);
 
   let changed = false;
   const marked = attendance.map(r => {
@@ -53,7 +56,7 @@ export function applySeparate(
     // 기본은 시험 보는 교시에만 별도실에 갑니다. 대기 시간에는 제 교실에 있습니다.
     // '종일'로 설정하면 대기 시간까지 별도실에 머뭅니다.
     const applies = allDay || isTakingRow(r);
-    const room = slotIndex === undefined || !applies ? undefined : separateRoomFor(`${r.ban}-${r.num}`, slotIndex, map);
+    const room = slotIndex === undefined || !applies ? undefined : separateRoomFor(markKey(r), slotIndex, norm);
     if (room === r.separateRoom) return r;
     changed = true;
     return { ...r, separateRoom: room };
@@ -85,8 +88,9 @@ function renumberSeats(rows: AttendanceRow[]): AttendanceRow[] {
 export function applyConsigned(attendance: AttendanceRow[], map: ConsignedStudents | undefined): AttendanceRow[] {
   const has = map && Object.keys(map).length > 0;
   if (!has && !attendance.some(r => r.consigned)) return attendance;
+  const norm = normalizeKeys(map);
   return attendance.map(r => {
-    const on = Boolean(map?.[`${r.ban}-${r.num}`]);
+    const on = Boolean(norm[markKey(r)]);
     if (on === Boolean(r.consigned)) return r;
     return { ...r, consigned: on || undefined };
   });
@@ -98,3 +102,12 @@ export const attendanceNote = (r: Pick<AttendanceRow, 'separateRoom' | 'consigne
     r.separateRoom ? (r.separateRoom > 1 ? `별도 ${r.separateRoom}실` : '별도') : '',
     r.consigned ? '위탁' : '',
   ].filter(Boolean).join(' · ');
+
+/** 별도·위탁 지정 키. 반 이름의 공백은 뺍니다. 응시현황의 반이 공백 없는 값이기 때문입니다. */
+export const markKey = (s: { ban: string; num: number }): string => `${s.ban.replace(/\s/g, '')}-${s.num}`;
+
+function normalizeKeys<T>(map: Record<string, T> | undefined): Record<string, T> {
+  const out: Record<string, T> = {};
+  for (const [k, v] of Object.entries(map ?? {})) out[k.replace(/\s/g, '')] = v;
+  return out;
+}

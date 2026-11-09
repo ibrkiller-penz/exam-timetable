@@ -219,7 +219,7 @@ export const Report2ExamRoom: React.FC = () => {
                     <ul className="space-y-0.5">
                       {rep.separate.map(s => (
                         <li key={s.hakbun} className="text-[15px] font-black text-slate-900">
-                          {s.hakbun} / {displayName(s.name)}
+                          {s.hakbun} / {displayName(s.name)}{s.note ? ` (${s.note})` : ''}
                           <span className="font-bold text-slate-600"> 학생은 별도실({s.room}실)에서 응시합니다.</span>
                         </li>
                       ))}
