@@ -9,12 +9,12 @@ import { MSG } from '../domain/messages';
 import { displayName } from '../domain/privacy';
 import { downloadWorkbook } from '../utils/excelStyled';
 import { attendanceNote } from '../domain/separate';
+import { useAttendance } from './reports/useAttendance';
 import { Shuffle, ArrowDown10, Download, Search } from 'lucide-react';
 
 export const Step8Attendance: React.FC = () => {
   const {
     attendance,
-    consignedStudents,
     stages,
     updateAttendanceSeat,
     setAttendanceBySeq,
@@ -22,6 +22,7 @@ export const Step8Attendance: React.FC = () => {
     confirmStage5,
     cancelStage5,
   } = useAppStore();
+  const printed = useAttendance();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRoom, setFilterRoom] = useState('');
@@ -155,10 +156,11 @@ export const Step8Attendance: React.FC = () => {
                 title: '응시현황 및 좌석번호',
                 subtitle: '모든 교시·모든 학생의 배치 결과입니다. 별도 고사실 응시자는 좌석이 비어 있습니다.',
                 headers: [['일차', '교시', '고사실', '과목', '학년', '반', '번호', '성명', '강의실', '연번', '좌석번호', '비고']],
-                rows: attendance.map(r => [
+                // 인쇄물과 같은 자료(별도 지정·위탁 표시를 입힌 것)로 내보냅니다.
+                rows: printed.map(r => [
                   r.day, r.period, r.examRoom, r.subject, r.grade, r.ban, r.num,
                   displayName(r.name), r.classRoom, r.seq, r.seat ?? '',
-                  attendanceNote({ ...r, consigned: Boolean(consignedStudents?.[`${r.ban}-${r.num}`]) }),
+                  attendanceNote(r),
                 ]),
                 widths: [8, 8, 10, 20, 7, 7, 7, 12, 12, 8, 10, 11],
                 numericCols: [6, 9, 10],

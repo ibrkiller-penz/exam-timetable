@@ -28,6 +28,8 @@ export interface ExamRoomReportData {
     hakbun: string;
     name: string;
     room: number;
+    /** 위탁이면 '위탁'. */
+    note: string;
   }>;
 }
 
@@ -76,6 +78,7 @@ export function buildExamRoomReport(
       hakbun: hakbun(r.grade, r.ban, r.num),
       name: r.name,
       room: r.separateRoom!,
+      note: r.consigned ? '위탁' : '',
     }));
 
   return {

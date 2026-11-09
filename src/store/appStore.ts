@@ -394,6 +394,10 @@ export const useAppStore = create<AppStore>((set, get) => ({
     // 3. 상태 적용
     const newState: AppState = {
       ...cur,
+      // 예전에 저장된 학년 자료에는 이 칸이 없을 수 있습니다. 비워 두지 않으면
+      // 앞 학년의 별도·위탁 지정이 그대로 따라옵니다.
+      separateExaminers: {},
+      consignedStudents: {},
       ...targetData,
       activeGrade: targetGrade,
       gradeData: updatedGradeData,
@@ -532,6 +536,8 @@ export const useAppStore = create<AppStore>((set, get) => ({
     const activeData = gradeData[grade];
     const newState: AppState = {
       ...cur,
+      separateExaminers: {},
+      consignedStudents: {},
       ...activeData,
       activeGrade: grade,
       gradeData,
