@@ -1,0 +1,57 @@
+# 오프라인(USB) 버전을 만들어 GitHub 릴리스(offline-v1)에 올립니다.
+#
+# 왜 두었나
+#   오프라인판은 윈도 프로그램(.exe)이라 윈도에서 만들어야 하고, 지금까지는
+#   손으로 만들어 올렸습니다. 그러다 보니 웹은 고쳐졌는데 오프라인판은 옛것으로
+#   남는 일이 생겼습니다. 웹 배포와 같이 master 에 올리면 함께 새로 만듭니다.
+#
+# 앱의 "오프라인 로컬 버전 다운로드" 버튼이 이 릴리스 파일을 가리킵니다.
+
+name: 오프라인판
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch: # 필요하면 Actions 화면에서 손으로도 돌립니다.
+
+# 릴리스 파일을 바꿔야 하므로 쓰기 권한이 필요합니다. 다른 열쇠는 쓰지 않습니다.
+permissions:
+  contents: write
+
+concurrency:
+  group: offline-release
+  cancel-in-progress: true
+
+jobs:
+  build:
+    if: github.repository == 'ibrkiller-penz/exam-timetable'
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: 의존성 설치
+        run: npm ci
+
+      - name: 시험
+        run: npm test
+
+      # 클라우드 코드를 뺀 빌드 → 설치 없이 도는 폴더(win-unpacked) → zip.
+      # --publish never: electron-builder 가 GH_TOKEN 을 보고 제멋대로 올리지 않게 합니다.
+      - name: 오프라인판 만들기
+        run: |
+          npm run build:offline
+          npx electron-builder --win --publish never
+          node scripts/package-offline.cjs
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+
+      - name: 릴리스에 올리기
+        run: gh release upload offline-v1 release/ExamTimetable-Offline.zip --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
